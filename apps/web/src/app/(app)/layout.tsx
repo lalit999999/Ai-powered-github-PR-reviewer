@@ -1,16 +1,51 @@
-import { SiteNav } from "@/components/site-nav";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { getServerSession } from "@/lib/api";
 
 /**
- * Authenticated product surface (plan.md §44) — /dashboard, /projects, etc. land
- * here in Prompt 3. Deliberately contains no auth check yet: protected-route
- * enforcement is Phase 01 UI work (phase-01 §3/§17 step 10), explicitly out of
- * scope for this prompt. The group exists now so those pages have a home that
- * already has the right layout/loading/error conventions around it.
+ * Authenticated product surface (plan.md §44) — /dashboard, /projects, …
+ *
+ * **This is the authoritative protected-route check** (phase-01 §3/§17 step 10). It
+ * runs on the server and resolves the session against the API/database, so an expired
+ * or forged cookie is rejected here even though `src/middleware.ts` let it through:
+ * the middleware only checks that *a* cookie exists, which is all the Edge runtime can
+ * cheaply do. There is no client-side-only check anywhere in this path.
+ *
+ * `force-dynamic` because the check must happen per request — and because it keeps
+ * `next build` from attempting to prerender these pages against an API that isn't
+ * running at build time.
  */
-export default function AppLayout({ children }: LayoutProps<"/">) {
+export const dynamic = "force-dynamic";
+
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const session = await getServerSession();
+
+  if (!session?.user) {
+    redirect("/signin");
+  }
+
   return (
     <>
-      <SiteNav />
+      <header className="border-b">
+        <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="font-semibold tracking-tight">
+              PR Reviewer
+            </Link>
+            <Link href="/projects" className="text-sm text-muted-foreground hover:text-foreground">
+              Projects
+            </Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              {session.user.githubLogin ?? session.user.name ?? session.user.email}
+            </span>
+            <SignOutButton />
+          </div>
+        </nav>
+      </header>
       <main className="flex flex-1 flex-col">{children}</main>
     </>
   );

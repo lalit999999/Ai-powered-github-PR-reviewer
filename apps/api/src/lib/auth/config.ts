@@ -69,6 +69,38 @@ export const authConfig: ExpressAuthConfig = {
   // node_modules/@auth/core/lib/utils/cookie.js) — phase-01 §4/§13's requirement is
   // met without a custom `cookies` override.
   callbacks: {
+    /**
+     * Sends the user back to **apps/web** after sign-in and sign-out.
+     *
+     * @auth/core's default `redirect` callback resolves relative URLs against its own
+     * base (the API origin, `AUTH_URL`) and rejects any absolute URL from a different
+     * origin — which in this split topology means a successful sign-in would land on
+     * the API, not the UI. Overridden so a relative `callbackUrl` resolves against
+     * `FRONTEND_URL` instead.
+     *
+     * The allow-list is the point: only the frontend origin and the API's own origin
+     * are honored, and anything else falls back to the frontend root. `callbackUrl` is
+     * attacker-controllable (it arrives in the request), so a permissive version of
+     * this callback is an open redirect.
+     */
+    redirect({ url, baseUrl }) {
+      const frontendOrigin = new URL(env.FRONTEND_URL).origin;
+
+      if (url.startsWith("/")) {
+        return new URL(url, frontendOrigin).toString();
+      }
+
+      try {
+        const target = new URL(url);
+        if (target.origin === frontendOrigin || target.origin === baseUrl) {
+          return url;
+        }
+      } catch {
+        // Not a URL at all — fall through to the safe default below.
+      }
+
+      return frontendOrigin;
+    },
     // Without this override, @auth/core's *default* session callback
     // (node_modules/@auth/core/lib/init.js) strips everything down to
     // {name, email, image, expires} — `user.id` (and every custom field above) is
