@@ -1,10 +1,10 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-
-
+// Placeholder models only (Phase 00 §6) — proves the migrate/generate/round-trip
+// pipeline works. No relations, no indexes beyond primary keys, no deletedAt, no
+// settings. Phase 01 replaces both models with the field-complete versions from
+// plan.md §24.2/§25 — treat this schema as disposable scaffolding, not a contract.
 
 generator client {
   provider = "prisma-client"
@@ -16,8 +16,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
