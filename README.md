@@ -11,6 +11,9 @@ apps/
 packages/
   db/       Prisma schema, migrations, the generated client, and the Auth.js adapter
             (@repo/db) — the only package allowed to import @prisma/client directly
+  shared/   (@repo/shared) type-only contracts shared between deployables — currently
+            the Inngest event registry, so the API (sender) and worker (consumer)
+            cannot drift apart. No runtime dependencies.
 ```
 
 See `docs/decisions/phase-00-log.md` for why this repo uses an `apps/*` split instead
@@ -34,7 +37,11 @@ pnpm dev                          # api :4000 · web :3000 · worker :4500
 ```
 
 `apps/worker` needs its own `.env` (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`,
-`WORKER_PORT`) — same dev values as `apps/api`.
+`WORKER_PORT`) — same dev values as `apps/api`. `apps/web` needs
+`apps/web/.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:4000`.
+
+Signed-out visits to `/dashboard` or `/projects` redirect to `/signin`; the API answers
+`401` rather than redirecting.
 
 ### Inngest Dev Server
 
@@ -110,6 +117,15 @@ GitHub App installation identity, arriving in Phase 02).
 `requireSession(req)` (`apps/api/src/lib/auth/session.ts`) is the single entry point for
 resolving the caller. A missing, invalid, or expired session throws
 `UnauthenticatedError` (401) — it never falls back to a default user.
+
+`requireTenantAccess(session, { projectId })` (`apps/api/src/lib/auth/tenant-access.ts`)
+is the single entry point for resolving *ownership* — no handler queries it directly, in
+this phase or any later one. Missing, soft-deleted, and foreign resources all return
+`404`; the difference survives only in a `warn` log line. Later phases extend this
+helper rather than writing their own.
+
+**`docs/auth.md` is the reference for both** — sign-in flow, session model, and the
+`requireTenantAccess` usage/extension pattern.
 
 > `User.githubUserId` is a `BigInt` and has no native JSON representation. It is
 > converted to a string at the API/DTO boundary, so `session.user.githubUserId` is always

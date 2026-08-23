@@ -9,7 +9,7 @@ deploy is a manual step (see [Outstanding](#outstanding-manual-steps)).
 | Deployable | Build | Start | Serves |
 |---|---|---|---|
 | `apps/web` | `pnpm --filter web build` | `pnpm --filter web start` | Next.js UI |
-| `apps/api` | `pnpm --filter api build` | `pnpm --filter api start` | Express API, `/api/health`, `/api/auth/*` |
+| `apps/api` | `pnpm --filter api build` | `pnpm --filter api start` | Express API, `/api/health`, `/api/auth/*`, `/api/projects*`, `/auth/*` (sign-in/error bridge) |
 | `apps/worker` | `pnpm --filter worker build` | `pnpm --filter worker start` | Inngest functions at `/api/inngest` |
 
 `apps/worker` has exactly one diagnostic function (`noop-handler`) until Phase 03 gives
@@ -93,6 +93,24 @@ Notes that make this go wrong in practice:
   reserved. If real OAuth credentials are ever needed in CI, store them under different
   secret names and map them in the workflow's `env:` block. CI today uses dummy values
   and never contacts GitHub.
+
+## ⚠️ `apps/web` and `apps/api` must be same-site
+
+The session cookie is `sameSite=lax` (phase-01 §4/§13, and Auth.js's default). A `lax`
+cookie is sent on a cross-**origin** request but **not** on a cross-**site** one — and
+"site" means the registrable domain, ignoring scheme, port, and subdomain.
+
+| Frontend | API | Same site? | Cookie auth works? |
+|---|---|---|---|
+| `http://localhost:3000` | `http://localhost:4000` | yes (ports don't count) | ✅ |
+| `https://app.example.com` | `https://api.example.com` | yes (`example.com`) | ✅ |
+| `https://app.example.com` | `https://api.example.io` | **no** | ❌ sign-in appears to work, then every API call is 401 |
+| `https://app.vercel.app` | `https://api.fly.dev` | **no** | ❌ same |
+
+This is easy to get wrong when the two deployables land on different platforms' default
+domains. **Put both behind subdomains of one registrable domain**, or the frontend will
+sign in successfully and then be unable to call the API at all. `FRONTEND_URL` (CORS
+origin, api) and `NEXT_PUBLIC_API_URL` (api origin, web) must point at that pair.
 
 ## Health check
 
