@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "turbo dev",
+    "dev:inngest": "pnpm dlx inngest-cli@latest dev -u http://localhost:4500/api/inngest --no-discovery",
     "build": "turbo build",
     "start": "turbo start",
     "lint": "turbo lint && eslint . -c eslint.config.mjs",
