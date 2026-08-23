@@ -565,9 +565,9 @@ still carries `userId`, so only the *offset* is affected, never the contents.
 Something in this environment committed each change as it was made (11 commits between
 `0abd67a` and `081b788`); no `git commit` was run as part of this work. One of those
 commits (`081b788`) captured `apps/api/seed-tmp.ts`, a throwaway script used only to seed
-a session for the manual behavioral pass. **The file has been deleted from the working
-tree but is still present in `HEAD` and should be removed from the repository.** Flagged
-rather than fixed by rewriting history.
+a session for the manual behavioral pass. It has since been deleted and that deletion is
+committed, so the current tree is clean — but the file still exists in history at
+`081b788`. Flagged rather than fixed by rewriting history.
 
 ## 28. Outstanding — requires human action (unchanged from §13, plus one)
 
