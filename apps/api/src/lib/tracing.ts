@@ -30,3 +30,21 @@ export function getTraceContext(): TraceContext | undefined {
 export function getTraceId(): string | undefined {
   return storage.getStore()?.traceId;
 }
+
+/**
+ * Phase 01 §20: once a request resolves a session, every subsequent log line in its
+ * call graph should carry `userId` too — without redesigning the envelope or
+ * re-threading it manually. Mutates the store object already established by
+ * runWithTraceContext for this request (AsyncLocalStorage's `.run()` fixes the store
+ * *reference* for the callback's duration, not its contents), so it takes effect for
+ * every createLogger() call made afterwards in the same request, with no new context
+ * scope needed. A no-op outside a trace context (e.g. a unit test calling this
+ * directly) rather than throwing — setting user context is best-effort, never a
+ * reason to fail a request.
+ */
+export function setTraceUserId(userId: string): void {
+  const context = storage.getStore();
+  if (context) {
+    context.userId = userId;
+  }
+}

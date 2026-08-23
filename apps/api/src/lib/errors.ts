@@ -69,6 +69,13 @@ export class ServiceUnavailableError extends AppError {
   readonly httpStatus = 503;
 }
 
+/** Distinct from ServiceUnavailableError so /api/health (and any future dependency
+ * check) can report the specific cause per phase-00 §7/§12: `{"code": "DB_UNAVAILABLE"}`. */
+export class DbUnavailableError extends AppError {
+  readonly code = "DB_UNAVAILABLE";
+  readonly httpStatus = 503;
+}
+
 export class InternalError extends AppError {
   readonly code = "INTERNAL_ERROR";
   readonly httpStatus = 500;

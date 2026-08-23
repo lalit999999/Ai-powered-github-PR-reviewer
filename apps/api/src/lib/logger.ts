@@ -1,5 +1,5 @@
 import pino, { type Logger as PinoLogger } from "pino";
-import { getTraceId } from "./tracing.js";
+import { getTraceContext } from "./tracing.js";
 
 // Unconditional redaction — active from this commit, before there is anything to leak
 // (phase-00 §13). Matches on key name anywhere in the log payload, arbitrarily nested.
@@ -54,9 +54,11 @@ export interface Logger {
 }
 
 /**
- * Every call site declares its subsystem via `component`. `traceId` is never threaded
- * manually — it's read from the AsyncLocalStorage context set up by the request wrapper
- * (src/lib/http.ts), per phase-00 §20.
+ * Every call site declares its subsystem via `component`. `traceId` — and, once a
+ * request has authenticated, `userId` (phase-01 §20) — is never threaded manually:
+ * both are read from the same AsyncLocalStorage context set up by the request wrapper
+ * (src/lib/http.ts) and extended by src/lib/auth/session.ts, per phase-00 §20's
+ * envelope, extended rather than redesigned.
  *
  * `instance` is injectable (defaults to the shared pino instance) so tests can point a
  * logger at an in-memory stream instead of stdout.
@@ -65,7 +67,7 @@ export function createLogger(component: string, instance: PinoLogger = defaultIn
   const emit = (level: LogLevel, msg: string, fields?: LogFields) => {
     const record = redact({
       ts: new Date().toISOString(),
-      traceId: getTraceId(),
+      ...getTraceContext(),
       component,
       ...fields,
     }) as LogFields;

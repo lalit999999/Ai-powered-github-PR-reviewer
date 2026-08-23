@@ -22,6 +22,14 @@ export const envSchema = z.object({
   INNGEST_SIGNING_KEY: z.string().min(1, "INNGEST_SIGNING_KEY is required"),
   PORT: z.coerce.number().int().positive().default(4000),
   FRONTEND_URL: z.string().url(),
+
+  // Phase 01 §19 — GitHub OAuth sign-in (Auth.js), never the repository-scoped GitHub
+  // App token (Phase 02). See docs/decisions/phase-01-log.md for the AUTH_URL /
+  // NEXTAUTH_URL naming decision.
+  GITHUB_OAUTH_CLIENT_ID: z.string().min(1, "GITHUB_OAUTH_CLIENT_ID is required"),
+  GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1, "GITHUB_OAUTH_CLIENT_SECRET is required"),
+  AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
+  AUTH_URL: z.string().url("AUTH_URL must be the canonical origin apps/api is reachable at, e.g. http://localhost:4000"),
 });
 
 export type Config = Readonly<z.infer<typeof envSchema>>;
