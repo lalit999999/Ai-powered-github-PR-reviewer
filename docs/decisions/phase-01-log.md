@@ -287,3 +287,298 @@ Cannot be done from here; both are called out in `docs/deployment.md`:
   real sign-in. Creating the app and registering
   `$AUTH_URL/api/auth/callback/github` per environment is manual, and per phase-01 §22
   is the single most likely thing to be wrong in a new environment.
+
+---
+
+# Phase 01 completion (Prompt 3)
+
+Prompt 2 built the authentication foundation and the field-complete schema. This section
+records the decisions made building the authorization chokepoint, the project feature,
+the UI, and the adversarial tests on top of it.
+
+**Verification of Prompt 2's output before starting anything:** `pnpm typecheck`,
+`pnpm lint`, `pnpm test:unit` (7 files / 52 tests), `pnpm test:integration` (3 files /
+19 tests), `pnpm build`, and `prisma migrate status` all passed unchanged against the
+committed tree. Nothing was broken and nothing needed fixing before this work began.
+
+## 14. `packages/shared` created — for a contract, not for convenience
+
+`project/deleted` has a **producer in `apps/api`** and a **consumer in `apps/worker`**.
+The phase document puts the event registry at `src/inngest/events.ts`, which
+phase-00-log §1 maps onto `apps/worker`. Duplicating the name and payload in both
+deployables would have made the one thing phase-01 §8 exists to guarantee — a stable,
+agreed shape — the one thing nothing enforces.
+
+`packages/shared` (`@repo/shared`) was therefore created, holding **only type-level
+contracts and constants, with no runtime dependencies**. `apps/worker/src/inngest/events.ts`
+builds its Inngest trigger from it; `apps/api/src/inngest/emit.ts` sends against it.
+
+phase-00-log §9 deferred `packages/shared` to Phase 03 — but that was about *sharing a
+duplicated logger*, which is convenience. A cross-deployable contract is a different
+and better reason, and the deferral is not extended to the logger: `apps/worker`'s
+`lib/{logger,tracing,config}.ts` remain byte-identical copies, exactly as recorded there.
+
+## 15. Inngest v4 has no client-level `schemas` option
+
+`EventSchemas` / `new EventSchemas().fromRecord<Events>()` is the v3 API and **does not
+exist in the installed inngest@4.18.1** — verified by reading the package's own
+`index.d.ts` export list and `ClientOptions` (which has no `schemas` field), not from
+memory or the published docs. v4 types events per-event via
+`eventType(name, { schema })` with a Standard Schema.
+
+`staticSchema<T>()` is used rather than a Zod schema: this is a **type contract, not an
+input-validation boundary** (the API's Zod schemas are that), and its runtime validator
+is a documented pass-through. `ProjectDeletedData` is a `type`, not an `interface`,
+because only a type alias gets the implicit index signature that
+`staticSchema<T extends Record<string, unknown>>` requires.
+
+`apps/api` gets its own send-only client with a distinct app id (`gitprreviewer-api`)
+rather than sharing the worker's. `INNGEST_EVENT_KEY` was already required by apps/api's
+config schema in Phase 00, which anticipated exactly this.
+
+## 16. The 403/404 contradiction in the phase document — resolved as 404
+
+phase-01 §7 lists `403 not owner` and `404 not found` as distinct outcomes for
+`GET`/`DELETE /api/projects/:id`. §12 says a 403 that reveals a resource *exists* but
+isn't yours is itself an information leak, and that both render as 404.
+
+**Resolved in favor of §12, and documented at the decision point** (the doc comment on
+`requireTenantAccess`, `docs/auth.md` §4, and a unit test that asserts a foreign project
+and a nonexistent one produce byte-identical envelopes):
+
+> Missing, soft-deleted, and foreign projects all return **404**. The distinction is
+> preserved only in the `warn` log line, as `reason: "MISSING" | "FOREIGN" | "DELETED"`.
+
+§12 wins because it is the stronger security property: a 403 turns id-guessing into
+tenant enumeration. `ForbiddenError` stays in the error hierarchy unused — later phases
+have resource types where the caller provably already knows the resource exists, and 403
+is the honest answer there.
+
+Stated rather than silently chosen, per the prompt's instruction on document conflicts.
+
+## 17. `allowDeleted` — the option that makes DELETE idempotent
+
+Two phase-01 requirements collide: §7/§11 say a soft-deleted project is not found, and
+§4 Reliability says "deleting an already-deleted project returns success, not an error."
+If the tenancy check 404s on soft-deleted projects unconditionally, the second DELETE
+can never reach the service.
+
+`requireTenantAccess(session, resource, { allowDeleted: true })` resolves it — a third
+parameter, so the `resource` argument's shape stays open for Phase 02's `repositoryId`
+exactly as the prompt requires. Exactly one caller sets it (the delete route).
+Ownership is unaffected: a *foreign* soft-deleted project is still 404, which is asserted
+in both the unit and cross-tenant suites.
+
+## 18. One deliberately owner-unscoped repository query, and why
+
+The repository rule is "every query is scoped by `userId`". `findOwnershipById` breaks
+it on purpose, and is the only function that does.
+
+A `where: { id, userId }` lookup answers yes/no — which would make "not yours" and
+"doesn't exist" indistinguishable *in the logs*, and §20 requires the warn line to
+distinguish them. So the tenancy resolver reads `{ id, userId, deletedAt }` by id alone,
+in **one query** (plan.md §34.2), and decides in code. Nothing leaks: the row never
+leaves the tenancy check, and the caller-visible answer is 404 either way.
+
+`findSlugsForUserByPrefix` is the other named exception — to the *exclude-deleted* rule,
+not the owner-scope rule. `@@unique([userId, slug])` has no `deletedAt` in it, so a
+soft-deleted project still owns its slug; a uniqueness probe that ignored deleted rows
+would propose a slug the database then rejects. Consequence, verified by test: reusing a
+deleted project's name yields `name-2`, not `name`.
+
+## 19. Slug retry — deterministic suffix, exactly one attempt, measured under contention
+
+`slugify` → try → on `P2002`, query the user's `base%` slugs → `base-(max+1)` → try once
+more → 409. Not a loop (§12).
+
+The repository translates `P2002` into `{ ok: false, reason: "SLUG_TAKEN" }` rather than
+letting a Prisma error code reach the service — the retry policy is business logic and
+should not have to know what Prisma's error shape looks like.
+
+Concurrency behavior is asserted against a real Postgres, not reasoned about: two
+simultaneous identical-name creates produce two distinct slugs; five produce a mix of
+201s and clean 409s with no duplicate slug and no 500. That is the specified outcome —
+with enough contention the single retry *should* lose, and 409 is the correct answer
+rather than a third attempt.
+
+## 20. `project/deleted` is emitted without being awaited — measured, not assumed
+
+First implementation awaited `emitProjectDeleted` inside the request. Measured against
+the dev server with the placeholder `INNGEST_EVENT_KEY`:
+
+| | `DELETE /api/projects/:id` |
+|---|---|
+| awaiting the emit | **5172 ms** (Inngest SDK retry/backoff on `401 Event key not found`) |
+| not awaiting | **38 ms** |
+
+Coupling a user-facing mutation's latency to a notification channel that has **no
+consumers in this phase** is the wrong trade, and `202 Accepted` already means "accepted,
+work continues". The emit is therefore fire-and-forget:
+
+- `emitProjectDeleted` catches and logs its own failures at `error`, so it can never
+  surface as an unhandled rejection;
+- the trace context survives into the continuation — the late failure line still carries
+  `traceId`, `userId`, and `projectId` (verified in the server log);
+- it fires **only on an actual ACTIVE → SOFT_DELETED transition**. An event named for a
+  state change should not fire when no state changed; the idempotent repeat call still
+  returns 202, it just does not re-announce.
+
+**Phase 03 must revisit this.** Once `cancelOn` handlers make delivery matter, "logged
+and dropped" is no longer acceptable — the fix is a transactional outbox, not making the
+HTTP response depend on Inngest's availability.
+
+## 21. Auth.js page routes cannot point at another origin — hence the `/auth/*` bridge
+
+`@auth/core` builds its sign-in/error page URLs as
+`` `${internalRequest.url.origin}${config.pages[kind]}` `` (read from
+`node_modules/@auth/core/index.js`). In this repo's split topology the UI is on a
+different origin, so an absolute `pages.error` would concatenate into nonsense.
+
+`authConfig.pages` therefore names two paths on the API origin — `/auth/signin` and
+`/auth/error` — served by a small router in `apps/api` that 302s to
+`{FRONTEND_URL}/signin`, forwarding `?error=`. Verified end to end:
+`GET /auth/error?error=AccessDenied` → `302 http://localhost:3000/signin?error=AccessDenied`.
+
+Only `error` is forwarded, not `callbackUrl` — the sign-in page sets its own destination,
+and forwarding an attacker-suppliable URL through a redirect chain is how open redirects
+happen.
+
+`pages.signIn` does **not** affect `POST /api/auth/signin/github`; it is read only on the
+GET render path (`lib/pages/index.js`), so the OAuth flow is untouched.
+
+### `callbacks.redirect` was also required
+
+@auth/core's default `redirect` callback resolves relative URLs against `AUTH_URL` — the
+API origin — so a successful sign-in would have landed on the API, not the UI, and any
+absolute frontend URL would have been rejected and replaced by the API origin. The
+override allow-lists the frontend origin and the API's own origin and falls back to the
+frontend root. A permissive version of this callback is an open redirect, which is why
+it is an allow-list rather than a pass-through.
+
+## 22. `middleware.ts` → `proxy.ts` (Next 16's renamed convention)
+
+phase-01 §3 asks for "route-level auth middleware". The installed Next 16.3.2 **deprecates
+the `middleware` file convention** and warns on every build ("Please use `proxy` instead");
+its own bundled docs (`file-conventions/proxy.md`) give `proxy.ts` exporting `proxy` as
+the current form. Written as `proxy.ts` so the build is warning-free and the file matches
+the framework version actually installed.
+
+## 23. Protected routes: two server-side layers, and the honest status-code caveat
+
+1. `apps/web/src/proxy.ts` — Edge-runtime **filter**. No database is reachable there, so
+   it checks only that a session cookie is present (`authjs.session-token` or
+   `__Secure-authjs.session-token`) and 307s to `/signin?callbackUrl=…` otherwise.
+2. `apps/web/src/app/(app)/layout.tsx` — the **authoritative check**. Resolves the session
+   against the API/database and `redirect("/signin")`s when there is none.
+
+**Measured caveat, recorded because it looks like a hole and is not one.** A request
+carrying a *forged or expired* cookie passes layer 1 and is rejected by layer 2 — but the
+HTTP status is **200**, not 307, because Next has already flushed the streamed shell by
+the time the async layout resolves. What the response actually contains was verified
+directly:
+
+```
+GET /projects  (forged cookie)  → 200
+  occurrences of the signed-in user's project name in the body: 0
+  payload contains: NEXT_REDIRECT;replace;/signin;307;
+```
+
+and for a foreign project id in the URL:
+
+```
+GET /projects/{userA's id}  as user B  → 200
+  occurrences of the project name: 0
+  payload contains: NEXT_HTTP_ERROR_FALLBACK;404  +  "This page could not be found"
+```
+
+So the decision is made on the server and **no protected content is ever produced** — the
+navigation instruction is simply delivered in the payload rather than in a status line.
+This is Next's documented behavior for `redirect()`/`notFound()` after streaming begins,
+not a gap in enforcement.
+
+Making the Edge layer *validate* (rather than filter) would produce a true 307, at the
+cost of a second session round-trip on every protected navigation and a hard dependency
+on the API being reachable from the Edge runtime — a real deployment coupling. Rejected
+for this phase; recorded so the trade is visible rather than discovered.
+
+## 24. No migration was added — and the index question, answered honestly
+
+`@@unique([userId, slug])` and `@@index([userId, deletedAt])` are both present (confirmed
+in `pg_indexes` against a database built from scratch by `migrate deploy`). No new
+migration was needed and none was written.
+
+"Is the `(userId, deletedAt)` index actually used by the list query?" — measured with
+`EXPLAIN ANALYZE`, and the honest answer is more interesting than yes:
+
+| Row distribution | Plan chosen |
+|---|---|
+| one user owning 5000 of 5004 rows | Seq Scan (correct — the filter matches ~everything) |
+| realistic tenant: 40 of 5044 rows | **Index Scan using `Project_userId_slug_key`** |
+| same, with 90% of that user's rows soft-deleted | Index Scan using `Project_userId_slug_key` |
+
+The list query **is** index-served at any realistic tenant size — just by the *unique*
+index rather than the composite one, because both lead with `userId` and
+`deletedAt IS NULL` is not selective enough to justify the wider index. Both indexes are
+usable (`pg_stat_user_indexes` records scans on each).
+
+No covering index (`userId, deletedAt, createdAt DESC, id DESC`) was added: the query is
+already index-served, pages are capped at 50 rows, and the phase document is explicit
+about not adding schema that belongs to a later phase's problems.
+
+## 25. `nextCursor` uses Prisma's `cursor`, with the id as the opaque token
+
+`orderBy: [{ createdAt: "desc" }, { id: "desc" }]` — `id` appended so the sort is total
+(two projects created in the same millisecond would otherwise paginate unpredictably).
+`take: limit + 1`; the extra row is the existence proof for `nextCursor`, so no second
+`count` query and never an empty last page.
+
+A cursor belonging to another user is positionally usable but leaks nothing — `where`
+still carries `userId`, so only the *offset* is affected, never the contents.
+
+## 26. Testing decisions
+
+- **Authenticated integration tests drive real cookies, not a stubbed session.**
+  `tests/integration/auth-helpers.ts` seeds a real `User` + `Session` row and returns the
+  cookie. Stubbing at `src/lib/auth/session.ts` would have let the whole suite pass with
+  session resolution completely broken; this way every test exercises the real
+  `@auth/express` → `Session` row → `User` row → session-callback path. No test contacts
+  GitHub.
+- **Cookie flags are asserted off real `Set-Cookie` headers**, via `POST /api/auth/signout`
+  — the one action that emits the session cookie without needing GitHub, using the same
+  options object that sets it. Both the http case (`HttpOnly`, `SameSite=Lax`, `Path=/`,
+  no `Secure`) and the proxied-https case (`__Secure-` name prefix + `Secure`) are covered.
+  Asserting against the config object instead would not have caught a change in
+  @auth/core's defaults, which is exactly what phase-01-log §7 relies on.
+- **`emitProjectDeleted` is mocked in every integration file that deletes**, so CI never
+  opens a socket to Inngest. Its own swallow-and-log behavior is unit tested against a
+  rejecting client.
+- **`vi.mock` + top-level `await import(...)`** is used for the unit tests of
+  `tenant-access` and `project.service`: both transitively import `@repo/db` (which throws
+  at import time without `DATABASE_URL`) or the config module (which calls
+  `process.exit`). Hoisted mocks mean neither is ever loaded. This is also what keeps
+  phase-00-log §12's "do not spy on Prisma client methods in this repo" satisfied.
+- **No Prompt 1/2 test was modified or deleted.** All 19 pre-existing integration tests
+  and all 52 pre-existing unit tests still pass unchanged.
+
+## 27. Repository hygiene note — automatic commits during this work
+
+Something in this environment committed each change as it was made (11 commits between
+`0abd67a` and `081b788`); no `git commit` was run as part of this work. One of those
+commits (`081b788`) captured `apps/api/seed-tmp.ts`, a throwaway script used only to seed
+a session for the manual behavioral pass. **The file has been deleted from the working
+tree but is still present in `HEAD` and should be removed from the repository.** Flagged
+rather than fixed by rewriting history.
+
+## 28. Outstanding — requires human action (unchanged from §13, plus one)
+
+- **No real GitHub sign-in was performed.** `.env` holds placeholder OAuth credentials.
+  Every non-network path is exercised (adapter, session resolution, cookie flags,
+  sign-out revocation), but the actual OAuth round-trip against GitHub cannot be driven
+  from here.
+- **Per-environment OAuth callback URL registration** (`$AUTH_URL/api/auth/callback/github`,
+  one OAuth App per environment) — phase-01 §14 External Service Verification.
+- **No staging deployment**, and therefore no staging sign-in verification.
+- **The same-site constraint between `apps/web` and `apps/api`** is new in this phase and
+  is a deployment decision: the `sameSite=lax` session cookie is not sent across
+  registrable domains, so the two must be subdomains of one domain. Documented in
+  `docs/deployment.md`; verifying it holds for the chosen hosts is manual.
