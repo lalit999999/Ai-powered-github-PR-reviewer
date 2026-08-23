@@ -57,6 +57,36 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     ).rejects.toThrow();
   });
 
+  it("creates every phase-01 table, including the Auth.js adapter tables", async () => {
+    const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name <> '_prisma_migrations';`,
+    );
+    expect(tables.map((t) => t.table_name).sort()).toEqual([
+      "Account",
+      "GithubInstallation",
+      "Project",
+      "Session",
+      "User",
+      "VerificationToken",
+    ]);
+  });
+
+  it("enforces the (userId, slug) unique constraint and the User identity indexes", async () => {
+    const indexes = await prisma.$queryRawUnsafe<{ indexname: string }[]>(
+      `SELECT indexname FROM pg_indexes WHERE tablename IN ('Project', 'User');`,
+    );
+    const names = indexes.map((i) => i.indexname);
+    expect(names).toContain("Project_userId_slug_key");
+    expect(names).toContain("Project_userId_deletedAt_idx");
+    expect(names).toContain("User_githubUserId_key");
+    expect(names).toContain("User_githubUserId_idx");
+  });
+
+  it("GithubInstallation exists but stays empty in this phase (phase-01 §3/§6)", async () => {
+    expect(await prisma.githubInstallation.count()).toBe(0);
+  });
+
   it("User/Project have exactly the field-complete + Auth.js adapter columns — no premature schema creep", async () => {
     const userColumns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'User' ORDER BY column_name;`,
