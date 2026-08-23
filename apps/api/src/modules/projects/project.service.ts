@@ -4,7 +4,13 @@ import { createLogger } from "../../lib/logger.js";
 import { emitProjectDeleted } from "../../inngest/emit.js";
 import * as projectRepository from "./project.repository.js";
 import type { CreateProjectInput, ListProjectsQuery } from "./project.schema.js";
-import { toProjectDto, type ProjectDetail, type ProjectDto, type ProjectListPage } from "./project.types.js";
+import {
+  toProjectDto,
+  type ProjectDetail,
+  type ProjectDto,
+  type ProjectListPage,
+  type ProjectRecord,
+} from "./project.types.js";
 
 /**
  * Business logic for projects. Every function takes the tenant context as its

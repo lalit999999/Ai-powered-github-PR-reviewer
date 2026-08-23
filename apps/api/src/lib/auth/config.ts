@@ -47,6 +47,17 @@ export const authConfig: ExpressAuthConfig = {
   // `!!(AUTH_URL ?? ...)` inference (see docs/decisions/phase-01-log.md).
   trustHost: true,
   secret: env.AUTH_SECRET,
+  // Auth.js's own sign-in and error pages live on the API origin; the UI lives on
+  // another origin entirely in this topology. @auth/core builds these URLs as
+  // `${origin}${pages[kind]}` (verified by reading node_modules/@auth/core/index.js),
+  // so they must be *paths*, not absolute URLs — src/routes/auth.routes.ts serves both
+  // and redirects on to apps/web's /signin, carrying the `error` code through. Without
+  // this, denying the GitHub authorization dead-ends on the API origin (phase-01 §14
+  // Failure Verification).
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
+  },
   // Explicit even though @auth/core already defaults to "database" whenever an
   // `adapter` is configured — phase-01 §1/§17/§22 treats this as a binding decision
   // (JWT sessions are explicitly rejected: they can't be revoked), so it's spelled
