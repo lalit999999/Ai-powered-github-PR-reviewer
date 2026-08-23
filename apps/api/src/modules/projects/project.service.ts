@@ -34,7 +34,7 @@ export function slugify(name: string): string {
   const slug = name
     .normalize("NFKD")
     // Strip combining marks so "Café" becomes "cafe" rather than "caf".
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -116,13 +116,13 @@ export async function createProject(owner: OwnerContext, input: CreateProjectInp
 
 /** phase-01 §20: project mutations log at `info` with component `project.service`,
  * `projectId` and `userId`. */
-function created(owner: OwnerContext, project: { id: string; slug: string }): ProjectDto {
+function created(owner: OwnerContext, project: ProjectRecord): ProjectDto {
   logger.info("project created", {
     projectId: project.id,
     userId: owner.userId,
     slug: project.slug,
   });
-  return toProjectDto(project as Parameters<typeof toProjectDto>[0]);
+  return toProjectDto(project);
 }
 
 /**
