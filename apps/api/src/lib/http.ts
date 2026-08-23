@@ -1,4 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { Logger as PinoLogger } from "pino";
 import { AppError, InternalError } from "./errors.js";
 import { createLogger } from "./logger.js";
 import { generateTraceId, runWithTraceContext } from "./tracing.js";
@@ -12,36 +13,43 @@ import { generateTraceId, runWithTraceContext } from "./tracing.js";
  * request/response lifecycle and emits exactly one structured "request completed" /
  * "request failed" log line per request (FR2), seeded from an inbound
  * x-trace-id/x-request-id header when present.
+ *
+ * `pinoInstance` is an injection seam (mirrors createLogger's own) so tests can assert on
+ * the real emitted line instead of racing pino's stdout internals.
  */
-export function requestContext(req: Request, res: Response, next: NextFunction): void {
-  const inboundTraceId = req.header("x-trace-id") || req.header("x-request-id") || undefined;
-  const traceId = inboundTraceId && inboundTraceId.length > 0 ? inboundTraceId : generateTraceId();
-  const startedAt = performance.now();
+export function createRequestContext(pinoInstance?: PinoLogger): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const inboundTraceId = req.header("x-trace-id") || req.header("x-request-id") || undefined;
+    const traceId = inboundTraceId && inboundTraceId.length > 0 ? inboundTraceId : generateTraceId();
+    const startedAt = performance.now();
 
-  runWithTraceContext({ traceId }, () => {
-    res.setHeader("x-trace-id", traceId);
+    runWithTraceContext({ traceId }, () => {
+      res.setHeader("x-trace-id", traceId);
 
-    res.once("finish", () => {
-      const durationMs = Math.round(performance.now() - startedAt);
-      const failed = res.statusCode >= 400;
-      const component = (res.locals.component as string | undefined) ?? "http";
-      const errorCode = res.locals.errorCode as string | undefined;
-      const errorStack = res.locals.errorStack as string | undefined;
-      const logger = createLogger(component);
+      res.once("finish", () => {
+        const durationMs = Math.round(performance.now() - startedAt);
+        const failed = res.statusCode >= 400;
+        const component = (res.locals.component as string | undefined) ?? "http";
+        const errorCode = res.locals.errorCode as string | undefined;
+        const errorStack = res.locals.errorStack as string | undefined;
+        const logger = pinoInstance ? createLogger(component, pinoInstance) : createLogger(component);
 
-      logger[failed ? "error" : "info"](failed ? "request failed" : "request completed", {
-        method: req.method,
-        path: req.originalUrl,
-        statusCode: res.statusCode,
-        durationMs,
-        ...(errorCode ? { code: errorCode } : {}),
-        ...(errorStack ? { stack: errorStack } : {}),
+        logger[failed ? "error" : "info"](failed ? "request failed" : "request completed", {
+          method: req.method,
+          path: req.originalUrl,
+          statusCode: res.statusCode,
+          durationMs,
+          ...(errorCode ? { code: errorCode } : {}),
+          ...(errorStack ? { stack: errorStack } : {}),
+        });
       });
-    });
 
-    next();
-  });
+      next();
+    });
+  };
 }
+
+export const requestContext = createRequestContext();
 
 type RouteHandler = (req: Request, res: Response, next: NextFunction) => unknown;
 
