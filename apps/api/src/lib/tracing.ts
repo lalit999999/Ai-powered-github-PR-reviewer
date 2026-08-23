@@ -48,3 +48,20 @@ export function setTraceUserId(userId: string): void {
     context.userId = userId;
   }
 }
+
+/**
+ * The `projectId` half of phase-01 §16's "userId and projectId present on every log
+ * line touching these routes". Set by `requireTenantAccess` the moment ownership
+ * resolves, so the request-completion line in src/lib/http.ts — which is emitted after
+ * the handler returns and has no access to its locals — carries the tenant too.
+ *
+ * Same contract as setTraceUserId: mutates the store established for this request, and
+ * is a no-op outside a trace context rather than throwing. Phase 02 adds
+ * `repositoryId` the same way.
+ */
+export function setTraceProjectId(projectId: string): void {
+  const context = storage.getStore();
+  if (context) {
+    context.projectId = projectId;
+  }
+}
