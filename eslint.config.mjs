@@ -33,7 +33,10 @@ const RULE_B_FILES = [
 ];
 
 const RULE_C_FILES = [
-  "apps/worker/src/functions/**/*.ts",
+  // Written before apps/worker existed; corrected to match the actual structure
+  // Prompt 2 built (matching plan.md §44 / phase-00 §8's src/inngest/functions/
+  // convention) — see docs/decisions/phase-01-log.md.
+  "apps/worker/src/inngest/functions/**/*.ts",
   "apps/api/tests/fixtures/lint/rule-c-violation.ts",
 ];
 

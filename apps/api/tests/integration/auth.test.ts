@@ -56,10 +56,10 @@ describe("/api/auth/* route mounting (phase-01 §17 step 1)", () => {
     expect(res.body.github.type).toBe("oauth");
   });
 
-  it("returns an empty session body when signed out", async () => {
+  it("returns a null session body when signed out", async () => {
     const res = await request(app).get("/api/auth/session");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({});
+    expect(res.body).toBeNull();
   });
 });
 

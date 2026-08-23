@@ -7,6 +7,12 @@ const VALID_ENV = {
   INNGEST_EVENT_KEY: "key",
   INNGEST_SIGNING_KEY: "key",
   FRONTEND_URL: "http://localhost:3000",
+  // Phase 01 §19 — added alongside DATABASE_URL etc. rather than a separate fixture,
+  // per the "extend, don't rebuild" instruction for Prompt 1's tests.
+  GITHUB_OAUTH_CLIENT_ID: "client-id",
+  GITHUB_OAUTH_CLIENT_SECRET: "client-secret",
+  AUTH_SECRET: "a-secret-at-least-32-characters-long",
+  AUTH_URL: "http://localhost:4000",
 };
 
 describe("loadConfig", () => {
@@ -31,7 +37,7 @@ describe("loadConfig", () => {
   });
 
   it("throws ConfigError naming every missing variable at once, given an empty environment", () => {
-    expect.assertions(4);
+    expect.assertions(8);
     try {
       loadConfig({});
     } catch (err) {
@@ -40,6 +46,10 @@ describe("loadConfig", () => {
       expect(message).toContain("INNGEST_EVENT_KEY");
       expect(message).toContain("INNGEST_SIGNING_KEY");
       expect(message).toContain("FRONTEND_URL");
+      expect(message).toContain("GITHUB_OAUTH_CLIENT_ID");
+      expect(message).toContain("GITHUB_OAUTH_CLIENT_SECRET");
+      expect(message).toContain("AUTH_SECRET");
+      expect(message).toContain("AUTH_URL");
     }
   });
 });
