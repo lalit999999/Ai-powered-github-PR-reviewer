@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateTraceId, getTraceContext, getTraceId, runWithTraceContext } from "./tracing.js";
+import { generateTraceId, getTraceContext, getTraceId, runWithTraceContext, setTraceUserId } from "./tracing.js";
 
 describe("tracing", () => {
   it("generates ULIDs (26-char Crockford base32, lexicographically sortable)", () => {
@@ -28,6 +28,19 @@ describe("tracing", () => {
     runWithTraceContext({ traceId: "trace-b", userId: "u1" }, () => {
       expect(getTraceContext()).toMatchObject({ traceId: "trace-b", userId: "u1" });
     });
+  });
+
+  it("setTraceUserId mutates the current context in place (phase-01 §20)", () => {
+    runWithTraceContext({ traceId: "trace-c" }, () => {
+      expect(getTraceContext()?.userId).toBeUndefined();
+      setTraceUserId("user-123");
+      expect(getTraceContext()).toMatchObject({ traceId: "trace-c", userId: "user-123" });
+    });
+  });
+
+  it("setTraceUserId is a no-op outside a trace context", () => {
+    expect(() => setTraceUserId("user-123")).not.toThrow();
+    expect(getTraceContext()).toBeUndefined();
   });
 
   it("does not leak context across concurrent independent runs", async () => {

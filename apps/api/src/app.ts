@@ -29,7 +29,16 @@ app.use(express.urlencoded({ extended: true }));
 // sub-application (OAuth dance, its own session/csrf/provider endpoints) rather than
 // a single business route, so it renders its own responses instead of going through
 // withRoute/errorHandler (docs/decisions/phase-01-log.md).
-app.use("/api/auth/*", authHandler);
+//
+// Deliberately NOT "/api/auth/*" — @auth/express's own docs mount with a trailing
+// wildcard, but that pattern is incompatible with the installed
+// express@5.2.1/path-to-regexp@8.4.2: a bare "*" fails to compile at all, and the
+// named-wildcard form ("*splat") makes Express set req.baseUrl to the *full* request
+// path instead of the mounted prefix, which corrupts @auth/express's own internal
+// basePath computation (used to build OAuth callback/session URLs) on every request.
+// A plain prefix mount is what Express 5's router actually needs here — verified
+// empirically, not from the docs — see docs/decisions/phase-01-log.md.
+app.use("/api/auth", authHandler);
 
 app.use("/api", apiRoutes);
 

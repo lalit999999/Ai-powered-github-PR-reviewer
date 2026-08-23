@@ -13,7 +13,13 @@ import { env } from "../../config/env.js";
  */
 declare module "@auth/core/types" {
   interface User {
-    githubUserId?: bigint;
+    // bigint in the profile()/adapter/DB context (matches the Prisma `BigInt`
+    // column); the session callback below always normalizes it to a string before
+    // it reaches session.user, because BigInt has no native JSON representation and
+    // `res.json()` throws on one (decided here, per the Prompt 2 instructions, so
+    // Prompt 3's routes don't discover this the hard way). Treat
+    // `session.user.githubUserId` as always a string.
+    githubUserId?: bigint | string;
     githubLogin?: string;
     avatarUrl?: string | null;
   }
@@ -51,6 +57,34 @@ export const authConfig: ExpressAuthConfig = {
   // every cookie it sets (verified by reading
   // node_modules/@auth/core/lib/utils/cookie.js) — phase-01 §4/§13's requirement is
   // met without a custom `cookies` override.
+  callbacks: {
+    // Without this override, @auth/core's *default* session callback
+    // (node_modules/@auth/core/lib/init.js) strips everything down to
+    // {name, email, image, expires} — `user.id` (and every custom field above) is
+    // silently dropped. requireSession() below depends on `session.user.id`, so this
+    // isn't optional polish — verified by reading the default callback's source, not
+    // assumed. `expires` must be converted to an ISO string: the database-session
+    // callback receives a `Date`, but the public Session type is a string.
+    session({ session, user }) {
+      const expires: unknown = session.expires;
+      return {
+        ...session,
+        expires: expires instanceof Date ? expires.toISOString() : (expires as string),
+        user: {
+          ...session.user,
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          // BigInt -> string at the API/DTO boundary (see the module augmentation
+          // comment above) — githubUserId never reaches a JSON response as a bigint.
+          githubUserId: typeof user.githubUserId === "bigint" ? user.githubUserId.toString() : user.githubUserId,
+          githubLogin: user.githubLogin,
+          avatarUrl: user.avatarUrl,
+        },
+      };
+    },
+  },
   providers: [
     GitHub({
       clientId: env.GITHUB_OAUTH_CLIENT_ID,
