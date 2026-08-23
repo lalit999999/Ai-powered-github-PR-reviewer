@@ -46,3 +46,8 @@ plan/
 
 *.log
 .DS_Store
+/generated/prisma
+
+
+.agents/
+.claude/
