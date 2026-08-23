@@ -3,7 +3,7 @@ import express from "express";
 import { env } from "./config/env.js";
 import { errorHandler, requestContext } from "./lib/http.js";
 import { notFoundMiddleware } from "./middleware/not-found.middleware.js";
-import { authHandler } from "./routes/auth.routes.js";
+import { authHandler, authPagesRouter } from "./routes/auth.routes.js";
 import apiRoutes from "./routes/index.js";
 
 const app = express();
@@ -39,6 +39,11 @@ app.use(express.urlencoded({ extended: true }));
 // A plain prefix mount is what Express 5's router actually needs here — verified
 // empirically, not from the docs — see docs/decisions/phase-01-log.md.
 app.use("/api/auth", authHandler);
+
+// Auth.js's `pages.signIn`/`pages.error` targets — paths on this origin that redirect
+// to apps/web's own sign-in screen (see routes/auth.routes.ts). Mounted outside
+// "/api/auth" so the ExpressAuth sub-application never sees them.
+app.use("/auth", authPagesRouter);
 
 app.use("/api", apiRoutes);
 
