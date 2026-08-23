@@ -238,3 +238,108 @@ instead. The newly-added root-level `pnpm db:migrate` / `pnpm db:deploy` (unlike
 target whatever `packages/db/.env` resolves to if run without an override — currently
 Neon, not local Postgres. Flagged here rather than silently changed, since overwriting
 that file would discard the user's own configuration.
+
+---
+
+# Phase 00 completion (Prompt 2)
+
+Prompt 1 left tasks 9–13 of §17 unbuilt. This section records the decisions made
+finishing them. Auth/data-model decisions from the same pass live in
+`phase-01-log.md`.
+
+## 13. `/api/health` — DB check through the repository layer, new `DbUnavailableError`
+
+Phase-00 §7 requires the route to check DB connectivity, but Rule B forbids route
+handlers touching Prisma. Added `apps/api/src/modules/health/health.repository.ts`
+(`pingDatabase()` → `SELECT 1`) — the `*.repository.ts` suffix is what Rule B keys on,
+so this needed no lint exception. The controller catches any throw from it and raises a
+new `DbUnavailableError`.
+
+`DbUnavailableError` is a distinct subclass rather than reusing `ServiceUnavailableError`
+because §7/§12 specify the code `DB_UNAVAILABLE`, and `AppError` derives the envelope's
+`code` from the class. Both are 503; the new one names the actual dependency, which is
+what an uptime check needs to distinguish.
+
+The route now goes through `withRoute(..., { component: "api.health" })`, so it emits
+exactly one log line tagged `api.health` (previously the pre-existing placeholder
+controller bypassed the wrapper and fell back to `component: "http"`). Response body is
+`{status, traceId}` only — no versions, no stack traces (§13).
+
+## 14. Frontend shell — route groups required moving `page.tsx`
+
+`(marketing)` and `(app)` route groups added per plan.md §44. `src/app/page.tsx` had to
+move to `src/app/(marketing)/page.tsx`: with a root-level `page.tsx` *and* a
+`(marketing)` group, `/` would resolve from two places, which Next.js rejects. Moved
+with `git mv` so history is preserved.
+
+Both groups get their own `layout.tsx` wrapping the shared nav placeholder. `(app)`
+deliberately contains **no auth check** — protected-route enforcement is Prompt 3's
+work (phase-01 §17 step 10). The group exists now so those pages land somewhere that
+already has the right conventions.
+
+`error.tsx` uses the **`retry`** prop, not `reset`. Verified against the installed
+Next.js 16.3.2's own bundled docs
+(`node_modules/next/dist/docs/…/file-conventions/error.md`), whose version table records
+`retry` as stable since 16.3.0. `reset` is the older API.
+
+`global-error.tsx` replaces the root layout when active, so it gets none of the app's
+fonts, global CSS, or theme class — it therefore uses inline styles and a neutral
+palette that reads acceptably in both light and dark. This is the framework's documented
+constraint, not a style preference.
+
+Theme handling uses `next-themes` (newly added) with `attribute="class"`, matching the
+`@custom-variant dark (&:is(.dark *))` already in `globals.css`. `suppressHydrationWarning`
+on `<html>` is required by `next-themes` — it writes the class before React hydrates.
+
+## 15. Inngest Dev Server — `pnpm dlx`, not a pinned devDependency
+
+`inngest-cli`'s postinstall **overwrites its JS entrypoint with a native ELF binary**.
+pnpm generates its bin shim at install time assuming a node script, so the shim then
+tries `node <elf>` and dies with `SyntaxError: Invalid or unexpected token`. This is
+inherent to how the package ships, not environment-specific, so pinning it as a
+devDependency would leave a permanently broken `pnpm exec inngest-cli`.
+
+`pnpm dev:inngest` therefore runs `pnpm dlx inngest-cli@latest dev …`, which matches
+Inngest's own documented `npx inngest-cli@latest dev` guidance and works. (Plain `npx`
+fails in this repo: the root `devEngines.packageManager` is pnpm, and npm refuses with
+`EBADDEVENGINES`.) The Dev Server is a local-dev tool that never runs in CI, so the
+unpinned version carries no CI-flakiness risk.
+
+`INNGEST_DEV=1` is required in the worker's environment for local runs — without it the
+SDK runs in cloud mode and rejects unsigned Dev Server requests. Documented in README.
+
+## 16. CI — `db:generate` before anything that compiles
+
+`.github/workflows/ci.yml` runs install → **generate** → lint → typecheck → unit →
+integration → build on every PR. The generate step is load-bearing and easy to miss:
+the Prisma client is emitted into `packages/db/src/generated/` and is gitignored, so
+without it `@repo/db` doesn't resolve and typecheck/build/tests all fail on a clean
+checkout. It needs no database connection.
+
+Dummy values for every required variable are set in the job-level `env:` block so the
+fail-fast config module boots. Nothing is ever `echo`ed (§13). The integration job
+overrides `DATABASE_URL` with the Testcontainers instance it starts itself, so the dummy
+value is never dialled.
+
+The boundary-fixture assertion needs no separate CI step — it is
+`apps/api/src/lib/boundaries.test.ts`, already inside `pnpm test:unit`, and it lints all
+three fixtures with `ignore: false`.
+
+**GitHub Actions secrets cannot start with `GITHUB_`** (reserved prefix). It doesn't
+bite today — CI uses dummy OAuth values and never contacts GitHub — but it would the
+moment someone tries to store `GITHUB_OAUTH_CLIENT_ID` as a real repository secret.
+Recorded in `docs/deployment.md`.
+
+## 17. Staging configuration — what could honestly be committed
+
+No hosting provider is configured in this repo and no platform credentials are
+available, so there is no meaningful `vercel.json`/`fly.toml` to write — inventing one
+for an unchosen provider would be fiction. What was committed instead is provider-
+independent and actually useful: `docs/deployment.md` with the per-deployable build/start
+commands, the full environment-variable matrix, the release-path `migrate deploy` step,
+the health-check URL, and a prominent OAuth callback-URL section (phase-01 §22's named
+top failure).
+
+**The deploy itself was not performed and is not claimed.** "Skeleton deployed to
+staging and `/api/health` reachable there" remains outstanding — listed in
+`docs/deployment.md` and in the final report.

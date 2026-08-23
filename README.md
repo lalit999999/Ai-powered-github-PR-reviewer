@@ -5,12 +5,12 @@ pnpm + Turborepo monorepo:
 ```text
 apps/
   api/      Express backend — routes, controllers, src/lib/ (logger, tracing, errors,
-            config, validation, http) — everything in this phase lives here
+            config, validation, http, auth) — most backend code lives here
   web/      Next.js (App Router) frontend
-  worker/   Inngest functions (added in a later phase — nothing here yet)
+  worker/   Inngest client, middleware, and functions, served at /api/inngest
 packages/
-  db/       Prisma schema, migrations, and the generated client (@repo/db) — the only
-            package allowed to import @prisma/client directly
+  db/       Prisma schema, migrations, the generated client, and the Auth.js adapter
+            (@repo/db) — the only package allowed to import @prisma/client directly
 ```
 
 See `docs/decisions/phase-00-log.md` for why this repo uses an `apps/*` split instead
@@ -24,14 +24,39 @@ pnpm install
 
 docker compose up -d              # local Postgres on localhost:5432 (db: dev)
 
-cp .env.example apps/api/.env     # fill in DATABASE_URL, INNGEST_EVENT_KEY/SIGNING_KEY,
-                                   # PORT, FRONTEND_URL — dev-only values are fine locally
+cp .env.example apps/api/.env     # dev-only values are fine locally; see the
+                                   # AUTH_URL note below before real GitHub sign-in
 
-pnpm db:generate                  # generate the Prisma client
+pnpm db:generate                  # generate the Prisma client (no DB connection needed)
 pnpm db:migrate                   # apply migrations (prisma migrate dev)
 
-pnpm dev                          # apps/api on :4000, apps/web on :3000
+pnpm dev                          # api :4000 · web :3000 · worker :4500
 ```
+
+`apps/worker` needs its own `.env` (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`,
+`WORKER_PORT`) — same dev values as `apps/api`.
+
+### Inngest Dev Server
+
+In a second terminal, alongside `pnpm dev`:
+
+```bash
+pnpm dev:inngest                  # Dev Server UI on http://localhost:8288
+```
+
+Run the worker with `INNGEST_DEV=1` set (put it in `apps/worker/.env`) so the SDK talks
+to the local Dev Server instead of Inngest Cloud — without it, requests are rejected as
+unsigned. Then open http://localhost:8288, confirm the app registers with exactly one
+function (`noop-handler`), and send `internal/noop.ping` to see a `traceId`-carrying log
+line from the worker.
+
+### GitHub OAuth (sign-in)
+
+`.env`'s placeholder OAuth values are enough to boot and to run every test. For a real
+sign-in, create a GitHub OAuth App whose callback URL is **exactly**
+`$AUTH_URL/api/auth/callback/github` (locally: `http://localhost:4000/api/auth/callback/github`)
+and set `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET`. Callback-URL mismatch is
+the most common failure here — see `docs/deployment.md`.
 
 `packages/db` reads its own `packages/db/.env` for `DATABASE_URL` when you run Prisma
 CLI commands directly from that package — keep it pointed at your local Postgres
@@ -42,6 +67,7 @@ unless you deliberately mean to target another database.
 | Command | Does |
 |---|---|
 | `pnpm dev` | Runs every app's dev server (turbo) |
+| `pnpm dev:inngest` | Inngest Dev Server, pointed at the worker's `/api/inngest` |
 | `pnpm build` | Builds every app |
 | `pnpm start` | Starts every app's production build |
 | `pnpm lint` | Per-package lint (turbo) + the repo-wide architectural boundary/no-console rules (`eslint.config.mjs`) |
