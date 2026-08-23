@@ -47,10 +47,22 @@ export default tseslint.config(
       "**/build/**",
       "**/generated/**",
       "**/tests/fixtures/lint/**",
+      // apps/web has its own complete, Next.js-flavored eslint.config.mjs (react-hooks,
+      // react-compiler, etc.) run via `turbo lint` — linting it again here with this
+      // generic config would conflict rather than add coverage.
+      "apps/web/**",
     ],
   },
   js.configs.recommended,
   tseslint.configs.recommended,
+  {
+    // Standard "intentionally unused" convention — Express's errorHandler(err, req, res,
+    // next) must keep unused params to preserve its 4-arg arity (Express detects
+    // error-handling middleware by Function.length).
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
   {
     // Root-level CommonJS tooling config (prettier.config.js etc.) — not application
     // source, pre-dates this rule set, needs Node globals for module.exports.
