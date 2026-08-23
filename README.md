@@ -83,7 +83,7 @@ unless you deliberately mean to target another database.
   `ai`/`github`/`embedings` packages directly.
 - Only `packages/db/**` (or a `*.repository.ts` file) may import `@prisma/client` —
   everything else imports the `prisma` singleton from `@repo/db`.
-- `apps/worker/src/functions/**` may not import `apps/api`'s routes/controllers.
+- `apps/worker/src/inngest/functions/**` may not import `apps/api`'s routes/controllers.
 
 `apps/api/tests/fixtures/lint/` contains one deliberate violation per rule, proven to
 fail lint by `apps/api/src/lib/boundaries.test.ts`.
@@ -93,3 +93,24 @@ fail lint by `apps/api/src/lib/boundaries.test.ts`.
 Every request through `apps/api` gets a ULID `traceId` (seeded from an inbound
 `x-trace-id`/`x-request-id` header when present), propagated via `AsyncLocalStorage`,
 and produces exactly one structured JSON log line — see `apps/api/src/lib/{tracing,logger,http}.ts`.
+Once a request authenticates, `requireSession()` adds `userId` to that same context, so
+every later log line in the request carries it too.
+
+Inngest function runs get the same envelope from
+`apps/worker/src/inngest/middleware/logging.ts`.
+
+## Authentication
+
+GitHub OAuth via Auth.js (`@auth/express`) with **database-backed sessions** through the
+Prisma adapter — deliberately not JWT, so sessions can be revoked (plan.md §35.1,
+phase-01 §1/§22). Requested scopes are `read:user` and `user:email` only; the OAuth
+identity answers *who is signed in* and is never used for repository access (that is the
+GitHub App installation identity, arriving in Phase 02).
+
+`requireSession(req)` (`apps/api/src/lib/auth/session.ts`) is the single entry point for
+resolving the caller. A missing, invalid, or expired session throws
+`UnauthenticatedError` (401) — it never falls back to a default user.
+
+> `User.githubUserId` is a `BigInt` and has no native JSON representation. It is
+> converted to a string at the API/DTO boundary, so `session.user.githubUserId` is always
+> a string. Keep any new DTO carrying a `BigInt` to that same rule.

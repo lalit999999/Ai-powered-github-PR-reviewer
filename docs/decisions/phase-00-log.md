@@ -321,6 +321,11 @@ fail-fast config module boots. Nothing is ever `echo`ed (§13). The integration 
 overrides `DATABASE_URL` with the Testcontainers instance it starts itself, so the dummy
 value is never dialled.
 
+(An earlier version of this note claimed `packages/db/src/generated/` is gitignored.
+It is not — the generated client is committed. The generate step is kept anyway, for a
+different and better reason: it makes CI fail loudly if the committed client has drifted
+from `schema.prisma`, rather than silently testing a stale client.)
+
 The boundary-fixture assertion needs no separate CI step — it is
 `apps/api/src/lib/boundaries.test.ts`, already inside `pnpm test:unit`, and it lints all
 three fixtures with `ignore: false`.

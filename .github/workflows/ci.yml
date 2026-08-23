@@ -47,8 +47,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The Prisma client is generated into packages/db/src/generated and is
-      # gitignored, so typecheck/build/tests can't resolve @repo/db without this.
+      # packages/db/src/generated is currently committed, so this is not strictly
+      # required to compile — but regenerating makes CI fail loudly if the committed
+      # client has drifted from schema.prisma, instead of testing a stale client.
       # Needs no database connection.
       - name: Generate Prisma client
         run: pnpm db:generate
