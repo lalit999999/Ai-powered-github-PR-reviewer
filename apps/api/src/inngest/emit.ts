@@ -18,6 +18,15 @@ const logger = createLogger("inngest.emit");
  * for the caller. The failure is logged at `error` so it is visible rather than
  * silent.
  *
+ * **It also must not be awaited by the request.** Measured, not assumed: with an
+ * invalid `INNGEST_EVENT_KEY`, the SDK's own retry/backoff made a single
+ * `DELETE /api/projects/:id` take **5.3 seconds** before returning its 202. Coupling a
+ * user-facing mutation's latency to the availability of a notification channel with no
+ * subscribers is the wrong trade, and `202 Accepted` already means "accepted, work
+ * continues" — so `project.service` calls this without awaiting. The trace context
+ * (`traceId`/`userId`/`projectId`) survives into the continuation via
+ * AsyncLocalStorage, so a late failure still logs with full context.
+ *
  * Phase 03, when `cancelOn` handlers make delivery actually matter, should revisit
  * this — most likely with a transactional outbox rather than by making the HTTP
  * response depend on Inngest's availability. Flagged here so that decision is a

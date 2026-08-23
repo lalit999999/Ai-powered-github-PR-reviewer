@@ -198,5 +198,9 @@ export async function softDeleteProject(tenant: TenantContext): Promise<void> {
     userId: tenant.userId,
   });
 
-  await emitProjectDeleted({ projectId: tenant.projectId });
+  // Deliberately not awaited: the 202 must not wait on a notification channel that has
+  // no consumers in this phase. `emitProjectDeleted` swallows and logs its own
+  // failures, so this can never surface as an unhandled rejection — see its doc
+  // comment for the measurement that motivated it.
+  void emitProjectDeleted({ projectId: tenant.projectId });
 }
