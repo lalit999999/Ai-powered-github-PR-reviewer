@@ -153,3 +153,88 @@ context + timing + the single "request completed"/"request failed" log line (mou
 `asyncHandler` pattern) that forwards thrown `AppError`/unknown errors to `next()`, where the
 shared error-handling middleware renders the standard envelope. Together these satisfy FR2/FR3
 exactly as specified, in Express idiom rather than Next.js idiom.
+
+## 8. `@/*` path alias — added to apps/web only, not apps/api
+
+Task item 1 asks for a `@/*` → `src/*` alias. `apps/web` already had it (Next.js/webpack
+bundler resolution — works natively). `apps/api` runs on plain Node with
+`module`/`moduleResolution: NodeNext` — there is no bundler, so a TS-only `paths` alias
+would type-check but **not resolve at runtime** under `tsx`/`node` without extra tooling
+(`tsc-alias`, a custom loader, or Node's `imports` `#`-prefixed subpath imports — which
+isn't the same alias shape). Adding that tooling to a foundation phase for a cosmetic
+import-path preference is exactly the kind of accidental complexity worth avoiding here.
+`apps/api` keeps the codebase's existing convention (explicit relative, `.js`-suffixed
+imports, required by NodeNext ESM resolution) instead.
+
+## 9. Prisma client staleness after the first `migrate dev`
+
+Immediately after generating the fresh init migration, `packages/db/src/generated/`
+only contained `User.ts`, not `Project.ts`, even though `migrate dev` normally
+auto-runs `generate` against the current schema. Root-caused to likely interference
+from `pnpm install`'s own Prisma postinstall hook running `generate` without
+`DATABASE_URL` set in between my migration step and the typecheck pass. Fixed by
+running `pnpm --filter @repo/db exec prisma generate` explicitly; documented as an
+explicit step (`pnpm db:generate`) in the setup sequence in README.md rather than
+relying on any implicit postinstall generation.
+
+## 10. Root ESLint config scoped to exclude `apps/web`; `^_` unused-var convention added
+
+Running the repo-wide boundary/no-console config (`eslint.config.mjs`) against the
+whole tree also linted `apps/web`, which already has its own complete, Next.js-flavored
+config (react-hooks, react-compiler) run via `turbo lint` — the generic root config
+lacks those plugins, so it reported "rule definition not found" for a legitimate
+`eslint-disable` comment that apps/web's own config resolves correctly. Added
+`apps/web/**` to the root config's global `ignores`: the root config's job is the
+architectural boundary/no-console rules for `apps/api`, `apps/worker`, and
+`packages/*`, none of which have their own dedicated config; `apps/web` is fully
+covered by its own. Also configured `@typescript-eslint/no-unused-vars` with
+`argsIgnorePattern`/`varsIgnorePattern: "^_"` — needed because Express's
+`errorHandler(err, req, res, next)` must keep an unused `next` param to preserve the
+4-arg arity Express uses to detect error-handling middleware.
+
+## 11. Two pre-existing `apps/web` lint failures fixed incidentally
+
+`pnpm lint` failed on two files neither created nor touched by this phase's work:
+`apps/web/src/hooks/use-mobile.ts` and `apps/web/src/components/ui/carousel.tsx`
+(shadcn-generated), both tripping the `react-hooks/set-state-in-effect` rule that
+ships with this repo's `eslint-config-next` version. Since `pnpm lint` is a required
+verification command and these are small, mechanical, low-risk fixes unrelated to any
+design decision:
+- `use-mobile.ts`: switched to a lazy `useState` initializer for the initial value,
+  leaving the effect to only subscribe to the media-query change event (the rule's
+  own suggested pattern) — a strict improvement, not just a lint suppression.
+- `carousel.tsx`: added a scoped `eslint-disable-next-line` with a one-line reason.
+  This one genuinely cannot be restructured the "correct" way — `canScrollPrev`/
+  `canScrollNext` mirror embla-carousel's imperative API object, which only exists
+  after mount; there is no render-time value to compute them from initially.
+
+Did not otherwise touch `apps/web`'s application code, Clerk wiring, or the oversized
+shadcn component set (present-but-more-than-the-task-asked-for, per task item 1) —
+trimming that is Prompt 2/3's call, not this one's.
+
+## 12. Verification — commands run and actual results
+
+All run against this repo, in order, after all of the above:
+
+| Command | Result |
+|---|---|
+| `pnpm install` | Clean install, all workspaces resolved |
+| `pnpm typecheck` (`turbo typecheck`) | Pass — `api`, `web` (strict, `noUncheckedIndexedAccess`, `noImplicitOverride`) |
+| `pnpm lint` (`turbo lint` + root boundary/no-console config) | Pass, 0 errors |
+| `pnpm test:unit` | Pass — 7 files, 50 tests |
+| `pnpm test:integration` | Pass — 1 file, 3 tests (Testcontainers Postgres: migrate deploy, round-trip, no schema creep) |
+| `pnpm build` (`turbo build`) | Pass — `api` (`tsc`), `web` (`next build`) |
+| `prisma migrate status` against a fresh local DB | `Database schema is up to date!`, 1 migration found |
+| Behavioral: `DATABASE_URL` absent at boot | Refuses to boot; structured log line names `DATABASE_URL` explicitly; exit code 1. Real `apps/api/.env` never touched (used `DOTENV_CONFIG_PATH` pointed at a throwaway file instead) |
+| Behavioral: lint fixtures | All three (`rule-a/b/c-violation.ts`) fail with `no-restricted-imports`, each message naming its rule (A/B/C) and citing phase-00 §3 |
+| Smoke test: existing `/api/health` through the new global middleware | 200, `x-trace-id` header present, route itself unchanged (out of scope this prompt) |
+| Smoke test: unmatched route | 404, standard envelope `{"error":{"code":"NOT_FOUND",...}}` |
+
+**Safety note, not a defect:** `packages/db/.env` (pre-existing, gitignored, untouched by
+this work) points at a real external Neon Postgres instance. Every Prisma command run
+during this work explicitly overrode `DATABASE_URL` to the local docker-compose Postgres
+instead. The newly-added root-level `pnpm db:migrate` / `pnpm db:deploy` (unlike
+`db:generate`, which needs no DB connection and was verified safe to run as-is) will
+target whatever `packages/db/.env` resolves to if run without an override — currently
+Neon, not local Postgres. Flagged here rather than silently changed, since overwriting
+that file would discard the user's own configuration.
