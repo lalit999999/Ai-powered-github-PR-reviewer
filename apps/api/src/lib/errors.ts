@@ -76,6 +76,37 @@ export class DbUnavailableError extends AppError {
   readonly httpStatus = 503;
 }
 
+/**
+ * Phase 02 §11/§12. A GitHub App installation token mint came back **401**: the
+ * installation was revoked, deleted, or suspended. Deliberately its own class rather
+ * than a plain ForbiddenError, because the service layer keys the
+ * `connectionStatus → ACCESS_LOST` transition off exactly this case and must not
+ * confuse it with "this user may not touch this project" (a tenancy 403) or with
+ * "the App is rate limited" (GithubRateLimitError below).
+ *
+ * Never retried — a revoked installation does not become un-revoked by trying again.
+ * The transition itself belongs to the service layer (Prompt 2 of this phase) and is
+ * only fully exercised once Phase 03 has background work that can fail.
+ */
+export class GithubAccessRevokedError extends AppError {
+  readonly code = "GITHUB_ACCESS_REVOKED";
+  readonly httpStatus = 403;
+}
+
+/**
+ * Phase 02 §12/§14. GitHub answered 403/429 with rate-limit headers. Distinct from
+ * GithubAccessRevokedError above — §14 requires that a rate-limited response is
+ * "a scheduled retry, not an immediate failure", and never mistaken for revocation.
+ *
+ * 503 rather than 429: the exhausted budget is *ours* against GitHub, not the calling
+ * user's against this API, so telling the client "you are sending too many requests"
+ * would be wrong. `details.retryAfterSeconds` carries the wait when GitHub stated one.
+ */
+export class GithubRateLimitError extends AppError {
+  readonly code = "GITHUB_RATE_LIMITED";
+  readonly httpStatus = 503;
+}
+
 export class InternalError extends AppError {
   readonly code = "INTERNAL_ERROR";
   readonly httpStatus = 500;
