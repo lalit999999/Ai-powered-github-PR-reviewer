@@ -80,11 +80,19 @@ In a second terminal, alongside `pnpm dev`:
 pnpm dev:inngest                  # Dev Server UI on http://localhost:8288
 ```
 
-Run the worker with `INNGEST_DEV=1` set (put it in `apps/worker/.env`) so the SDK talks
-to the local Dev Server instead of Inngest Cloud — without it, requests are rejected as
-unsigned. Then open http://localhost:8288, confirm the app registers with exactly one
-function (`noop-handler`), and send `internal/noop.ping` to see a `traceId`-carrying log
-line from the worker.
+Set `INNGEST_DEV=1` in **both** `apps/worker/.env` and `apps/api/.env` so the SDK talks
+to the local Dev Server instead of Inngest Cloud. Missing it on the worker side gets
+requests rejected as unsigned; missing it on the API side is quieter and easier to
+miss — every event `apps/api` emits (`project/deleted`, `repository/index.requested`)
+goes to Inngest Cloud instead, comes back `401 Event key not found`, is logged at
+`error`, and is dropped, because emission is deliberately non-fatal
+(`apps/api/src/inngest/emit.ts`). Nothing crashes; the event just never appears in the
+Dev Server UI. Found the hard way during Phase 02's own smoke pass — see
+`docs/decisions/phase-02-log.md` §27.
+
+Then open http://localhost:8288, confirm the app registers with exactly one function
+(`noop-handler`), and send `internal/noop.ping` to see a `traceId`-carrying log line
+from the worker.
 
 ### GitHub OAuth (sign-in)
 
@@ -112,9 +120,37 @@ Two things that look broken but are not:
 
 - The App's webhook deliveries will 404 until **Phase 06** builds the receiving
   endpoint. `GITHUB_APP_WEBHOOK_SECRET` is required and set now, but no code reads it
-  before Phase 06.
+  before Phase 06. GitHub retries; nothing in Phases 02–05 depends on delivery
+  succeeding — see `docs/github-app-setup.md`'s "The webhook 404s until Phase 06".
 - If Redis is down, `apps/api` logs a warning and keeps working off an in-memory token
   cache. It is a cache, not a database.
+
+#### Connecting a repository
+
+With a real GitHub App registered (`docs/github-app-setup.md`) and installed on a test
+account:
+
+1. Sign in, open a project, and the **GitHub installations** panel syncs from
+   `GET /user/installations` on page load. Nothing there yet? Click **Install GitHub
+   App**, finish GitHub's flow, and come back to this tab — click **Refresh** rather
+   than waiting; nothing pushes the update to you until Phase 06's webhooks exist (§10).
+2. Click **Connect repository**. Search the installation's repositories, or switch to
+   **Paste URL** and give it `https://github.com/{owner}/{repo}` directly.
+3. On success the dialog closes and a repository card appears showing **Waiting to be
+   indexed** — `indexStatus=PENDING` is as far as this phase goes; Phase 03 is what
+   actually indexes it.
+4. Each invalid case answers its own way: a malformed URL is a 400 before any GitHub
+   call; a repository the installation can't see is a 403 linking to GitHub's
+   installation settings; reconnecting the same repository to the same project is a 409
+   linking to the existing card; an empty or oversized repository is a 422 with its own
+   message for each.
+
+No real GitHub App in this environment? Every test in `pnpm test:unit` /
+`pnpm test:integration` exercises this whole flow with GitHub mocked (or, for the
+client layer specifically, replayed against the fixtures in
+`apps/api/tests/fixtures/github/` via `nock`) — see that directory's own README for
+what "fixture" means here, since nothing in this repository has ever talked to a real
+GitHub App.
 
 `packages/db` reads its own `packages/db/.env` for `DATABASE_URL` when you run Prisma
 CLI commands directly from that package — keep it pointed at your local Postgres
