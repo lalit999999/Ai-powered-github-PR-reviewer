@@ -5,3 +5,20 @@ export type {
   ProjectDeletedData,
   RepositoryIndexRequestedData,
 } from "./events.js";
+export {
+  INDEX_ERROR_CODES,
+  INDEX_JOB_MODES,
+  INDEX_JOB_STATUSES,
+  INDEX_STATES,
+  isIndexState,
+  PARSE_STATES,
+  SKIP_REASONS,
+} from "./indexing.js";
+export type {
+  IndexErrorCode,
+  IndexJobMode,
+  IndexJobStatus,
+  IndexState,
+  ParseState,
+  SkipReason,
+} from "./indexing.js";

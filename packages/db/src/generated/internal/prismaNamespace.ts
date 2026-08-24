@@ -401,6 +401,8 @@ export const ModelName = {
   Project: 'Project',
   GithubInstallation: 'GithubInstallation',
   Repository: 'Repository',
+  RepositoryFile: 'RepositoryFile',
+  IndexJob: 'IndexJob',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -419,7 +421,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "project" | "githubInstallation" | "repository" | "account" | "session" | "verificationToken"
+    modelProps: "user" | "project" | "githubInstallation" | "repository" | "repositoryFile" | "indexJob" | "account" | "session" | "verificationToken"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -716,6 +718,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.RepositoryCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.RepositoryCountAggregateOutputType> | number
+        }
+      }
+    }
+    RepositoryFile: {
+      payload: Prisma.$RepositoryFilePayload<ExtArgs>
+      fields: Prisma.RepositoryFileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RepositoryFileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RepositoryFileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>
+        }
+        findFirst: {
+          args: Prisma.RepositoryFileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RepositoryFileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>
+        }
+        findMany: {
+          args: Prisma.RepositoryFileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>[]
+        }
+        create: {
+          args: Prisma.RepositoryFileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>
+        }
+        createMany: {
+          args: Prisma.RepositoryFileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RepositoryFileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>[]
+        }
+        delete: {
+          args: Prisma.RepositoryFileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>
+        }
+        update: {
+          args: Prisma.RepositoryFileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>
+        }
+        deleteMany: {
+          args: Prisma.RepositoryFileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RepositoryFileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RepositoryFileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>[]
+        }
+        upsert: {
+          args: Prisma.RepositoryFileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryFilePayload>
+        }
+        aggregate: {
+          args: Prisma.RepositoryFileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRepositoryFile>
+        }
+        groupBy: {
+          args: Prisma.RepositoryFileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RepositoryFileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RepositoryFileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RepositoryFileCountAggregateOutputType> | number
+        }
+      }
+    }
+    IndexJob: {
+      payload: Prisma.$IndexJobPayload<ExtArgs>
+      fields: Prisma.IndexJobFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.IndexJobFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.IndexJobFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>
+        }
+        findFirst: {
+          args: Prisma.IndexJobFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.IndexJobFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>
+        }
+        findMany: {
+          args: Prisma.IndexJobFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>[]
+        }
+        create: {
+          args: Prisma.IndexJobCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>
+        }
+        createMany: {
+          args: Prisma.IndexJobCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.IndexJobCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>[]
+        }
+        delete: {
+          args: Prisma.IndexJobDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>
+        }
+        update: {
+          args: Prisma.IndexJobUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>
+        }
+        deleteMany: {
+          args: Prisma.IndexJobDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.IndexJobUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.IndexJobUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>[]
+        }
+        upsert: {
+          args: Prisma.IndexJobUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IndexJobPayload>
+        }
+        aggregate: {
+          args: Prisma.IndexJobAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateIndexJob>
+        }
+        groupBy: {
+          args: Prisma.IndexJobGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IndexJobGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.IndexJobCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IndexJobCountAggregateOutputType> | number
         }
       }
     }
@@ -1055,6 +1205,57 @@ export const RepositoryScalarFieldEnum = {
 export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
 
 
+export const RepositoryFileScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  path: 'path',
+  commitSha: 'commitSha',
+  language: 'language',
+  contentHash: 'contentHash',
+  sizeBytes: 'sizeBytes',
+  lineCount: 'lineCount',
+  packageName: 'packageName',
+  classification: 'classification',
+  indexState: 'indexState',
+  skipReason: 'skipReason',
+  parseState: 'parseState',
+  symbolCount: 'symbolCount',
+  inboundEdgeCount: 'inboundEdgeCount',
+  isTest: 'isTest',
+  isGenerated: 'isGenerated',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RepositoryFileScalarFieldEnum = (typeof RepositoryFileScalarFieldEnum)[keyof typeof RepositoryFileScalarFieldEnum]
+
+
+export const IndexJobScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  mode: 'mode',
+  status: 'status',
+  targetCommitSha: 'targetCommitSha',
+  previousCommitSha: 'previousCommitSha',
+  inngestRunId: 'inngestRunId',
+  filesTotal: 'filesTotal',
+  filesProcessed: 'filesProcessed',
+  filesSkipped: 'filesSkipped',
+  symbolsCreated: 'symbolsCreated',
+  edgesCreated: 'edgesCreated',
+  chunksEmbedded: 'chunksEmbedded',
+  embeddingCacheHits: 'embeddingCacheHits',
+  currentStep: 'currentStep',
+  progressPercent: 'progressPercent',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  error: 'error',
+  attempts: 'attempts',
+  createdAt: 'createdAt'
+} as const
+
+export type IndexJobScalarFieldEnum = (typeof IndexJobScalarFieldEnum)[keyof typeof IndexJobScalarFieldEnum]
+
+
 export const AccountScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1238,6 +1439,20 @@ export type ListEnumIndexStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$
 
 
 /**
+ * Reference to a field of type 'FileClassification'
+ */
+export type EnumFileClassificationFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FileClassification'>
+    
+
+
+/**
+ * Reference to a field of type 'FileClassification[]'
+ */
+export type ListEnumFileClassificationFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FileClassification[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1405,6 +1620,8 @@ export type GlobalOmitConfig = {
   project?: Prisma.ProjectOmit
   githubInstallation?: Prisma.GithubInstallationOmit
   repository?: Prisma.RepositoryOmit
+  repositoryFile?: Prisma.RepositoryFileOmit
+  indexJob?: Prisma.IndexJobOmit
   account?: Prisma.AccountOmit
   session?: Prisma.SessionOmit
   verificationToken?: Prisma.VerificationTokenOmit

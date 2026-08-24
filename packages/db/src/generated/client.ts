@@ -62,6 +62,16 @@ export type GithubInstallation = Prisma.GithubInstallationModel
  */
 export type Repository = Prisma.RepositoryModel
 /**
+ * Model RepositoryFile
+ * 
+ */
+export type RepositoryFile = Prisma.RepositoryFileModel
+/**
+ * Model IndexJob
+ * 
+ */
+export type IndexJob = Prisma.IndexJobModel
+/**
  * Model Account
  * 
  */

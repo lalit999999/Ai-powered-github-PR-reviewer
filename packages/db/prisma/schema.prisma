@@ -135,10 +135,99 @@ model Repository {
   updatedAt DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files   RepositoryFile[]
+  indexJobs IndexJob[]
 
   @@unique([projectId, githubRepoId])
   @@index([githubRepoId])
   @@index([indexStatus])
+}
+
+// Phase 03 (phase-03-repository-indexing.md §6). One row per *current path*, not per
+// commit — historical file versions aren't modeled; commitSha records when a path was
+// last indexed. Keeps the table at repo-size rather than repo-size × commit-count
+// (plan.md §24.2). Only files that reach the hashing step get a row at all: hard-ignored
+// paths (node_modules/**, .git/**, etc.) never produce one, per plan.md §8.2 step 4.
+//
+// indexState/skipReason/parseState are plain Strings, matching the same String-vs-enum
+// split Repository.connectionStatus already has next to the real IndexStatus enum
+// (docs/decisions/phase-02-log.md §5) — legal values are pinned as TypeScript unions in
+// @repo/shared's indexing.ts (IndexState, SkipReason, ParseState) rather than enforced by
+// the database. See docs/decisions/phase-03-log.md, sub-task 1.3.
+model RepositoryFile {
+  id               String             @id @default(uuid())
+  repositoryId     String
+  path             String
+  commitSha        String
+  language         String?
+  contentHash      String
+  sizeBytes        Int
+  lineCount        Int                @default(0)
+  packageName      String?
+  classification   FileClassification @default(UNKNOWN)
+  indexState       String             @default("INDEXED") // IndexState — INDEXED | SKIPPED | FAILED
+  skipReason       String? // SkipReason — SKIPPED_* codes, null when indexState=INDEXED
+  parseState       String             @default("OK") // ParseState — only "OK" reachable before Phase 04
+  symbolCount      Int                @default(0) // populated starting Phase 04
+  inboundEdgeCount Int                @default(0) // populated starting Phase 04
+  isTest           Boolean            @default(false)
+  isGenerated      Boolean            @default(false)
+  updatedAt        DateTime           @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, path])
+  @@index([repositoryId, contentHash])
+  @@index([repositoryId, packageName])
+  // Not in §6's own Prisma block, but plan.md §24.2 lists it and Prompt 2's "list
+  // skipped files" / reconciliation queries (§14 Database Verification) need it. Same
+  // "declare it, it's cheap, plan.md already specifies it" rationale §6 itself uses
+  // elsewhere. See docs/decisions/phase-03-log.md.
+  @@index([repositoryId, indexState])
+}
+
+enum FileClassification {
+  SOURCE
+  TEST
+  CONFIG
+  GENERATED
+  DEPENDENCY_LOCK
+  DOCUMENTATION
+  ASSET
+  UNKNOWN
+}
+
+// Phase 03 §6. One row per indexing run — Postgres mirror of Inngest's execution state,
+// polled by the UI ("Inngest is the executor, Postgres is the status of record",
+// plan.md §27.6). status/mode are plain Strings; legal values are IndexJobStatus/
+// IndexJobMode in @repo/shared's indexing.ts.
+model IndexJob {
+  id                 String    @id @default(uuid())
+  repositoryId       String
+  mode               String // IndexJobMode — FULL | INCREMENTAL (only FULL used this phase)
+  status             String // IndexJobStatus — PENDING | RUNNING | SUCCEEDED | FAILED
+  targetCommitSha    String?
+  previousCommitSha  String?
+  inngestRunId       String?
+  filesTotal         Int       @default(0)
+  filesProcessed     Int       @default(0)
+  filesSkipped       Int       @default(0)
+  symbolsCreated     Int       @default(0) // 0 in this phase; Phase 04 populates
+  edgesCreated       Int       @default(0) // 0 in this phase; Phase 04 populates
+  chunksEmbedded     Int       @default(0) // 0 in this phase; Phase 05 populates
+  embeddingCacheHits Int       @default(0) // 0 in this phase; Phase 05 populates
+  currentStep        String?
+  progressPercent    Int       @default(0)
+  startedAt          DateTime?
+  completedAt        DateTime?
+  error              Json? // { code: IndexErrorCode, message, ...details }
+  attempts           Int       @default(0)
+  createdAt          DateTime  @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId, createdAt(sort: Desc)])
+  @@index([status])
 }
 
 // Full lifecycle declared now; only (none) → PENDING is reachable in Phase 02 (§11).

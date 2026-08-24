@@ -55,6 +55,8 @@ export const ModelName = {
   Project: 'Project',
   GithubInstallation: 'GithubInstallation',
   Repository: 'Repository',
+  RepositoryFile: 'RepositoryFile',
+  IndexJob: 'IndexJob',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -149,6 +151,57 @@ export const RepositoryScalarFieldEnum = {
 } as const
 
 export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
+
+
+export const RepositoryFileScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  path: 'path',
+  commitSha: 'commitSha',
+  language: 'language',
+  contentHash: 'contentHash',
+  sizeBytes: 'sizeBytes',
+  lineCount: 'lineCount',
+  packageName: 'packageName',
+  classification: 'classification',
+  indexState: 'indexState',
+  skipReason: 'skipReason',
+  parseState: 'parseState',
+  symbolCount: 'symbolCount',
+  inboundEdgeCount: 'inboundEdgeCount',
+  isTest: 'isTest',
+  isGenerated: 'isGenerated',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RepositoryFileScalarFieldEnum = (typeof RepositoryFileScalarFieldEnum)[keyof typeof RepositoryFileScalarFieldEnum]
+
+
+export const IndexJobScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  mode: 'mode',
+  status: 'status',
+  targetCommitSha: 'targetCommitSha',
+  previousCommitSha: 'previousCommitSha',
+  inngestRunId: 'inngestRunId',
+  filesTotal: 'filesTotal',
+  filesProcessed: 'filesProcessed',
+  filesSkipped: 'filesSkipped',
+  symbolsCreated: 'symbolsCreated',
+  edgesCreated: 'edgesCreated',
+  chunksEmbedded: 'chunksEmbedded',
+  embeddingCacheHits: 'embeddingCacheHits',
+  currentStep: 'currentStep',
+  progressPercent: 'progressPercent',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  error: 'error',
+  attempts: 'attempts',
+  createdAt: 'createdAt'
+} as const
+
+export type IndexJobScalarFieldEnum = (typeof IndexJobScalarFieldEnum)[keyof typeof IndexJobScalarFieldEnum]
 
 
 export const AccountScalarFieldEnum = {
