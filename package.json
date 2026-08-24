@@ -5,11 +5,20 @@
   "main": "index.js",
   "scripts": {
     "dev": "turbo dev",
+    "dev:inngest": "pnpm dlx inngest-cli@latest dev -u http://localhost:4500/api/inngest --no-discovery",
     "build": "turbo build",
-    "lint": "turbo lint",
+    "start": "turbo start",
+    "lint": "turbo lint && eslint . -c eslint.config.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:unit": "turbo test:unit",
+    "test:integration": "turbo test:integration",
+    "db:generate": "turbo db:generate",
+    "db:migrate": "turbo db:migrate",
+    "db:deploy": "turbo db:deploy",
+    "db:studio": "turbo db:studio"
   },
   "keywords": [],
   "author": "",
@@ -27,12 +36,8 @@
     "@types/node": "^20.19.43",
     "eslint": "^9.39.1",
     "prettier": "^3.9.6",
-    "prisma": "^7.9.1",
     "turbo": "^2.10.11",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.67.0"
-  },
-  "dependencies": {
-    "@prisma/client": "^7.9.1"
   }
 }

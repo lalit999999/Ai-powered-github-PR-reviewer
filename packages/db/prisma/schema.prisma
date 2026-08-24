@@ -1,10 +1,10 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-
-
+// Phase 01 field-complete schema (plan.md §24.2/§25, phase-01-authentication-and-projects.md
+// §6) — supersedes Phase 00's placeholder User/Project. See
+// docs/decisions/phase-01-log.md for the User/Auth.js-adapter reconciliation notes and the
+// BigInt-serialization decision.
 
 generator client {
   provider = "prisma-client"
@@ -16,8 +16,107 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  githubUserId BigInt   @unique
+  githubLogin  String
+  email        String?  @unique
+  avatarUrl    String?
+  plan         String   @default("free")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Auth.js Prisma adapter columns — additive, not in phase-01 §6's field list (see
+  // docs/decisions/phase-01-log.md). `email` above is reused for both the phase
+  // document's identity field and the adapter's getUserByEmail lookup, which is why
+  // it carries @unique despite phase-01 §6 not specifying one — verified empirically
+  // against the installed @auth/prisma-adapter's source, not assumed. `image`
+  // duplicates `avatarUrl`; both are populated from the same GitHub profile field in
+  // the provider's profile() callback so they can never diverge.
+  name          String?
+  image         String?
+  emailVerified DateTime?
+
+  projects      Project[]
+  installations GithubInstallation[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@index([githubUserId])
+}
+
+model Project {
+  id        String    @id @default(uuid())
+  userId    String
+  name      String
+  slug      String
+  settings  Json      @default("{}")
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // repositories Repository[] — Phase 02 model. Phase-01 §6 lists this relation, but
+  // Repository does not exist yet; intentionally omitted until Phase 02 defines it
+  // (see the Prompt 2 implementation instructions).
+
+  @@unique([userId, slug])
+  @@index([userId, deletedAt])
+}
+
+// Schema only in this phase — no rows are written until Phase 02 connects a
+// repository through the GitHub App (phase-01 §3/§6).
+model GithubInstallation {
+  id             String    @id @default(uuid())
+  installationId BigInt    @unique
+  accountLogin   String
+  accountType    String
+  userId         String
+  suspendedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- Auth.js adapter tables (@auth/prisma-adapter) ---
+// Field shapes verified against the installed adapter's own source (not the docs) —
+// see docs/decisions/phase-01-log.md. `Authenticator` (WebAuthn) is deliberately
+// omitted: the adapter exposes methods for it, but they're only invoked when a
+// WebAuthn provider is configured, which this phase never does (GitHub OAuth only).
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
