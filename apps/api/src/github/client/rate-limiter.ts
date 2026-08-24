@@ -28,7 +28,9 @@ export const MAX_RATE_LIMIT_WAIT_SECONDS = 30;
 export const MAX_RATE_LIMIT_RETRIES = 2;
 
 export interface RateLimitPolicyOptions {
-  installationId: bigint;
+  /** `null` for the user-OAuth client (createUserOctokit) — there is no installation
+   * behind `GET /user/installations`. Logged as an explicit null rather than omitted. */
+  installationId: bigint | null;
   logger?: Logger;
   maxWaitSeconds?: number;
   maxRetries?: number;
@@ -49,7 +51,7 @@ export function createRateLimitPolicy(options: RateLimitPolicyOptions) {
   const logger = options.logger ?? createLogger("github.client");
   const maxWaitSeconds = options.maxWaitSeconds ?? MAX_RATE_LIMIT_WAIT_SECONDS;
   const maxRetries = options.maxRetries ?? MAX_RATE_LIMIT_RETRIES;
-  const installationId = options.installationId.toString();
+  const installationId = options.installationId === null ? null : options.installationId.toString();
 
   const decide = (kind: "primary" | "secondary", retryAfter: number, endpoint: string, retryCount: number): boolean => {
     const willRetry = retryAfter <= maxWaitSeconds && retryCount < maxRetries;

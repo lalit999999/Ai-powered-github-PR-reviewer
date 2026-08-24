@@ -46,8 +46,12 @@ export interface OctokitFactoryOptions {
  * interpolated into a message. Registered last so it observes the outcome *after* the
  * retry and throttling plugins have had their say.
  */
-function createLoggingPlugin(installationId: bigint, logger: Logger) {
-  const installation = installationId.toString();
+function createLoggingPlugin(installationId: bigint | null, logger: Logger) {
+  // `null` for the one call in the system made with a *user* OAuth token rather than
+  // an installation token (GET /user/installations) — see createUserOctokit. The field
+  // is still emitted, so a log query filtering on `installationId` sees an explicit
+  // null rather than a missing key.
+  const installation = installationId === null ? null : installationId.toString();
 
   return function loggingPlugin(octokit: Octokit): void {
     octokit.hook.wrap("request", async (request, requestOptions) => {
@@ -132,6 +136,57 @@ export function createInstallationOctokit(installationId: bigint, options: Octok
     log: {
       // Octokit's own internal logging is routed into the structured logger rather than
       // console (no-console is an error repo-wide).
+      debug: (message: string) => logger.debug(message, { source: "octokit" }),
+      info: (message: string) => logger.debug(message, { source: "octokit" }),
+      warn: (message: string) => logger.warn(message, { source: "octokit" }),
+      error: (message: string) => logger.warn(message, { source: "octokit" }),
+    },
+  });
+}
+
+export interface UserOctokitOptions {
+  logger?: Logger;
+  baseUrl?: string;
+  fetch?: typeof fetch;
+  maxRateLimitWaitSeconds?: number;
+}
+
+/**
+ * The **only** Octokit in this system authenticated as a *user* rather than as an App
+ * installation.
+ *
+ * phase-02 §9 has exactly one such call — `GET /user/installations`, which answers
+ * "which installations can this signed-in person see". That question is about the
+ * human, so an installation token cannot answer it; every other GitHub call in the
+ * product uses `createInstallationOctokit` above. Getting these two backwards is
+ * `plan.md` §45's "App installation ≠ OAuth identity" failure point wearing a
+ * different hat, which is why the two constructors are named for their credential and
+ * live side by side.
+ *
+ * No ETag cache: that cache is keyed by installation (etag-cache.ts scopes entries so
+ * one tenant's installation can never serve another's body), and there is no
+ * installation here to key on. Caching this response under the *user's* token would
+ * need a second, differently-scoped key space for one small, rarely-repeated call.
+ *
+ * The token is passed to Octokit and never logged — `logger.ts`'s redaction covers
+ * `token`/`accessToken`-shaped keys, and nothing here puts it in a log payload anyway.
+ */
+export function createUserOctokit(accessToken: string, options: UserOctokitOptions = {}): Octokit {
+  const logger = options.logger ?? createLogger(GITHUB_CLIENT_COMPONENT);
+
+  const ClientConstructor = Octokit.plugin(retry, throttling, createLoggingPlugin(null, logger));
+
+  return new ClientConstructor({
+    auth: accessToken,
+    ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+    request: options.fetch ? { fetch: options.fetch } : {},
+    retry: { doNotRetry: [304, 400, 401, 403, 404, 410, 422, 451] },
+    throttle: createRateLimitPolicy({
+      installationId: null,
+      logger,
+      ...(options.maxRateLimitWaitSeconds !== undefined ? { maxWaitSeconds: options.maxRateLimitWaitSeconds } : {}),
+    }),
+    log: {
       debug: (message: string) => logger.debug(message, { source: "octokit" }),
       info: (message: string) => logger.debug(message, { source: "octokit" }),
       warn: (message: string) => logger.warn(message, { source: "octokit" }),
