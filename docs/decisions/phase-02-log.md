@@ -867,3 +867,588 @@ Stated plainly rather than complied with silently:
 7. **§8's payload is fine, but §7 says the connect returns `{ repository: Repository }`
    — the Prisma model.** It cannot be: two columns are `BigInt` and `JSON.stringify`
    throws on those. What is returned is `RepositoryDto`, with both converted to strings.
+
+---
+
+# Phase 02 — Prompt 3 (tests, frontend, phase closeout)
+
+Records the judgment calls made implementing **Prompt 3**: the fixture harness, the
+integration and cross-tenant test extensions, the frontend, the documentation pass, and
+the manual verification this environment can actually perform. Prompts 1 and 2's
+entries above are binding for this work. This closes Phase 02 — §43 is the honest
+account of what still cannot be verified from here.
+
+## 31. Inherited baseline (verified before writing any Prompt 3 code)
+
+Every command run against the tree as inherited from Prompt 2, before a line changed:
+
+| Command | Result |
+|---|---|
+| `pnpm install` | Clean — lockfile up to date, 6 workspace projects |
+| `pnpm db:generate` | Prisma Client 7.9.1 generated |
+| `pnpm lint` | Pass, 0 errors |
+| `pnpm typecheck` | Pass — 3 tasks |
+| `pnpm test:unit` | Pass — **19 files, 346 tests** |
+| `pnpm test:integration` | Pass — **6 files, 65 tests** |
+| `pnpm build` | Pass — 3 tasks |
+| `prisma migrate status` | Up to date, 3 migrations |
+
+All five API endpoints confirmed mounted; `repository/index.requested` confirmed
+declared with no consuming Inngest function (only `noop.ts` exists under
+`apps/worker/src/inngest/functions/`). **Nothing was red.** No commit for this
+sub-task, per its own instructions.
+
+## 32. The fixture harness: nock, verified rather than assumed, and one bug it caught
+
+**nock@14.0.17 over msw** — `plan.md` §40.3 sanctions either. The deciding fact, checked
+empirically before committing to either (`tests/fixtures/github/README.md` links this
+reasoning): Node 22's global `fetch` is backed by undici, and nock's classic
+interception patches the `http`/`https` core modules, which undici's fetch
+implementation does not route through on its own. A throwaway script —
+`nock("https://api.github.com").get(...).reply(200, {...})` followed by a plain
+`fetch(...)` — was run against the installed version before writing a single fixture
+test, confirming v14 actually intercepts it (POST with header matching, GET with query-
+string matching, a `304` with no body, and `disableNetConnect()` correctly rejecting an
+unmocked request all verified directly, not from nock's changelog).
+
+**The harness runs the REAL default HTTP client**, not an injected stub — the point of
+distinguishing it from Prompt 1's existing `app-auth.test.ts` / `octokit-factory.test.ts`
+/ `github-services.test.ts`, which inject a fake `http`/`fetch` function or a stub
+`Octokit` and assert against hand-built inline response objects. Those are still the
+right tool for exhaustively enumerating edge cases (and they already did, thoroughly —
+see §34). `github-fixtures.test.ts` proves a different thing: that the default client,
+left alone, actually speaks GitHub's protocol against something shaped like a real
+response — real header casing, real query strings, a body that came from a fixture
+file on disk rather than a JS object literal in the test.
+
+**Fixtures are schema-derived, not recorded — stated plainly, not hedged.** No real
+GitHub App exists in this environment (Prompts 1/2 already established this; nothing
+changed). Every fixture was hand-built against GitHub's documented response shapes,
+with every field the code reads present and a realistic value (real-magnitude ids —
+`1296269` kept from the existing test suite's own convention for the canonical
+`octocat/hello-world` example), and is marked as such in
+`tests/fixtures/github/README.md`, which also lists exactly what a human does to
+replace them with real recordings once an App exists. This is in **§43**, not glossed
+over.
+
+**A real bug, caught by the harness itself, not by inspection:** the first version of
+`access-token-success.json` hardcoded `"expires_at": "2026-01-01T13:00:00Z"`. That was
+correct on the day it was written and silently wrong by the time the suite actually
+ran against `Date.now()` — `effectiveTtlSeconds` saw an "already expired" token, cached
+it with a `0` TTL, and the very next cache-reuse test failed with `ServiceUnavailableError`
+because there was nothing to reuse and only one nock interceptor had been registered.
+Fixed by making `expires_at` a `__EXPIRES_AT__` placeholder substituted at load time,
+the same mechanism already used for the rate-limit-reset timestamp. Recorded here
+because it is a small, concrete example of exactly the failure mode a fixture built
+from a static example (rather than recorded live) is prone to, and it is worth staying
+alert to when the real recordings eventually replace these.
+
+## 33. Sanitization vs. realism — the `ghs_` prefix tension, resolved by not using it
+
+Sub-task 3.1 asks for two things that are in direct tension for one specific field: a
+`token` value that is realistic (GitHub's real installation tokens are `ghs_` plus 36
+base62 characters), and a sanitization check that fails a fixture containing anything
+shaped like `ghs_`. A fixture built to look realistic on that one field would trip its
+own guard.
+
+**Resolved by not chasing realism on that one field.** `access-token-success.json`'s
+`token` is `"FIXTURE-INSTALLATION-TOKEN-DO-NOT-USE"` — no real GitHub prefix at all.
+The code under test only cares that `body.token` is a non-empty string; it never
+inspects the prefix. This keeps the sanitization check a **blunt, simple prefix match**
+(exactly what sub-task 3.1 asked for — `ghs_`, `ghp_`, `gho_`, `ghu_`, `ghr_`,
+`github_pat_`, `-----BEGIN`), rather than a "does this look like a REAL secret, as
+opposed to a fixture that merely resembles one" heuristic, which is a much harder
+problem to get right and the kind of thing that silently rots. The alternative — giving
+the check a length/entropy threshold so a short obviously-fake string could keep the
+`ghs_` prefix — was considered and rejected: it makes the guard's own logic the thing
+most likely to have a bug, for a cosmetic gain.
+
+The sanitization test is scoped to `apps/api/tests/fixtures/github/*.json` specifically,
+not the whole repository — the pre-existing inline fixture tokens in
+`app-auth.test.ts`/`octokit-factory.test.ts` (`"ghs_thisisafakeinstallationtokenvalue"`,
+already Prompt 1's work, already fine) are a different kind of artifact (inline test
+literals, not the fixture corpus sub-task 3.1 asks to guard) and were not touched.
+
+## 34. GitHub client fixture tests (sub-task 3.2) — mostly already there; the gap was small
+
+Before writing anything, the existing coverage was read in full
+(`app-auth.test.ts`, `octokit-factory.test.ts`, `github-services.test.ts` — all Prompt
+1's work). It already covered, thoroughly, against injected stubs: token cache reuse
+with hit/miss logging, the exact 49:59/50:01 expiry boundary, a mint-level rate limit
+failing fast as `GithubRateLimitError`, an ordinary-call rate limit scheduling a retry
+through the real `@octokit/plugin-throttling`, ETag `304` handling, pagination past 100
+for both installation-listing endpoints, a 401 mint never retried, a 5xx retried to the
+cap with a clean error, and the token never appearing in any log line across every
+path. Re-testing all of that against fixtures too would have been the bulk of the work
+for very little new confidence.
+
+So `github-fixtures.test.ts` (added on top of the harness commit) exists to prove two
+things the existing suite could not, by construction: (1) that the **real** default
+HTTP client — not an injected one — carries all of the above correctly, and (2) that
+each of the five `GET /repos/{owner}/{repo}` fixture variants sub-task 3.1 names by name
+(normal, ambiguous-empty-with-probe, oversized, private-no-access, fork with an unusual
+default branch) maps through `getRepository`/`probeBranch` correctly. A "full chain" test
+(mint a token from a fixture → build an Octokit with it → fetch a repository, also from
+a fixture, asserting the SAME token value reaches the `Authorization` header on the
+second call) is the one test in this file with no equivalent anywhere else — it is the
+thing a fixture harness is for that a collection of per-layer unit tests, however
+thorough, cannot show on its own: that the layers actually compose.
+
+**"Token never persisted"** — the one item in sub-task 3.2's table not covered here —
+needs a real Postgres, so it lives in the integration suite instead; see §35.
+
+**On timing, followed literally:** every test in `github-fixtures.test.ts` uses an
+injected `sleep`/`now`, or — for the one case inside `@octokit/plugin-throttling`'s own
+Bottleneck-backed scheduler, which cannot be handed an injected clock without
+reimplementing the plugin — an `x-ratelimit-reset` set a few seconds in the **past**.
+Read from the installed `@octokit/plugin-throttling@11.0.5`'s own source
+(`dist-src/index.js`): the computed wait is
+`Math.max(Math.ceil((resetMs - now) / 1000) + 1, 0)`, so a reset several seconds in the
+past clamps to `0` — the retry is real, goes through the real plugin, and costs no wall
+time. The whole file runs in well under half a second. This is worth contrasting with
+the **pre-existing** `octokit-factory.test.ts`'s rate-limit test (Prompt 1), which uses
+a reset one second in the *future* and genuinely sleeps for it — that file's two
+slowest tests take ~1s and ~2s respectively. Not fixed here (it was not this sub-task's
+file, and touching Prompt 1's tests was not asked for), but flagged: it is exactly the
+"flakiest test in six months" pattern sub-task 3.2 warned against, and the fix (a
+past-dated reset, matching the technique above) is a one-line change whenever someone
+next touches that file.
+
+## 35. Integration tests (sub-task 3.3) — GitHub mocked at the services boundary, not with nock
+
+`repositories.test.ts` mocks `github/services/installation.github.js` and
+`repository.github.js` with `vi.mock`, the same boundary `emit.js` is already mocked at
+in `projects.test.ts` — not `nock`. Deliberate: the GitHub *client* (retry, rate
+limiting, ETag caching, token minting) already has its own dedicated, thorough fixture
+suite (§32/§34); re-exercising it through a real HTTP layer here as well would mean
+every integration test also carries the client's own concerns, coupling two suites
+that should be able to fail independently and pointing at different things when they
+do. What this suite tests instead — the thing nothing else does — is the route →
+controller → service → repository → **real Postgres** pipeline: tenancy resolution,
+the `(projectId, githubRepoId)` composite key under real concurrency, the 409
+pre-check-plus-constraint pattern actually holding against the database, and the DTO
+boundary actually serializing (§15's "does not leak installationId/githubRepoId as
+anything but decimal strings" is asserted against a real HTTP response body, not a
+unit-level DTO mapper).
+
+**`tests/integration/repository-helpers.ts`** is new, mirroring `auth-helpers.ts`'s
+role: `seedInstallation` writes a `GithubInstallation` row **directly via Prisma**,
+not through `GET /api/github/installations`'s sync route. That route's own
+correctness is not what this suite is testing — `repository.service.connectRepository`
+only ever reads the *stored* rows — so seeding them directly keeps this suite decoupled
+from the sync flow, the same reasoning `seedSignedInUser` already uses for `Session`
+rows instead of running the OAuth dance. `githubRepoMetadata` is a small factory for a
+realistic `GithubRepositoryMetadata`, and `assertNoTokenPersisted` scans every
+`Repository`/`GithubInstallation` column value (serialized once, with a `BigInt`-safe
+replacer) for anything shaped like a real token — meaningful even though this suite's
+GitHub layer is mocked and never mints one: it is a **structural** assertion that the
+schema itself has nowhere a token could land, not merely that this particular test run
+didn't write one.
+
+**Every required case from the sub-task's table passed on the first real run against a
+Testcontainers Postgres** — no backend bug was found while writing this file. The
+23 (later 24, once the `installUrl` positive-path test was added — see §37) cases,
+including the concurrency test (`Promise.all` of two identical connects), the
+dual-project case, and the idempotent-DELETE case, are exactly what phase-02 §14/§15
+ask for.
+
+## 36. Cross-tenant extension (sub-task 3.4) — extended in place, and one test-design bug caught by the suite itself
+
+`cross-tenant.test.ts` was extended, not forked, per the sub-task's explicit
+instruction and the file's own header ("written now, extended forever"). Three new
+`describe` blocks: repository access (404 on every route, including the
+"foreign-vs-nonexistent produce byte-identical responses" no-oracle check this file's
+pattern already established for projects), GitHub installations (the 403 exception for
+an installation id user B does not own, confirmed via `installationGithub.listInstallationRepositories`
+never being called), and the dual-project case — the one sub-task 3.4 calls out as
+"the one that catches the real bug."
+
+**Two test-design bugs, both caught by the suite itself on the first run, neither a
+backend bug:**
+
+1. `beforeEach` connects a repository for user A as shared setup (mirroring how
+   `projectOfA` is already unconditionally created for every test in this file). The
+   FIRST version of the "POST rejects before any GitHub call" test asserted
+   `getRepository` was never called — and failed, because the mock's call history from
+   *setup's own* connect call was still there. Fixed with an explicit `mockClear()`
+   (history only, not queued implementations) at the end of `beforeEach`, after setup's
+   own use of the mock completes.
+2. The first version of "user B's installations list only contains user B's own"
+   mocked `listUserInstallations` to return an **empty** array for B, expecting the
+   already-directly-seeded `installationOfB` row to show up anyway. It didn't —
+   `repository.service.syncInstallations` returns what *that sync call* found, not a
+   raw re-read of every stored row (`repositoryService.listInstallations`, the
+   store-only-read function, exists but the controller does not call it — see §37 for
+   why that is correct behavior, not a bug). In production this distinction is
+   invisible, because `listUserInstallations` always returns GitHub's complete,
+   fully-paginated current list — a sync genuinely finding *nothing* for an
+   installation that still exists is not a real scenario. Fixed by having the mock
+   **confirm** B's already-seeded installation (matching what would actually happen),
+   which is also the more honest test of the scoping property: A's installation is
+   never in B's mocked GitHub response and never in B's response, for the right
+   reason.
+
+**On the FOREIGN vs MISSING log-content assertion**, sub-task 3.4's explicit ask: not
+duplicated here. `src/lib/auth/tenant-access.test.ts` (Prompt 2) already asserts the
+exact `{projectId, userId, reason, repositoryId}` payload for FOREIGN, MISSING,
+DELETED, and MISMATCH on the repository path, by mocking `createLogger` directly —
+`requireTenantAccess`'s logger is a module-level constant, not an injectable
+parameter, so there is no seam to swap it through at the integration layer the way
+`github-fixtures.test.ts` swaps a pino instance into `createInstallationTokenService`.
+The alternative (spying on real stdout) would race pino's own asynchronous
+`sonic-boom`-backed writes rather than proving anything reliable. This file instead
+proves the same distinction the way an HTTP test honestly can: every case gets the
+identical 404 regardless of which internal reason produced it, and the database is
+asserted unchanged — the caller-visible half of the contract, which is what an
+integration test is actually positioned to verify. Recorded here, not silently
+substituted, per this prompt's own rule about being explicit rather than quietly doing
+something else. See also §44.4.
+
+## 37. The install-URL decision, confirmed: the API returns it
+
+Sub-task 3.5 asked for a decision between a `NEXT_PUBLIC_GITHUB_APP_SLUG` in
+`apps/web` and returning the install URL from the API. **The API returns it** —
+`GET /api/github/installations`'s response gained `installUrl`, built in
+`github.controller.ts` from `env.GITHUB_APP_SLUG` (already validated at `apps/api`
+boot; cannot be built from an unset value). No new `apps/web` environment variable was
+added. Reasoning, as the sub-task's own text already argued and this implementation
+confirms: a slug duplicated into two `.env` files across two deploy targets drifts
+silently, and the failure mode — a dead install link — is not one anyone notices
+quickly, whereas a value read once at the API's own already-validated boot has exactly
+one place it can be wrong.
+
+**A secondary, smaller decision inside sub-task 3.5:** `listInstallations()` in
+`apps/web/src/lib/api.ts` treats a `401` from `GET /api/github/installations` as a
+typed `{ ok: false, reason: "UNAUTHENTICATED" }` result, not a throw. This 401 is real
+and distinct from an invalid *session* (which never reaches this call —
+`(app)/layout.tsx` already redirected before this page renders): it means the user's
+stored GitHub OAuth token is missing or was revoked
+(`repository.service.ts`'s `syncInstallations`), which is an expected, actionable
+state, not a crash. `ProjectDetailPage` renders it as an inline alert
+("Your GitHub sign-in needs to be refreshed — sign out and back in") instead of letting
+it fall through to `apps/web/src/app/error.tsx`'s generic boundary. Verified live: see
+§40.
+
+## 38. Frontend architecture — server-fetched, client-interactive, and one lint rule that changed a hook's shape
+
+Every list this phase's UI needs (`installations`, `repositories`) is fetched
+**server-side** in `ProjectDetailPage` — same discipline `apps/web/src/lib/api.ts`'s
+own header already states (`cache: "no-store"`, because a cached cross-tenant response
+is a leak) and the same pattern `listProjects`/`getProjectDetail` already established.
+`InstallationsPanel`'s "Refresh" button does not fetch client-side; it calls
+`router.refresh()`, which re-runs the server component and, with it, the real
+GitHub-sync — which is the correct behavior for a control whose entire job is "do the
+sync again." `ConnectRepositoryDialog` receives the same server-fetched
+`installations` array as a prop rather than re-fetching it, so opening the dialog can
+never show a different installation list than the page around it already does.
+
+The **picker's search** is the one place this phase's UI *does* fetch client-side
+(`fetch` directly against `API_URL`, `credentials: "include"`, matching
+`create-project-dialog.tsx`'s established pattern) — it has to, since it is debounced,
+interactive, and scoped to whichever installation is currently selected in the dialog,
+none of which a server component can drive.
+
+**`react-hooks/set-state-in-effect`** (from the installed `eslint-plugin-react-hooks@7.1.1`,
+part of the React Compiler-era rule set `eslint-config-next` 16 now ships) flagged the
+picker's first draft: `setReposLoading(true)` / `setReposError(null)` called
+synchronously at the top of the search effect, before the `fetch`. The fix was not a
+suppression — it was restructuring so that no `setState` call happens synchronously in
+the effect body at all: `queryResult` is written only from inside the fetch's own
+`.then()`/`.catch()` callbacks, tagged with the query key it resolves; "loading" is
+then a **derived** comparison (`queryResult?.key !== currentKey`) rather than its own
+piece of state, true by construction until a result for the *current* key has actually
+landed. Recorded because it is a genuine, fairly recent React-ecosystem constraint —
+not obvious from the phase document or from general React knowledge predating the
+React Compiler's linting — and the pattern (derive "in flight" from a tagged
+last-result rather than toggling a boolean at the top of an effect) is the one to reach
+for again if a later phase's UI needs another debounced-fetch picker.
+
+**Where the "install entry point" lives** was a judgment call, not specified by the
+phase document beyond §18's file list (which names only the existing project detail
+page, no new route). Built as a section on `ProjectDetailPage` (`InstallationsPanel`,
+above the repositories `Card`) rather than a standalone settings page — matching §18
+literally, and because there is nowhere else in this phase's scope a user would
+naturally look for it. A dedicated `/settings/github`-style page is a reasonable future
+evolution once there is more than one thing to put on it, but nothing in this phase
+needs it yet.
+
+## 39. Bugs found and fixed during this prompt's testing
+
+**None in Prompt 1 or 2's backend code.** Every required case in §14/§15 — the four
+distinct invalid-connection errors, the 409 pre-check and its unique-constraint
+backstop under real `Promise.all` concurrency, the dual-project case, idempotent
+disconnect, the cross-tenant 404s and the installation-403 exception — passed against
+a real Testcontainers Postgres on the first run of each new test file. The live smoke
+pass in §40 (hitting the actually-running `apps/api` process, not a test harness)
+reproduced Prompt 2's own §28 results exactly, including the same three-attempt
+250ms/500ms backoff on a fake private key. This is stated plainly because it is the
+honest outcome, not because it was expected going in — sub-task 3.3's own instructions
+note that tests "will find backend bugs" as the reason they come before the frontend;
+this time they didn't, and that is worth recording rather than silently omitting.
+
+Three issues *were* found and fixed, all in work written during this prompt itself,
+not inherited:
+
+1. A stale hardcoded `expires_at` in a fixture (§32).
+2. Two test-design bugs in the cross-tenant extension — a leaked mock call count, and
+   an unrealistic empty-sync mock (§36).
+3. A lint-rule incompatibility in the picker's first draft (§38).
+
+None of these reflect on Prompt 1/2's code; all three are corrected in the commits
+that introduced them, not left as caveats.
+
+## 40. Manual verification — what this environment could actually do
+
+Run against `docker compose` Postgres + Redis, `apps/api` on :4000 (restarted mid-pass
+specifically to pick up `INNGEST_DEV=1`, added to `apps/api/.env` — see §43), `apps/web`
+on :3000, `apps/worker` on :4500, and the Inngest Dev Server on :8288, with a
+throwaway seeded `User` + `Session` + `Project` + `GithubInstallation` created and
+destroyed via Prisma directly (never committed; cleaned up after each pass;
+`docker exec redisdb redis-cli ping` confirmed `PONG` throughout). The `.env` GitHub
+App credentials are Prompt 1's placeholders — not a real key — so, as in Prompt 2's own
+§28, every real GitHub call was guaranteed to fail; what was being proven is that each
+failure reaches the GitHub layer and comes back as a distinct, correctly-shaped error,
+never a 500 or a hang.
+
+phase-02 §14's Manual Verification steps, walked as far as this environment allows:
+
+| # | Step | Result |
+|---|---|---|
+| 1 | Install the App on a test account with 2–3 repos | **Blocked** — no real GitHub App exists here (unchanged from Prompts 1/2) |
+| 2 | Connect one repository; confirm `indexStatus=PENDING` | **Done, with a caveat.** The full HTTP → validation → GitHub-client chain was exercised live and correctly fails at the GitHub layer (403/503, matching Prompt 2's §28) since there is no real App to succeed against. A **successful** connect — through the real UI, against a real repository — was proven by (a) the automated integration suite (98 tests, real Postgres, GitHub mocked) creating a real `PENDING` row through the real HTTP stack, and (b) directly seeding a `Repository` row and confirming, live, that the project page renders it correctly ("Waiting to be indexed", correct badges, correct disconnect action) — see §41 for what the seeded-vs-real distinction does and does not prove |
+| 3 | Connect a repository the installation lacks access to (by id); confirm 403 | **Done** for the URL-owner-mismatch case, live (`someone-else/their-repo` → 403 `NO_ACCESS_MESSAGE`); done for the id-path and the GitHub-reports-inaccessible case via the fixture and integration suites. Real GitHub returning a genuine 404-for-a-repo-it-can't-see is unreachable without a real installation |
+| 4 | Connect an empty repository; confirm 422 | **Done via the fixture and integration suites** (both the unambiguous and the ambiguous-with-probe cases); unreachable live without a real empty GitHub repository |
+| 5 | Connect the same repository to the same project twice; confirm 409 | **Done via the integration suite**, including under real `Promise.all` concurrency against a real unique constraint |
+| 6 | Connect the same repository to two different projects; confirm both succeed | **Done via the integration and cross-tenant suites** — including the dual-project case across two different *users*, which is the stricter version of this check |
+| 7 | Disconnect a repository; confirm `connectionStatus=DISCONNECTED` and it leaves the active list | **Done live**: seeded a repository, curled `DELETE` against the running server, confirmed the row's `connectionStatus` and its disappearance from `GET /api/projects/:id`'s `repositories` array, confirmed a repeat `DELETE` is still `202` and does not move `updatedAt` again |
+
+**What "done live" does and does not prove**, stated once rather than repeated seven
+times above: it proves the code path from an HTTP request through the real running
+Express process, the real Postgres, and (for the failure cases) the real GitHub client
+attempting real cryptographic operations against a fake key — genuinely more than an
+automated test proves, since it is the actual server binary rather than a test harness
+importing the app. It does **not** prove anything about real GitHub's actual wire
+behavior, because nothing in this environment can reach real GitHub. Both halves
+matter and neither should be read as standing in for the other.
+
+**Frontend, at the SSR level** (no browser available this session — see §43): the
+project detail page was fetched with `curl` using a real session cookie, for both a
+user with no stored GitHub OAuth token (confirming the graceful 401 alert from §37
+renders, not a crash) and a user with a seeded, connected repository (confirming the
+repository card, its badges, its "Waiting to be indexed" caption, and the disconnect
+button all render with the right data, and that the "Connect repository" button
+carries `disabled=""` and the correct `title` when there are zero installations). A
+signed-out request to `/projects/:id` was confirmed to 307-redirect to `/signin`. What
+this does **not** prove: client-side interactivity (opening the dialog, typing in the
+search box, the debounce actually firing, clicking through to a successful connect) or
+the absence of a hydration warning, since neither is observable without a browser and
+none was available this session (the user declined the Claude-in-Chrome connection).
+
+## 41. Inngest verification (§14 External Service Verification, §8's acceptance signal)
+
+Confirmed via the Inngest Dev Server's own APIs, not by reading the code:
+
+- `PUT http://localhost:4500/api/inngest` → `{"message":"Successfully registered","modified":false}`;
+  `GET` on the same URL → `{"function_count":1,...}`.
+- The Dev Server's GraphQL API confirms one app, `gitprreviewer-worker`, with
+  `functionCount: 1` — matching "the app registers with exactly one function."
+
+**No real successful connect happened in this environment (§40), so the event was not
+observed arriving from a real connect.** Per this prompt's own instruction for exactly
+this situation, the actual production `emitRepositoryIndexRequested()` function
+(`apps/api/src/inngest/emit.ts`) was called **directly**, with the same environment the
+live `apps/api` process uses, with a realistic payload — not a hand-crafted raw event
+posted at the Dev Server. This is stated here as plainly as it needs to be: **the event
+below was triggered manually, by calling the real emit function from a script, not by
+a real repository connect.**
+
+`GET http://localhost:8288/v1/events?limit=5` returned:
+
+```json
+{
+  "name": "repository/index.requested",
+  "data": {
+    "mode": "FULL",
+    "projectId": "manual-verification-project-id",
+    "reason": "connected",
+    "repositoryId": "manual-verification-repository-id"
+  }
+}
+```
+
+— matching phase-02 §8's payload contract exactly (`{projectId, repositoryId, mode,
+reason}`), and `GET /v1/events/{id}/runs` on that event returned **0 runs**, confirming
+no consumer exists — exactly what §8 requires this phase to show.
+
+## 42. What Phase 03 inherits
+
+- A `Repository` row model whose only reachable state this phase produces is
+  `indexStatus=PENDING`, `connectionStatus=ACTIVE` — verified structurally (DB
+  constraints, the unique-constraint-backed 409) and, for the one row this environment
+  could produce without a real GitHub App, empirically (§40 step 7's seeded-and-then-
+  disconnected row).
+- The full `IndexStatus` enum, with only the first transition exercised — Phase 03 owns
+  `PENDING → INDEXING → INDEXED/FAILED` and beyond.
+- The GitHub client (`app-auth.ts`, `octokit-factory.ts`) — now proven, in addition to
+  Prompt 1's stub-based coverage, against a fixture harness running the real default
+  HTTP client. Reuse it; do not construct a second Octokit anywhere.
+- `tests/fixtures/github/` and its loader pattern (`loadFixture` with `__PLACEHOLDER__`
+  substitution) — reusable for any later phase's own GitHub-fixture needs, with the
+  same schema-derived-not-recorded caveat until a human replaces them (§43).
+- The `repository/index.requested` contract, now confirmed to round-trip through a
+  real (locally running) Inngest Dev Server with the exact documented payload shape.
+- **The un-awaited emit** (`repository.service.ts`'s `connectRepository`, §20 above) —
+  Prompt 2 already flagged this as the thing to revisit once `repository-index` exists
+  and delivery starts mattering; nothing in Prompt 3 changed that calculus, and nothing
+  here makes it more urgent than Prompt 2 already said it was.
+- **The noop function's deletion** — still Phase 03's, for the same reason Prompt 2
+  gave (§21): it is currently the only proof the worker is discoverable at all, and
+  `repository-index` is what should replace it, not an empty function list.
+- `apps/web/src/lib/api.ts`'s `getRepository(id)` — built per sub-task 3.5's explicit
+  ask, not yet called from any page (there is no single-repository route in this
+  phase's scope). Whoever builds one — plausibly Phase 03, to show indexing progress —
+  has the typed call already waiting.
+- A frontend pattern worth reusing rather than rediscovering: server-fetch the list,
+  pass it as a prop into any dialog that needs it, mutate through a direct
+  `credentials: "include"` fetch, and call `router.refresh()` on success rather than
+  managing local list state. Every component this phase added follows it.
+
+## 43. Outstanding — requires human action
+
+Supersedes §14 and §29. Everything those sections listed is **still outstanding**
+except where marked done below — none of it could be completed from this environment,
+and Prompt 3 does not change that.
+
+- [ ] **No real GitHub App has been registered.** `docs/github-app-setup.md` remains an
+      unwalked runbook.
+- [ ] **No real installation exists, and no repository has ever been connected against
+      real GitHub.** §40 is the most this environment can do: the full code path
+      exercised live against a fake key, and the success path proven through automated
+      tests plus a directly-seeded row's rendering. Neither substitutes for an actual
+      end-to-end connect in staging, which §16's Definition of Done explicitly
+      requires and which is **still not done**.
+- [x] **`INNGEST_DEV` set in `apps/api/.env`** — done, but **only in this local
+      environment's untracked `.env` file**, which does not propagate anywhere. Every
+      other clone, every CI run (if CI ran, which it does not — see below), and every
+      staging/production environment still needs this set independently, per
+      `.env.example`'s own comment and README's now-corrected Inngest section.
+- [ ] **Replace the schema-derived fixtures in `tests/fixtures/github/` with real
+      sanitized recordings**, once a real App and installation exist. The fixtures'
+      own README lists the exact steps. Treat any test that then needs to change as
+      the interesting finding, not a nuisance — it means this phase's assumptions
+      about GitHub's actual response shape were wrong somewhere.
+- [ ] **CI still does not run anything in this phase** — `.github/workflow/ci.yml` is
+      in a directory GitHub never reads (`workflow`, not `workflows`) and is entirely
+      commented out. Unchanged since Prompt 1 flagged it in §13; still not fixed, per
+      this prompt's own explicit instruction to flag rather than silently fix it.
+      **Nothing in Phase 02 — any of the three prompts — has been verified by CI.**
+- [ ] **`pnpm format:check` still fails** — 186 files now (152 at the end of Prompt 2;
+      the growth is every file this prompt added, all matching their neighbours'
+      ~100-column style rather than the broken 80-column fallback the misconfigured
+      `prettier.config.js` produces). Same root cause Prompt 1 diagnosed in §13, same
+      recommended fix (rename `prettier.config.js` → `.cjs`, or fold `printWidth: 100`
+      into `.prettierrc` and delete it, then run `pnpm format` as one isolated commit),
+      still deliberately not performed — it is a repo-wide reformat with a larger and
+      riskier diff than anything in this phase, and was out of this prompt's scope.
+- [ ] **No staging environment exists** (outstanding since Phase 00). §16's Definition
+      of Done requires a real GitHub App installed on a real account with a repository
+      connected end-to-end **in staging** specifically — not merely "somewhere a real
+      App exists." Nothing in this phase satisfies that.
+- [ ] **Full browser verification was not performed.** §40's SSR-level check (curl plus
+      a real session cookie) confirms the server-rendered output is correct and free
+      of the error markers a crash would leave, but proves nothing about client-side
+      hydration, the picker's actual keyboard navigation, or the debounced search
+      firing correctly in a real browser. The Claude-in-Chrome connection was offered
+      and declined for this session.
+- [ ] **Token caching against real GitHub is still unverified** — Prompt 1's boundary
+      tests and this prompt's fixture harness both prove the *logic* is correct against
+      a fake or a schema-derived response; neither is real GitHub confirming that two
+      calls in quick succession genuinely reuse one token, or that a call past 50
+      minutes genuinely re-mints, against the real service.
+- [ ] **The App has never been revoked on GitHub's side.** The `GithubAccessRevokedError`
+      path is thoroughly tested (unit, fixture, and — via a fake key producing a
+      network-layer failure rather than a real 401 — indirectly live), but "revoke a
+      real installation and watch the next mint attempt get classified correctly" needs
+      a real installation to revoke.
+
+## 44. Where the phase document — or this prompt's own instructions — were wrong or under-specified
+
+Continuing Prompt 2's §30 numbering context rather than restarting it, but kept as its
+own list since these are Prompt 3's own findings:
+
+1. **Sub-task 3.4's log-content assertion assumes a seam that does not exist.**
+   "Assert the denial warn log lines carry the right reason" implicitly assumes
+   `requireTenantAccess`'s logger can be swapped or captured at the integration-test
+   layer the way the GitHub client's can. It cannot — `tenant-access.ts`'s logger is a
+   module-level constant, and the only alternative (spying on real stdout) races
+   pino's own async writer. The assertion already exists, precisely, at the unit level
+   (`tenant-access.test.ts`, Prompt 2's work) — §36 explains the substitution made
+   here instead. Worth deciding, if this pattern recurs in a later phase's prompt,
+   whether tenant-access's logger should become injectable the way the GitHub client's
+   already is, purely to make this class of assertion possible at the integration
+   layer — not done here, since it was not asked for and touches Prompt 1/2's file.
+2. **Sub-task 3.1/3.3's fixture realism and sanitization requirements conflict on
+   exactly one field** (the minted token's value) — resolved in §33, but the prompt
+   text does not anticipate the conflict, and a less careful reading could have ended
+   with a fixture that trips its own guard, or a guard quietly weakened to let it
+   through.
+3. **§16's Definition of Done ("a real GitHub App installed... with a repository
+   successfully connected end-to-end in staging") was, realistically, never
+   achievable by any of this phase's three prompts** — no staging environment has
+   existed since Phase 00, and nothing in Phase 02's scope stands it up. Phase 01's
+   own decision log already flagged the staging gap; Phase 02 inherits it unchanged
+   and this Definition-of-Done item was effectively unmeetable from the first prompt
+   onward. Not a flaw introduced by Phase 02, but worth saying plainly rather than
+   let a DoD table quietly mark it "done" by proximity to everything else that is.
+4. **§18's file list is the only place the frontend's structure is specified**, and it
+   names no new route — which is what §38 leans on for "the install entry point lives
+   on the project page, not a new settings page." A phase document that wants a
+   specific IA decision here should say so; this one left it inferrable but not
+   explicit, and a different, equally defensible implementation (a standalone
+   `/settings/github` page) was available and rejected only by inference from §18.
+
+## 45. Commits in this prompt
+
+| Commit | Sub-task |
+|---|---|
+| `32ad3e5` | Sanitized GitHub API fixtures and mocking harness |
+| `5eb4794` | GitHub client fixture tests for caching, retry, and rate limits |
+| `cf5d6c8` | Repository connect integration tests |
+| `f91d73f` | Cross-tenant test extension for repositories |
+| `9d56cb3` | GitHub App install entry point and installations list |
+| `bbe82d6` | Repository picker, connect dialog, and repository card |
+| `0aa0213` | Setup, deployment, and environment documentation |
+
+(This closeout commit follows.)
+
+## 46. Acceptance criteria and Definition of Done — the final walk
+
+Nothing below is marked "met" that was not actually observed — see §40/§41 for what
+"observed" meant in each case in an environment with no real GitHub App and no staging.
+
+### §15 Acceptance Criteria
+
+| # | Criterion | Status | Basis |
+|---|---|---|---|
+| 1 | User can install the App and see installations listed | **Met with caveat** | UI built and SSR-verified (empty state, error state, list rendering, the install link's URL structure); the real GitHub install click-through is unverified — no App exists |
+| 2 | User can search and select a repository from the picker | **Met with caveat** | Picker built, typechecked, built, SSR-rendered; interactive search/selection unverified — no browser available this session |
+| 3 | Connecting a valid repository creates `indexStatus=PENDING` | **Met** | Integration tests (real Postgres) + a live seeded-and-rendered row |
+| 4 | Four invalid-connection cases produce distinct errors | **Met** | Integration tests + live curl smoke pass, all four codes/messages confirmed distinct |
+| 5 | Same repository, two different projects, independently | **Met** | Integration test + cross-tenant test (the stricter cross-*user* version) |
+| 6 | Same repository twice, same project → 409, no duplicate | **Met** | Integration test, including under real concurrency |
+| 7 | Disconnect sets `connectionStatus=DISCONNECTED` | **Met** | Integration tests + a live `DELETE` against the running server |
+| 8 | Installation tokens never persisted or logged | **Met** | Unit tests (every success/failure path, both client-layer suites) + integration structural scan (`assertNoTokenPersisted`) |
+| 9 | `repository/index.requested` emitted with correct payload | **Met** | Unit test + integration assertion + a real (manually triggered) event observed in the Inngest Dev Server with the exact documented shape |
+| 10 | User B cannot view/connect/disconnect User A's repositories | **Met** | `cross-tenant.test.ts`, extended this prompt, fully green |
+
+### §16 Definition of Done
+
+| Item | Status | Basis |
+|---|---|---|
+| Code: registration doc, `app-auth.ts`, `octokit-factory.ts`, validation service, `connect()`, all routes, connect UI | **Met** | All present; UI added this prompt |
+| DB migrations: `Repository` migrated cleanly; `GithubInstallation` populated on install | **Met with caveat** | Migration clean (`migrate status` confirmed repeatedly); population logic proven correct by tests and direct verification, never by a real GitHub install webhook/sync |
+| Tests: all §14 items green, including extended cross-tenant | **Met with caveat** | Every automatable item is green (99 integration + 377 unit tests); the manual-verification items requiring real GitHub (§14 steps 1, and the real-GitHub half of 3/4) are blocked, not green — see §40's table |
+| Environment variables: GitHub App credentials documented (§19) | **Met** | `.env.example`, `github-app-setup.md`, `deployment.md` |
+| Documentation: permission rationale for customers | **Met** | `docs/github-app-permissions.md`, verified against the setup runbook this prompt |
+| Observability: `installationId`/`repositoryId` on every log line | **Met** | Verified against real emitted output (§40), not only against the code |
+| Verification: real App, real install, repository connected end-to-end **in staging** | **Requires human action** | No staging environment exists (outstanding since Phase 00); no real App is registered. Cannot be met from this or any prior prompt's environment |
