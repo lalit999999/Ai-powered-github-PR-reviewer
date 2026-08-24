@@ -449,3 +449,421 @@ have meant committing that sub-task with its own named failure point untested.
 - **There is still no 422 error class.** Prompt 2's sub-task 2.5 adds it.
 - Rule A now also blocks routes/controllers from importing `apps/api/src/github/**`
   directly. Go through a module service.
+
+---
+
+# Phase 02 — Prompt 2 (backend services, tenancy, API)
+
+Records the judgment calls made implementing **Prompt 2**: the module services, the
+tenancy extension, the routes, and the event contract. Prompt 1's entries above are
+binding for this work; entries here are binding for Prompt 3.
+
+## 17. Inherited baseline (verified before writing any Prompt 2 code)
+
+Every command run against the tree as inherited from Prompt 1, before a line was
+changed:
+
+| Command | Result |
+|---|---|
+| `pnpm install` | Clean — "Already up to date", 6 workspace projects |
+| `pnpm db:generate` | Prisma Client 7.9.1 generated to `packages/db/src/generated` |
+| `pnpm lint` | Pass, 0 errors |
+| `pnpm typecheck` | Pass — 3 tasks (`api`, `web`, `worker`) |
+| `pnpm test:unit` | Pass — **13 files, 170 tests** |
+| `pnpm test:integration` | Pass — **6 files, 65 tests** (Testcontainers Postgres) |
+| `pnpm build` | Pass — 3 tasks |
+| `prisma migrate status` | "Database schema is up to date!", **3 migrations** found |
+
+`Repository` and `IndexStatus` are present in the generated client
+(`packages/db/src/generated/models/Repository`, `enums.ts`), and
+`apps/api/src/github/client/` contains `app-auth.ts`, `octokit-factory.ts`,
+`token-cache.ts`, `etag-cache.ts`, `rate-limiter.ts`, and `redis.ts`. **Nothing was
+red.**
+
+One correction to §0's numbers above, worth noting because the decision log is the
+place these are supposed to be accurate: §0 records the pre-Phase-02 integration suite
+as "6 files, 58 tests". It is 65 as of Prompt 1's final commit — Prompt 1's own
+`db.test.ts` additions account for the difference.
+
+`prisma migrate status` must be run with `DATABASE_URL` overridden to the local
+docker-compose Postgres (`postgresql://postgres:postgres@localhost:5432/dev`, the
+`POSTGRES_DB: dev` from docker-compose.yml). `packages/db/.env` still points at a live
+Neon database — §13's foot-gun, unchanged and still live.
+
+## 18. 403 vs 404 — re-opened by phase-02 §7, and the answer did not change
+
+phase-02 §7 lists **403** as a possible error for `GET`/`DELETE /api/repositories/:id`.
+phase-01-log §16 had already settled — deliberately — that a foreign resource returns
+**404**, because a 403 is an enumeration oracle. These conflict. The resolution, now
+written into `tenant-access.ts`'s doc comment so it survives:
+
+**Tenancy failures stay 404.** A repository that is missing, foreign, mismatched, or
+under a soft-deleted project → `404 NOT_FOUND`, with the message `"Project not found"`
+— not `"Repository not found"`, because even naming the resource type confirms that the
+id names a repository. The distinction survives only in the `warn` log line
+(`MISSING` | `FOREIGN` | `DELETED` | `MISMATCH`).
+
+**403 is reserved for the genuinely different case in §12**: the caller *provably owns
+the project* and is being told the **GitHub App** cannot reach the repository they
+named. That is not a leak — the user supplied the repository themselves, by typing its
+URL or picking it out of their own installation's list — and it is the only actionable
+answer ("check your installation settings"). It is raised by
+`repository-validation.service`, never by the tenancy check. This is exactly what
+`ForbiddenError`'s existing doc comment in `errors.ts` reserved it for.
+
+`MISMATCH` is a new `DenialReason`: the caller named both a `projectId` and a
+`repositoryId` and they disagree. It is a denial rather than a silent preference for
+one — trusting the repository's own `projectId` would let a handler operate on a project
+the request did not name.
+
+## 19. The installation-403 exception (sub-task 2.8)
+
+`GET /api/github/installations/:id/repos` answers **403** for an installation the caller
+does not own, per §7. That looks like an inconsistency with §18 and is not. The
+reasoning, also written into `github.controller.ts`:
+
+- An installation id is a **GitHub-global integer the user can already read on
+  github.com** — it is in the URL of their own installation settings page and in the
+  install-flow redirect. Confirming that an id names an installation reveals nothing
+  GitHub does not reveal directly.
+- It is **not this system's identifier**. There is no per-tenant id space to enumerate;
+  the ids exist whether or not this product ever saw them.
+- What is actually protected — the *repository names* the installation can see — stays
+  protected: the listing is only ever fetched for an installation the caller owns, and
+  that check is server-side (`GithubInstallation.userId`), never trusted from client
+  input (§13).
+
+A project id has none of those properties, which is why the two answers differ.
+
+## 20. The emit-await decision
+
+`emitRepositoryIndexRequested` **keeps Phase 01's fire-and-forget pattern**, and this
+was re-argued rather than copied — `emitProjectDeleted`'s reasoning ("a notification
+nobody consumes, measured at 5.3s of SDK backoff on a bad key") does not transfer
+automatically, because from Phase 03 onward this event is the *only* indexing trigger
+and a dropped one means a repository sits in `PENDING` forever.
+
+Kept anyway, on three grounds:
+
+1. **Nothing consumes it yet** (§8), so a dropped event costs exactly nothing today,
+   while awaiting would put Inngest's availability in the latency path of a mutation
+   §7 already specifies as `202 Accepted`.
+2. **The durable record is the row, not the event.** The `Repository` row is committed
+   in `PENDING` before the emit. That is a state Phase 03 can reconcile from directly
+   ("find `PENDING` repositories with no job and enqueue one"), which is the correct
+   lost-event recovery regardless of what this function does.
+3. **Awaiting would be a false guarantee.** A successful `send()` means Inngest accepted
+   the event, not that a function ran. Only a transactional outbox makes delivery
+   reliable — which `emitProjectDeleted`'s own comment already flags — and a half-measure
+   that *looks* like a guarantee is worse than an honest absence of one.
+
+What changed from the Phase 01 pattern: the failure is logged at **`error`** with both
+`repositoryId` and `projectId` (§20 requires both on this path), and there is an
+explicit `TODO(phase-03)` naming the outbox-plus-reconcile fix.
+
+## 21. The noop function stays; the deletion moves to Phase 03
+
+`apps/worker/src/inngest/functions/noop.ts` said to delete it "once Phase 02 introduces
+the first real event". Phase 02 introduces the *event* but §8 is explicit that no
+function consumes it until Phase 03.
+
+Deleting it now would leave the worker with **zero registered functions** — which
+changes what the Inngest Dev Server displays and removes the only end-to-end proof the
+worker is discoverable at all, at exactly the moment this phase's acceptance signal
+(§8) is "look at the Dev Server UI". Kept, with its comment updated to say the deletion
+is Phase 03's, when `repository-index` proves the same things better.
+
+## 22. The size cap — unit VERIFIED, not assumed
+
+`plan.md` A7 states the limit as "~25k source files / ~500 MB checkout". GitHub's `size`
+field on `GET /repos` had to be pinned down before it could be compared against that.
+
+**Verified empirically against live `api.github.com`** on 2026-08-24, rather than from
+memory or from the docs (the REST reference page carries no description text for the
+field at all):
+
+```
+GET https://api.github.com/repos/torvalds/linux  →  "size": 6350863
+```
+
+6,350,863 is ~6.06 GiB, which matches that project's packed git objects. It is
+inconsistent with bytes (6.3 MB) and with MB (6.3 TB). **The unit is KiB, and it is the
+*git* size — history included — not a working-tree checkout.**
+
+Consequences, both recorded in the constant's own doc comment:
+
+- `REPOSITORY_SIZE_CAP_KIB = 500 * 1024` (500 MiB). The metadata field is named
+  `sizeKib` end-to-end so no comparison can quietly treat it as bytes.
+- A repository's git size is normally **larger** than its checkout, so capping git size
+  at 500 MiB is **conservative** against A7's "checkout" wording — it declines some
+  repositories whose working tree would fit. That is the right direction to err for an
+  MVP: accepting a repository the indexer then chokes on is worse than declining one at
+  the door with a clear message.
+- **A7's file-count half (~25k files) is not checkable from this call at all.**
+  `GET /repos` reports no file count. Phase 03, which walks the tree, is the first code
+  that can enforce it. Nothing in this phase pretends to.
+
+**The `sizeBytes` column stores bytes.** §4 above flagged that the column name says
+bytes while the source is KB, and said Prompt 2 had to choose deliberately. It does:
+`repository.service` multiplies by 1024 at the single place a size is written, so the
+column matches its own name. int32 holds 2 GiB, and nothing over 500 MiB is ever
+stored, so overflow is unreachable.
+
+## 23. Empty-repository detection — combined signals, and one extra call only when ambiguous
+
+`size: 0` is the documented signal and is **unreliable alone**: GitHub computes
+repository size asynchronously, so a repository pushed moments ago reports `0` while
+holding real commits. Rejecting on it would tell a user who just created and pushed a
+repository that it is empty.
+
+The chosen combination:
+
+| Signal | Conclusion |
+|---|---|
+| `sizeKib > 0` | Has content. No probe, no extra call. |
+| `sizeKib === 0` **and** no default branch | Unambiguously empty. No probe. |
+| `sizeKib === 0` **but** a default branch is named | **Ambiguous** — probe `GET /repos/{o}/{r}/branches/{default}`. A `404` on the ref, from a repository whose metadata just read successfully, means empty. |
+| Probe returns `UNKNOWN` (5xx) | Treated as **not empty**. |
+
+The `UNKNOWN` policy is deliberate and is the "do not reject a legitimate small repo"
+rule made concrete: a transient GitHub blip must not become "your repository is empty".
+Being wrong that way costs Phase 03's indexer finding nothing and reporting it, which is
+recoverable; being wrong the other way blocks a good repository, which is not.
+
+The probe is **off the happy path** — any repository with content never triggers it —
+so §21's rate-limit budget is untouched for every ordinary connect. §21's "one
+`GET /repos` per connect attempt" is preserved and is enforced *structurally*:
+`repository-validation.service` receives the already-fetched metadata and imports no
+Octokit, no factory, and no fetching function, so re-fetching per sub-check is not a
+mistake that can be made there.
+
+**Step 6 is kept distinct from step 4.** A repository with content but no resolvable
+default branch gets its own 422 and its own message, per §3's explicit instruction that
+it not be folded into "empty".
+
+## 24. `POST /api/projects/:id/repositories` — the mounting decision
+
+Mounted as a **nested router**: `projectRepositoriesRouter` is created in
+`repositories.routes.ts` with `Router({ mergeParams: true })` and mounted from
+`projects.routes.ts` at `/:projectId/repositories`.
+
+The alternative — registering the full `/projects/:projectId/repositories` path from
+`repositories.routes.ts` — would put a `/projects/...` path in a file mounted at
+`/repositories`, so the URL a reader sees in the file would not be the URL the server
+serves. Nesting keeps the handler with its module and the URL shape with its parent.
+
+**`mergeParams: true` is load-bearing.** Express does not propagate a parent router's
+params into a child router by default: without it `req.params.projectId` is silently
+`undefined` — not an error, just a tenancy check resolved against nothing.
+`repositories.routes.test.ts` asserts the projectId actually arrives, so dropping the
+flag fails a test rather than shipping.
+
+## 25. Resolving *which installation* to connect through — an under-specification in §7
+
+§7's request body is `{ repoUrl?, githubRepoId? }` and carries **no installation id**,
+yet every repository call needs one. §13 forbids deriving it from anything the client
+submitted, so it is derived from the user's own `GithubInstallation` rows:
+
+- **URL path**: a GitHub App installation is *per account*, and the URL's owner segment
+  names that account — so the installation whose `accountLogin` matches (case-insensitively,
+  because GitHub account names are) is the only one that could have access. One lookup,
+  no GitHub calls.
+- **Id path**: a repository id carries no owner, so the user's installations are searched
+  in turn until one lists it. This is the only part of the connect flow costing more than
+  a constant number of calls. ETag caching makes repeat listings free against the
+  rate-limit budget, and users have one or two installations in practice.
+
+**This is worth fixing in a later revision of §7**: the picker already knows the
+installation id — it just called `GET /api/github/installations/:id/repos` — so putting
+`installationId` in the connect body would turn the id path into a single lookup and
+remove the only unbounded call in the flow. Not changed here, because the request
+contract is the phase document's to set.
+
+No matching installation is a **403 with the installation-settings message**, the same
+answer as "the App can't see this repo" — from the user's side it is the same problem
+with the same fix.
+
+## 26. Smaller decisions, recorded so they are not re-litigated
+
+- **`createUserOctokit`** was added to `octokit-factory.ts` rather than constructing a
+  bare Octokit inside a service. §16's "do not construct one anywhere else" holds; the
+  factory now has two constructors named for their credential, side by side, which is
+  the clearest possible statement of the App-vs-OAuth distinction `plan.md` §45 names as
+  a failure point. It gets retry + throttling + logging but **no ETag cache**: that cache
+  is keyed by installation so one tenant can never serve another's body, and there is no
+  installation here to key on.
+- **`createRateLimitPolicy` and the logging plugin now accept `installationId: null`**
+  for that one user-authenticated call. The field is still emitted, as an explicit
+  `null`, so a log query filtering on `installationId` sees a value rather than a
+  missing key.
+- **`GithubFailureReason.NOT_ACCESSIBLE` is one reason, not two.** §12: GitHub returns
+  `404`, not `403`, for a repository an installation cannot see — an anti-enumeration
+  measure that makes "does not exist" and "you cannot see it" indistinguishable on the
+  wire. Splitting them here would mean inventing a distinction the wire does not carry.
+  The wrapper reports what it knows; the service decides what to tell the user.
+- **A `403` *with* rate-limit headers is `UNAVAILABLE`, never a permission answer.**
+  Telling a user to reconfigure a working installation because GitHub was busy sends
+  them to fix something that is not broken.
+- **`installation.repository.ts` is a sibling file, not more functions in
+  `repository.repository.ts`.** An installation is a different aggregate: it belongs to a
+  user, not a project, and its lifecycle is owned by GitHub's install flow (and from
+  Phase 06, by webhooks).
+- **`upsertInstallation` writes `userId` in the `update` block too.** An installation id
+  is GitHub-global, so the row re-attributes to whoever most recently proved — through
+  their own OAuth token — that they can see it. Both members of an org legitimately can;
+  a stale attribution would deny access to someone GitHub says yes for.
+- **`findGithubAccessToken` pins `provider: "github"`.** This token is about to be sent
+  to github.com; sending a different provider's token there would be a credential leak,
+  not a failed request.
+- **`syncInstallations` answers 401, not 503, for a missing or rejected OAuth token.**
+  Signing in again is exactly what fixes it, and the frontend already redirects on 401.
+- **`listByProject` excludes `DISCONNECTED` but includes `ACCESS_LOST`.** An
+  `ACCESS_LOST` repository is still connected and still the user's; hiding it would
+  remove the only place they could see the problem.
+- **`DELETE /api/repositories/:id` does not use `allowDeleted`.** Idempotency is achieved
+  at the row level — the repository row is never soft-deleted, only transitioned to
+  `DISCONNECTED`, so it keeps resolving and `markDisconnected` reports 0 rows changed on
+  a repeat call. The flag only ever concerned the parent project.
+- **`markAccessLost` was built but is not reachable from this phase.** §12 says a
+  brand-new connect attempt against a revoked installation simply rejects, with no row to
+  mark. It exists because the transition is a property of the GitHub client this phase
+  owns, and Phase 03's background work is the first thing that can *be* running when
+  access disappears. Its doc comment says exactly that.
+- **`RepositoryDetail.indexJob` is typed as literal `null`**, not `unknown`, so Phase 03
+  widening it is a compile error at every call site — the same trick
+  `ProjectDetail.repositories: never[]` used to force this phase's hand, and which is
+  cashed in here.
+- **`ProjectDetail.repositories` is populated through the repositories module's
+  *service*, not its repository layer.** The projects module has no business knowing how
+  repositories are stored, only how to ask for them.
+- **`connectionStatus` values that the column allows but the union does not fall back to
+  `ACTIVE` on read** rather than throwing. The column is a plain `String` (§5), so a
+  hand-edited row must not 500 a read.
+
+## 27. Repo issue found and fixed during the smoke pass: `INNGEST_DEV`
+
+`apps/worker/.env` sets `INNGEST_DEV`; `apps/api/.env` did not. The consequence is
+silent by design: every event `apps/api` emitted went to Inngest Cloud, came back
+`401 Event key not found`, was logged at `error`, and was dropped — because emission is
+deliberately non-fatal. Nothing failed; the event simply never appeared in the Dev
+Server, which is §8's entire acceptance signal.
+
+This affected Phase 01's `project/deleted` too and had never been noticed, because
+nothing consumed that event either.
+
+`INNGEST_DEV` is now documented in `.env.example` with the explanation. **It must be set
+in both `apps/api/.env` and `apps/worker/.env` for local development** — `.env` files are
+untracked, so this is a step a human has to take (see §29).
+
+## 28. Smoke verification — what was actually exercised
+
+Run against `docker compose` Postgres + Redis, `apps/api` on :4000, `apps/worker` on
+:4500, and the Inngest Dev Server on :8288, with a seeded `User` + `Session` +
+`Account` + `Project` + `GithubInstallation`. The `Account` carried a deliberately
+invalid OAuth token and the App private key in `.env` is not a real one — so **every
+GitHub call was guaranteed to fail**. That is the point: what is being proven is that
+each failure reaches the GitHub layer and comes back as a *distinct, correctly-shaped*
+error rather than a 500.
+
+| Request | Result |
+|---|---|
+| `GET /api/github/installations` — no cookie | **401** |
+| `GET /api/github/installations` — signed in | **401** `UNAUTHENTICATED`, "Your GitHub sign-in needs to be refreshed" — the invalid OAuth token was rejected by GitHub and mapped correctly |
+| `GET /api/github/installations/:owned/repos?q=hello` | **503** `SERVICE_UNAVAILABLE` — token mint failed on the fake private key |
+| `GET /api/github/installations/999999/repos` | **403** `FORBIDDEN`, "not available to your account" — ownership check fired *before* any GitHub call |
+| `POST …/repositories` `{repoUrl: "https://github.com.evil.com/o/r"}` | **400** `VALIDATION_ERROR`, `fieldErrors.repoUrl: ["That doesn't look like a GitHub repository URL"]` |
+| `POST …/repositories` with **both** fields | **400**, field-level message on both fields |
+| `POST …/repositories` `{repoUrl: ".../octocat/Hello-World"}` | **503** — resolved the installation, minted (failed), returned cleanly |
+| `POST …/repositories` `{repoUrl: ".../someoneelse/repo"}` | **403** with the installation-settings message |
+| `POST /api/projects/{foreign}/repositories` | **404** `"Project not found"` |
+| `GET`/`DELETE /api/repositories/nope` | **404** `"Project not found"` |
+| `GET /api/projects/:id` | **200**, `repositories: []` — the widened field serializes |
+
+**No 500s. No hangs.** The token-mint retry behaved as Prompt 1 built it: three attempts
+at 250ms/500ms backoff, then a clean `ServiceUnavailableError` — visible in the log as
+three `installation token mint failed at the network layer` lines followed by one
+`github request failed`.
+
+**§20's observability requirement holds on the wire, not just in tests.** Every
+`github.client` and `repository.service` line carries `installationId`; every tenancy
+denial on a repository route carries `repositoryId` (`{"reason":"MISSING",
+"repositoryId":"nope"}`); `traceId`, `userId` and `projectId` come from
+AsyncLocalStorage on every line including the request-completion line.
+
+**§8's acceptance signal: confirmed.** With `INNGEST_DEV` set (§27), the real
+`emitRepositoryIndexRequested` helper, the real client, and the real payload produced:
+
+```json
+{"name": "repository/index.requested",
+ "data": {"mode": "FULL", "projectId": "…", "reason": "connected",
+          "repositoryId": "…"}}
+```
+
+visible in the Dev Server, and `GET /v1/events/{id}/runs` returned **0 runs** —
+confirming no consumer exists, exactly as §8 requires.
+
+**What this does NOT prove**, stated plainly: no successful connect has ever happened.
+No `Repository` row has been created through the API. The 409, the 422s, and the
+dual-project case are covered by unit tests with stubbed GitHub and stubbed Prisma, and
+by nothing else. See §29.
+
+## 29. Outstanding — requires human action
+
+Supersedes §14. Everything §14 listed is still outstanding except where noted.
+
+- [ ] **No real GitHub App has been registered**, so `GITHUB_APP_ID` /
+      `GITHUB_APP_PRIVATE_KEY` are placeholders and every token mint in this
+      environment fails at the key decoder. `docs/github-app-setup.md` is the runbook;
+      nobody has walked it.
+- [ ] **No repository has ever been connected end to end.** The success path —
+      `Repository` row created, `indexStatus=PENDING`, `repository/index.requested`
+      emitted from the *route* rather than from a script — is unverified against real
+      GitHub. Everything about it is unit-tested against stubs.
+- [ ] **§14's manual verification list is entirely unrun**: the 403 for a repo the
+      installation cannot see, the 422 for an empty repository, the 409 for a double
+      connect, the dual-project case, and the disconnect. All are unit-tested; none has
+      met real GitHub.
+- [ ] **The empty-repository probe has never seen a real GitHub response.** The
+      `size === 0` ambiguity and the `404`-on-a-branch signal (§23) are reasoned from
+      GitHub's documented behavior and tested against stubs. The *`size` unit itself* is
+      the one thing here that **was** verified against live GitHub (§22).
+- [ ] **`INNGEST_DEV` must be set in `apps/api/.env`** (§27). `.env` is untracked, so
+      this cannot be done for you. Without it, every emitted event is silently dropped.
+- [ ] **`GET /user/installations` has never returned a real installation.** The pagination
+      loop, the `suspended_at` mapping, and the account-type field are exercised only
+      against stubs.
+- [ ] **No integration tests were added for the new routes.** Prompt 3 owns the full
+      test suite, including the cross-tenant extension §14 requires (user B cannot view,
+      connect to, or disconnect user A's repository). The unit-level tenancy tests cover
+      the logic; the HTTP-level cross-tenant proof does not exist yet.
+- [ ] **CI still does not run** — `.github/workflow/ci.yml` is in a misnamed directory
+      and fully commented out (§13). Nothing in this phase has been verified by CI.
+- [ ] **`pnpm format:check` still fails**, from before this phase (§13). New files match
+      their neighbours' style instead.
+- [ ] **No staging verification.** §16's Definition of Done requires "a real GitHub App
+      installed on a real (test) account/org, with a repository successfully connected
+      end-to-end in staging". No staging environment exists.
+
+## 30. Where the phase document is wrong or under-specified
+
+Stated plainly rather than complied with silently:
+
+1. **§7's 403 on `GET`/`DELETE /api/repositories/:id` is a security regression** and is
+   not implemented. See §18.
+2. **§7's connect body has no `installationId`**, which forces the id path to search the
+   user's installations. See §25. The picker already has the value.
+3. **§12's "Empty repository — detection: `size: 0` or no default branch" is not
+   sufficient on its own** and, taken literally, rejects freshly pushed repositories.
+   See §23 for what was built instead.
+4. **§12's size-cap row says "~500 MB / 25k files per plan.md A7"** as though both were
+   checkable from the metadata call. Only the size is. See §22.
+5. **§9's table describes `GET /user/installations` as sending "OAuth session (to
+   identify the user) → looked up against stored `GithubInstallation` rows"**, which
+   reads as though the endpoint were a database lookup. It is a real GitHub call
+   authenticated with the user's OAuth *token*, and that token has to be read off the
+   `Account` row — a detail §9 does not mention and which materially affects the design.
+6. **§6's `sizeBytes` column against GitHub's KiB `size` field** is a unit mismatch the
+   phase document never acknowledges. Resolved in §22.
+7. **§8's payload is fine, but §7 says the connect returns `{ repository: Repository }`
+   — the Prisma model.** It cannot be: two columns are `BigInt` and `JSON.stringify`
+   throws on those. What is returned is `RepositoryDto`, with both converted to strings.
