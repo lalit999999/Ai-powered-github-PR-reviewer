@@ -65,3 +65,24 @@ export function setTraceProjectId(projectId: string): void {
     context.projectId = projectId;
   }
 }
+
+/**
+ * The `repositoryId` half of phase-02 §20's "`installationId` and `repositoryId`
+ * present on every log line in this phase's code paths" — added exactly the way
+ * setTraceProjectId's own doc comment above said Phase 02 would add it.
+ *
+ * Set by `requireTenantAccess` alongside `setTraceProjectId` the moment a
+ * `repositoryId` resolves, so the request-completion line in src/lib/http.ts — emitted
+ * *after* the handler returns, with no access to its locals — carries the repository
+ * too. Without this, every `GET`/`DELETE /api/repositories/:id` would have a completion
+ * line naming a project but not the repository the request was actually about.
+ *
+ * Same contract as its siblings: mutates the store established for this request, and
+ * is a no-op outside a trace context rather than throwing.
+ */
+export function setTraceRepositoryId(repositoryId: string): void {
+  const context = storage.getStore();
+  if (context) {
+    context.repositoryId = repositoryId;
+  }
+}
