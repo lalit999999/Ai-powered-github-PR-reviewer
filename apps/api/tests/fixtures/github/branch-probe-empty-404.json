@@ -1,0 +1,11 @@
+{
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "x-ratelimit-remaining": "4996"
+  },
+  "body": {
+    "message": "Branch not found",
+    "documentation_url": "https://docs.github.com/rest/branches/branches#get-a-branch"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "etag": "W/\"9f8e7d6c5b4a9f8e7d6c5b4a9f8e7d6c\"",
+    "x-ratelimit-remaining": "4997"
+  },
+  "body": {
+    "id": 847362951,
+    "node_id": "R_kgDOMnOwZw",
+    "name": "brand-new-repo",
+    "full_name": "acme-corp/brand-new-repo",
+    "owner": {
+      "login": "acme-corp",
+      "id": 71834621,
+      "type": "Organization"
+    },
+    "private": true,
+    "html_url": "https://github.com/acme-corp/brand-new-repo",
+    "description": null,
+    "fork": false,
+    "size": 0,
+    "default_branch": "main",
+    "archived": false,
+    "disabled": false,
+    "visibility": "private",
+    "created_at": "2026-08-24T12:00:00Z",
+    "updated_at": "2026-08-24T12:00:00Z",
+    "pushed_at": null,
+    "permissions": {
+      "admin": false,
+      "push": false,
+      "pull": true
+    }
+  }
+}
