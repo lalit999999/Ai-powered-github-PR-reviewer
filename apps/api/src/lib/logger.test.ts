@@ -94,6 +94,39 @@ describe("redact (pure function)", () => {
     expect(list[1]?.ok).toBe("fine");
   });
 
+  it("redacts camelCase/bare secret field names, not just SCREAMING_CASE env names (phase-02 §13)", () => {
+    const output = redact({
+      // The three names Phase 02 actually puts near a logger. None of them end in
+      // _KEY/_SECRET/_TOKEN, so none were covered before this phase.
+      token: "ghs_installationtoken",
+      accessToken: "ghs_installationtoken",
+      privateKey: "-----BEGIN RSA PRIVATE KEY-----",
+      // Env-var forms of the same, from a config dump
+      GITHUB_APP_PRIVATE_KEY: "-----BEGIN RSA PRIVATE KEY-----",
+      GITHUB_APP_WEBHOOK_SECRET: "whsec",
+      "access-token": "ghs_installationtoken",
+      authorization: "Bearer ghs_installationtoken",
+      nested: { installationToken: "ghs_installationtoken" },
+      // Deliberately NOT redacted — the token cache logs these on purpose
+      cacheKey: "gh:install-token:12345",
+      installationId: "12345",
+      ttlRemainingSeconds: 900,
+    }) as Record<string, unknown>;
+
+    expect(output.token).toBe("[REDACTED]");
+    expect(output.accessToken).toBe("[REDACTED]");
+    expect(output.privateKey).toBe("[REDACTED]");
+    expect(output.GITHUB_APP_PRIVATE_KEY).toBe("[REDACTED]");
+    expect(output.GITHUB_APP_WEBHOOK_SECRET).toBe("[REDACTED]");
+    expect(output["access-token"]).toBe("[REDACTED]");
+    expect(output.authorization).toBe("[REDACTED]");
+    expect((output.nested as Record<string, unknown>).installationToken).toBe("[REDACTED]");
+
+    expect(output.cacheKey).toBe("gh:install-token:12345");
+    expect(output.installationId).toBe("12345");
+    expect(output.ttlRemainingSeconds).toBe(900);
+  });
+
   it("leaves primitives, null, and Date instances alone", () => {
     const date = new Date();
     expect(redact("plain string")).toBe("plain string");

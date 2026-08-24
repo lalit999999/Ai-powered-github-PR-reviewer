@@ -33,6 +33,16 @@
 #       AUTH_SECRET: dummy_auth_secret_at_least_32_characters_long
 #       AUTH_URL: http://localhost:4000
 #       WORKER_PORT: "4500"
+#       # Phase 02 §19 — GitHub App (not the OAuth App above). GITHUB_APP_PRIVATE_KEY is
+#       # base64 of a throwaway PEM envelope; apps/api's config shape-checks it at boot
+#       # but never parses the key material, and no test opens a socket to GitHub. Note
+#       # that GitHub Actions *secrets* cannot start with GITHUB_ (reserved prefix) — the
+#       # real values must be stored under a different secret name and remapped here.
+#       GITHUB_APP_ID: "123456"
+#       GITHUB_APP_PRIVATE_KEY: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpkdW1teQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+#       GITHUB_APP_SLUG: dummy-app-slug
+#       GITHUB_APP_WEBHOOK_SECRET: dummy_webhook_secret
+#       REDIS_URL: redis://localhost:6379
 
 #     steps:
 #       - uses: actions/checkout@v4
