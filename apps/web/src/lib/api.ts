@@ -69,10 +69,41 @@ export async function listProjects(): Promise<Project[]> {
   return body.projects;
 }
 
+/**
+ * A connected GitHub repository as `GET /api/projects/:id` and
+ * `GET /api/repositories/:id` return it (phase-02 §7).
+ *
+ * `installationId` and `githubRepoId` are **strings**, not numbers. They are `BigInt`
+ * columns server-side and JSON has no bigint, so the API converts them explicitly at
+ * the DTO boundary. Parsing them back into `number` here would silently lose precision
+ * on ids past 2^53 — treat them as opaque identifiers.
+ */
+export interface Repository {
+  id: string;
+  projectId: string;
+  installationId: string;
+  githubRepoId: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  htmlUrl: string;
+  sizeBytes: number | null;
+  connectionStatus: "ACTIVE" | "DISCONNECTED" | "ACCESS_LOST";
+  indexStatus: string;
+  indexedCommitSha: string | null;
+  indexedFileCount: number;
+  lastIndexedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectDetail {
   project: Project;
-  /** Always empty until Phase 02 connects repositories (phase-01 §7). */
-  repositories: never[];
+  /** The project's active repositories — `DISCONNECTED` ones are excluded server-side.
+   * Was `never[]` until Phase 02 connected repositories (phase-01 §7). */
+  repositories: Repository[];
 }
 
 /** `null` means "not yours, or gone" — the API answers 404 for both, deliberately

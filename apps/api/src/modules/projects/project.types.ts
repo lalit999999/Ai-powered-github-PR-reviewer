@@ -1,3 +1,5 @@
+import type { RepositoryDto } from "../repositories/repository.types.js";
+
 /**
  * Domain and DTO types for the projects module. Deliberately dependency-free: the
  * repository imports these, not the other way round, so nothing Prisma-shaped can leak
@@ -64,15 +66,19 @@ export interface ProjectListPage {
 }
 
 /**
- * `GET /api/projects/:id` response body (phase-01 §7). `repositories` is **always**
- * an empty array until Phase 02 introduces the `Repository` model; it is present now
- * so the response contract does not change shape when it arrives. The `never[]` type
- * is intentional — it makes "Phase 02 must widen this" a compile error rather than a
- * silent no-op.
+ * `GET /api/projects/:id` response body (phase-01 §7).
+ *
+ * `repositories` was typed `never[]` through Phase 01 precisely so that Phase 02 — the
+ * phase that introduces the `Repository` model — could not leave it as an empty array
+ * by accident: assigning a real DTO to `never[]` is a compile error, not a silent
+ * no-op. The marker did its job; this is the widening it was there to force.
+ *
+ * Scoped to the project's **active** repositories: `DISCONNECTED` rows are excluded,
+ * `ACCESS_LOST` ones are not (see `repository.repository.listByProject`).
  */
 export interface ProjectDetail {
   project: ProjectDto;
-  repositories: never[];
+  repositories: RepositoryDto[];
 }
 
 /**

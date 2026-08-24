@@ -2,6 +2,7 @@ import type { OwnerContext, TenantContext } from "../../lib/auth/tenant-access.j
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
 import { createLogger } from "../../lib/logger.js";
 import { emitProjectDeleted } from "../../inngest/emit.js";
+import * as repositoryService from "../repositories/repository.service.js";
 import * as projectRepository from "./project.repository.js";
 import type { CreateProjectInput, ListProjectsQuery } from "./project.schema.js";
 import {
@@ -158,7 +159,10 @@ export async function listProjects(owner: OwnerContext, query: ListProjectsQuery
  * proof — defense in depth, and it is what closes the window where the project is
  * deleted between the tenancy check and this read.
  *
- * `repositories` is always `[]` until Phase 02 (see ProjectDetail).
+ * `repositories` carried the `never[]` marker through Phase 01 so that Phase 02 could
+ * not forget to populate it; this is where that marker is cashed in. The list comes
+ * from the repositories module's *service*, not its repository layer — this module has
+ * no business knowing how repositories are stored, only how to ask for them.
  */
 export async function getProjectDetail(tenant: TenantContext): Promise<ProjectDetail> {
   const project = await projectRepository.findByIdForUser(tenant.userId, tenant.projectId);
@@ -166,7 +170,9 @@ export async function getProjectDetail(tenant: TenantContext): Promise<ProjectDe
     throw new NotFoundError("Project not found");
   }
 
-  return { project: toProjectDto(project), repositories: [] };
+  const repositories = await repositoryService.listProjectRepositories(tenant);
+
+  return { project: toProjectDto(project), repositories };
 }
 
 /**
