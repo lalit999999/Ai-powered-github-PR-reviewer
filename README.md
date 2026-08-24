@@ -5,7 +5,8 @@ pnpm + Turborepo monorepo:
 ```text
 apps/
   api/      Express backend — routes, controllers, src/lib/ (logger, tracing, errors,
-            config, validation, http, auth) — most backend code lives here
+            config, validation, http, auth), src/github/ (GitHub App client: token
+            minting, Octokit factory, ETag cache) — most backend code lives here
   web/      Next.js (App Router) frontend
   worker/   Inngest client, middleware, and functions, served at /api/inngest
 packages/
@@ -25,16 +26,44 @@ documents' rules/paths map onto it.
 ```bash
 pnpm install
 
-docker compose up -d              # local Postgres on localhost:5432 (db: dev)
+docker compose up -d              # Postgres on :5432 (db: dev) + Redis on :6379
 
-cp .env.example apps/api/.env     # dev-only values are fine locally; see the
-                                   # AUTH_URL note below before real GitHub sign-in
+cp .env.example apps/api/.env     # then FILL IN the empty values — every variable in
+                                   # it is required, and apps/api refuses to boot while
+                                   # any one of them is blank (that is the point)
 
 pnpm db:generate                  # generate the Prisma client (no DB connection needed)
 pnpm db:migrate                   # apply migrations (prisma migrate dev)
 
 pnpm dev                          # api :4000 · web :3000 · worker :4500
 ```
+
+Throwaway values that are enough to boot and to run the whole test suite — nothing here
+contacts GitHub:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dev
+NODE_ENV=development
+INNGEST_EVENT_KEY=dev
+INNGEST_SIGNING_KEY=dev
+PORT=4000
+FRONTEND_URL=http://localhost:3000
+GITHUB_OAUTH_CLIENT_ID=dev
+GITHUB_OAUTH_CLIENT_SECRET=dev
+AUTH_SECRET=$(openssl rand -hex 32)
+AUTH_URL=http://localhost:4000
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY=$(base64 -w0 <<< '-----BEGIN RSA PRIVATE KEY-----
+placeholder
+-----END RSA PRIVATE KEY-----')
+GITHUB_APP_SLUG=dev-app-slug
+GITHUB_APP_WEBHOOK_SECRET=dev
+REDIS_URL=redis://localhost:6379
+```
+
+Real GitHub sign-in needs a real OAuth App (see the `AUTH_URL` note below); connecting a
+real repository needs a real GitHub App (see
+[`docs/github-app-setup.md`](docs/github-app-setup.md)).
 
 `apps/worker` needs its own `.env` (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`,
 `WORKER_PORT`) — same dev values as `apps/api`. `apps/web` needs
@@ -65,6 +94,28 @@ sign-in, create a GitHub OAuth App whose callback URL is **exactly**
 and set `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET`. Callback-URL mismatch is
 the most common failure here — see `docs/deployment.md`.
 
+### GitHub App (repository access)
+
+Separately from the OAuth App above, Phase 02 needs a GitHub **App** — the credential
+that reads repository contents and publishes review comments. The two are never
+interchangeable; `plan.md` §45 names conflating them as a top failure point.
+
+`.env.example`'s placeholder App values are enough to boot and to run every test (no
+test contacts GitHub). To connect a real repository, follow
+[`docs/github-app-setup.md`](docs/github-app-setup.md) — it covers the permissions to
+select, the events to subscribe to, and how to encode the private key
+(`base64 -w0 your-app.private-key.pem`). What the App asks for and why, in
+customer-legible terms, is in
+[`docs/github-app-permissions.md`](docs/github-app-permissions.md).
+
+Two things that look broken but are not:
+
+- The App's webhook deliveries will 404 until **Phase 06** builds the receiving
+  endpoint. `GITHUB_APP_WEBHOOK_SECRET` is required and set now, but no code reads it
+  before Phase 06.
+- If Redis is down, `apps/api` logs a warning and keeps working off an in-memory token
+  cache. It is a cache, not a database.
+
 `packages/db` reads its own `packages/db/.env` for `DATABASE_URL` when you run Prisma
 CLI commands directly from that package — keep it pointed at your local Postgres
 unless you deliberately mean to target another database.
@@ -87,7 +138,8 @@ unless you deliberately mean to target another database.
 ## Architecture boundaries (enforced by lint, not just docs)
 
 - `apps/api/src/routes/**` and `apps/api/src/controllers/**` may not import the future
-  `ai`/`github`/`embedings` packages directly.
+  `ai`/`github`/`embedings` packages directly — nor, since Phase 02, the in-app GitHub
+  client tree at `apps/api/src/github/**` by relative path.
 - Only `packages/db/**` (or a `*.repository.ts` file) may import `@prisma/client` —
   everything else imports the `prisma` singleton from `@repo/db`.
 - `apps/worker/src/inngest/functions/**` may not import `apps/api`'s routes/controllers.
@@ -111,8 +163,8 @@ Inngest function runs get the same envelope from
 GitHub OAuth via Auth.js (`@auth/express`) with **database-backed sessions** through the
 Prisma adapter — deliberately not JWT, so sessions can be revoked (plan.md §35.1,
 phase-01 §1/§22). Requested scopes are `read:user` and `user:email` only; the OAuth
-identity answers *who is signed in* and is never used for repository access (that is the
-GitHub App installation identity, arriving in Phase 02).
+identity answers *who is signed in* and is never used for repository access — that is the
+GitHub App installation identity from Phase 02 (`docs/github-app-setup.md`).
 
 `requireSession(req)` (`apps/api/src/lib/auth/session.ts`) is the single entry point for
 resolving the caller. A missing, invalid, or expired session throws

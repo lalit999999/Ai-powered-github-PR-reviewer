@@ -50,6 +50,11 @@ Names only — never commit values. `.env.example` is the authoritative list.
 | `AUTH_SECRET` | ✅ | — | — | `openssl rand -hex 32`; distinct per environment |
 | `AUTH_URL` | ✅ | — | — | **per-environment** — see below |
 | `NEXT_PUBLIC_API_URL` | — | — | ✅ | the deployed `apps/api` origin |
+| `GITHUB_APP_ID` | ✅ | — | — | Phase 02 — the GitHub **App**, not the OAuth App |
+| `GITHUB_APP_PRIVATE_KEY` | ✅ | — | — | base64 of the `.pem` — see below |
+| `GITHUB_APP_SLUG` | ✅ | — | — | builds the install link |
+| `GITHUB_APP_WEBHOOK_SECRET` | ✅ | — | — | set on GitHub now; unread until Phase 06 |
+| `REDIS_URL` | ✅ | — | — | Phase 02 — installation-token cache |
 
 ✅ required · ○ optional · — not used
 
@@ -112,6 +117,53 @@ domains. **Put both behind subdomains of one registrable domain**, or the fronte
 sign in successfully and then be unable to call the API at all. `FRONTEND_URL` (CORS
 origin, api) and `NEXT_PUBLIC_API_URL` (api origin, web) must point at that pair.
 
+## Infrastructure
+
+| Dependency | Used by | Since | Notes |
+|---|---|---|---|
+| PostgreSQL | `apps/api` | Phase 00 | The system of record. |
+| Redis | `apps/api` | **Phase 02** | Installation-access-token cache only. |
+
+**Redis holds no durable state.** It caches GitHub installation tokens (50-minute TTL)
+and ETag entries. Losing it costs one extra token mint per installation and some
+rate-limit budget — never data. If Redis is unreachable, `apps/api` logs a warning
+(rate-limited to once a minute so an outage cannot flood the logs) and falls back to a
+process-local in-memory cache rather than failing requests. Provision it, monitor it,
+but do not treat it as a database. See `docs/decisions/phase-02-log.md` §8.
+
+Locally, `docker compose up -d` starts both Postgres and Redis.
+
+## ⚠️ GitHub App vs. GitHub OAuth App
+
+From Phase 02 there are **two** GitHub registrations per environment, and they are not
+interchangeable:
+
+| | GitHub **OAuth App** (Phase 01) | GitHub **App** (Phase 02) |
+|---|---|---|
+| Answers | *Who is signed in?* | *What repository data may we read?* |
+| Credentials | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` |
+| Registered at | Developer settings → OAuth Apps | Developer settings → GitHub Apps |
+| Used for | Sign-in, session | Every repository read and every review comment |
+
+`plan.md` §45 names conflating the two as a top failure point for Phase 02. Registration
+is documented step by step in [`github-app-setup.md`](./github-app-setup.md); the
+requested permissions and the reasoning behind each are in
+[`github-app-permissions.md`](./github-app-permissions.md).
+
+**Also per-environment.** A GitHub App has one webhook URL and one callback URL, so
+sharing one across environments fails the same way sharing an OAuth App does. Register
+one App per environment.
+
+**`GITHUB_APP_PRIVATE_KEY` encoding.** Store it as `base64 -w0 your-app.private-key.pem`
+— one line, no escaping, survives every secret store. `apps/api` decodes and shape-checks
+it at boot and refuses to start on a mangled key, so this fails in the first second
+rather than at a user's first repository connect.
+
+**`GITHUB_APP_WEBHOOK_SECRET` is required but unread until Phase 06.** Generate it and
+set it on the App now so the webhook configuration is complete. Until Phase 06 builds
+`/api/webhooks/github`, GitHub's delivery attempts will 404 — expected, not a bug
+(phase-02 §1).
+
 ## Health check
 
 Point the uptime check at:
@@ -133,3 +185,11 @@ These require credentials/hosting access and **have not been performed**:
 - [ ] Create the staging GitHub OAuth App and register its callback URL per the table above.
 - [ ] Set every ✅ variable in the staging environment's secret store.
 - [ ] Run one real GitHub sign-in against staging (phase-01 §14).
+
+Phase 02 adds:
+
+- [ ] Register the staging GitHub **App** per [`github-app-setup.md`](./github-app-setup.md).
+- [ ] Generate and set `GITHUB_APP_WEBHOOK_SECRET` on the App and in the secret store.
+- [ ] Provision Redis for staging and set `REDIS_URL`.
+- [ ] Install the App on a real test account/org and connect one repository end to end
+      (needs the routes and UI from Prompts 2 and 3 of this phase).
