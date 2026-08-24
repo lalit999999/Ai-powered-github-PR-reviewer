@@ -1,7 +1,7 @@
 import type { Octokit } from "@octokit/core";
 import { createLogger, type Logger } from "../../lib/logger.js";
 import { createInstallationOctokit, GITHUB_CLIENT_COMPONENT } from "../client/octokit-factory.js";
-import { classifyGithubError, type GithubResult } from "./github-result.js";
+import { classifyGithubError, statusOf, type GithubResult } from "./github-result.js";
 
 /**
  * `GET /repos/{owner}/{repo}` (phase-02 §9), wrapped.
@@ -144,4 +144,69 @@ function toMetadata(raw: RawRepository): GithubRepositoryMetadata | null {
     archived: raw.archived ?? false,
     disabled: raw.disabled ?? false,
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// GET /repos/{owner}/{repo}/branches/{branch} — the ambiguity breaker
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a named branch exists on a repository the installation can already read.
+ *
+ * `EMPTY` here means "the default branch has no commits", which is what a `404` on this
+ * endpoint means once {@link getRepository} has already succeeded for the same
+ * repository — the repo is reachable, the ref is not.
+ */
+export type BranchProbeResult = "HAS_COMMITS" | "EMPTY" | "UNKNOWN";
+
+/**
+ * **Called only when `GET /repos` reported `sizeKib === 0`**, which is ambiguous: it is
+ * how GitHub describes a repository with no commits, and also how it describes one
+ * pushed moments ago, because that `size` is computed asynchronously rather than at
+ * request time. Rejecting on `size === 0` alone would turn "you just created this
+ * repository and pushed to it" into "this repository is empty", which is both wrong
+ * and maddening.
+ *
+ * So this is the tie-breaker, and it is deliberately **not** on the happy path: a
+ * repository with any content at all never triggers it, so §21's rate-limit budget is
+ * untouched for every ordinary connect.
+ *
+ * `UNKNOWN` (a 5xx, or anything this code cannot interpret) is a real outcome rather
+ * than an error, because the validator's policy for it is "assume non-empty" — see
+ * repository-validation.service.ts. Failing a legitimate connect because GitHub had a
+ * bad second is worse than letting Phase 03's indexer discover an empty repository.
+ */
+export async function probeBranch(
+  installationId: bigint,
+  owner: string,
+  repo: string,
+  branch: string,
+  options: GetRepositoryOptions = {},
+): Promise<BranchProbeResult> {
+  const logger = options.logger ?? defaultLogger;
+  const octokit = options.octokit ?? createInstallationOctokit(installationId, { logger });
+
+  try {
+    await octokit.request("GET /repos/{owner}/{repo}/branches/{branch}", { owner, repo, branch });
+    logger.info("default branch probe found commits", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/branches/{branch}",
+      fullName: `${owner}/${repo}`,
+      branch,
+    });
+    return "HAS_COMMITS";
+  } catch (error) {
+    // A 404 on the *branch* of a repository whose metadata we just read successfully
+    // is not an access answer — access was already proved one call ago.
+    const result: BranchProbeResult = statusOf(error) === 404 ? "EMPTY" : "UNKNOWN";
+    logger.warn("default branch probe did not find commits", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/branches/{branch}",
+      fullName: `${owner}/${repo}`,
+      branch,
+      result,
+    });
+    return result;
+  }
 }

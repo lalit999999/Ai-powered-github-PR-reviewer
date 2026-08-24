@@ -64,6 +64,26 @@ export class ConflictError extends AppError {
   readonly httpStatus = 409;
 }
 
+/**
+ * Phase 02 §7/§12. The request was well-formed and the caller is allowed to make it,
+ * but the *thing being referenced* cannot be used: an empty repository, or one over the
+ * size cap.
+ *
+ * Distinct from ValidationError (400), and the distinction is the point rather than
+ * pedantry: a 400 says "you sent something malformed — fix your request", which is
+ * false here. The URL parsed, the id was well-formed, the App has access; the
+ * repository simply has no commits, or is too big. Nothing about the request would be
+ * different on a retry, and the fix is on GitHub's side, not the client's.
+ *
+ * There was no 422 class before this phase — every prior route's failures were genuinely
+ * 400/403/404/409. `details` carries the machine-readable specifics (the cap and the
+ * observed size, for instance) so a UI can say something better than the message alone.
+ */
+export class UnprocessableEntityError extends AppError {
+  readonly code = "UNPROCESSABLE_ENTITY";
+  readonly httpStatus = 422;
+}
+
 export class ServiceUnavailableError extends AppError {
   readonly code = "SERVICE_UNAVAILABLE";
   readonly httpStatus = 503;
