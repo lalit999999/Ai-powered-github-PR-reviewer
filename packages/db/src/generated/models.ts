@@ -8,13 +8,13 @@
  *
  * 🟢 You can import this file directly.
  */
-export type * from './models/User'
-export type * from './models/Project'
-export type * from './models/GithubInstallation'
-export type * from './models/Repository'
-export type * from './models/RepositoryFile'
-export type * from './models/IndexJob'
-export type * from './models/Account'
-export type * from './models/Session'
-export type * from './models/VerificationToken'
-export type * from './commonInputTypes'
+export type * from './models/User.js'
+export type * from './models/Project.js'
+export type * from './models/GithubInstallation.js'
+export type * from './models/Repository.js'
+export type * from './models/RepositoryFile.js'
+export type * from './models/IndexJob.js'
+export type * from './models/Account.js'
+export type * from './models/Session.js'
+export type * from './models/VerificationToken.js'
+export type * from './commonInputTypes.js'
