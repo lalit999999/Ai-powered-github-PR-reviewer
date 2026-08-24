@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeleteProjectButton } from "@/components/projects/delete-project-button";
+import { ConnectRepositoryDialog } from "@/components/repository/connect-repository-dialog";
 import { InstallationsPanel } from "@/components/repository/installations-panel";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RepositoryCard } from "@/components/repository/repository-card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProjectDetail, listInstallations } from "@/lib/api";
 
 /**
@@ -27,6 +29,7 @@ export default async function ProjectDetailPage({ params }: PageProps<"/projects
   }
 
   const { project, repositories } = detail;
+  const installations = installationsResult.ok ? installationsResult.installations : [];
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10">
@@ -56,13 +59,26 @@ export default async function ProjectDetailPage({ params }: PageProps<"/projects
         <CardHeader>
           <CardTitle>Repositories</CardTitle>
           <CardDescription>
-            {repositories.length === 0
-              ? "None connected. Connecting a GitHub repository arrives in Phase 02."
-              : `${repositories.length} connected.`}
+            {repositories.length === 0 ? "None connected yet." : `${repositories.length} connected.`}
           </CardDescription>
+          <CardAction>
+            <ConnectRepositoryDialog projectId={project.id} installations={installations} />
+          </CardAction>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          This project has no repositories, indexing, or reviews yet — those are later phases.
+        <CardContent>
+          {repositories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {installations.length === 0
+                ? "Install the GitHub App above, then connect a repository."
+                : "Connect a repository to get started — indexing and reviews are later phases."}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {repositories.map((repository) => (
+                <RepositoryCard key={repository.id} repository={repository} />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
