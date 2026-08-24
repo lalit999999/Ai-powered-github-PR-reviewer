@@ -8,7 +8,7 @@ vi.mock("./client.js", () => ({ inngest: { send } }));
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 vi.mock("../lib/logger.js", () => ({ createLogger: () => logSpies }));
 
-const { emitProjectDeleted } = await import("./emit.js");
+const { emitProjectDeleted, emitRepositoryIndexRequested } = await import("./emit.js");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -35,6 +35,42 @@ describe("emitProjectDeleted (phase-01 §8)", () => {
     expect(logSpies.error).toHaveBeenCalledWith(
       "failed to emit project/deleted",
       expect.objectContaining({ event: "project/deleted", projectId: "project-1" })
+    );
+  });
+});
+
+describe("emitRepositoryIndexRequested (phase-02 §8)", () => {
+  const payload = {
+    projectId: "project-1",
+    repositoryId: "repo-1",
+    mode: "FULL",
+    reason: "connected",
+  } as const;
+
+  it("sends the event under the name from the shared contract, with the §8 payload", async () => {
+    send.mockResolvedValueOnce(undefined);
+
+    await emitRepositoryIndexRequested(payload);
+
+    expect(send).toHaveBeenCalledWith({ name: "repository/index.requested", data: payload });
+  });
+
+  it("logs at error with BOTH ids when Inngest is unreachable, and still resolves", async () => {
+    // This event is the only indexing trigger from Phase 03 onward, so a dropped one
+    // has to be *visible* — hence `error`, not `warn`. It is still not fatal: the
+    // Repository row is already committed in PENDING, which is the durable record and
+    // the thing Phase 03 reconciles from. See emit.ts for the full argument.
+    send.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:8288"));
+
+    await expect(emitRepositoryIndexRequested(payload)).resolves.toBeUndefined();
+
+    expect(logSpies.error).toHaveBeenCalledWith(
+      "failed to emit repository/index.requested",
+      expect.objectContaining({
+        event: "repository/index.requested",
+        projectId: "project-1",
+        repositoryId: "repo-1",
+      })
     );
   });
 });

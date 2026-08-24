@@ -1,4 +1,9 @@
-import { PROJECT_DELETED, type ProjectDeletedData } from "@repo/shared";
+import {
+  PROJECT_DELETED,
+  REPOSITORY_INDEX_REQUESTED,
+  type ProjectDeletedData,
+  type RepositoryIndexRequestedData,
+} from "@repo/shared";
 import { createLogger } from "../lib/logger.js";
 import { inngest } from "./client.js";
 
@@ -39,6 +44,58 @@ export async function emitProjectDeleted(data: ProjectDeletedData): Promise<void
     logger.error("failed to emit project/deleted", {
       event: PROJECT_DELETED,
       projectId: data.projectId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Producer side of the `repository/index.requested` contract (phase-02 §8). Emitted by
+ * `POST /api/projects/:id/repositories` after the `Repository` row is committed in
+ * `indexStatus: PENDING`.
+ *
+ * ## Why this stays fire-and-forget *for this phase* — the decision, argued
+ *
+ * `emitProjectDeleted` above is un-awaited because a measured 5.3-second SDK backoff on
+ * an invalid event key was worse than losing a notification nobody consumed. That
+ * reasoning does **not** transfer automatically here, and it was re-examined rather
+ * than copied, because this event is not a notification: from Phase 03 onward it is the
+ * *only* trigger for indexing, and a silently dropped one means a repository sits in
+ * `PENDING` forever with no error anywhere.
+ *
+ * The same pattern is kept anyway, on three grounds:
+ *
+ * 1. **Nothing consumes it yet** (§8 is explicit that Phase 03 registers the first
+ *    function), so today a dropped event costs exactly nothing, while awaiting would
+ *    put Inngest's availability in the latency path of a user-facing mutation that
+ *    §7 already specifies as `202 Accepted` — "accepted, work continues".
+ * 2. **The durable record is the row, not the event.** The `Repository` row is
+ *    committed, in `PENDING`, before this is called. That is a state Phase 03 can
+ *    reconcile from directly — "find repositories PENDING with no job and enqueue one"
+ *    — which is the correct fix for lost-event recovery regardless of what this
+ *    function does. Awaiting the send would not make delivery reliable; it would only
+ *    make the failure louder in one of the several ways it can happen.
+ * 3. **Awaiting would be a false guarantee.** A successful `send()` means Inngest
+ *    accepted the event, not that a function ran. The only thing that actually makes
+ *    delivery reliable is a transactional outbox — which `emitProjectDeleted`'s own
+ *    comment already flags — and half-measures that look like guarantees are worse than
+ *    an honest absence of one.
+ *
+ * The failure is logged at **`error`** with `repositoryId` and `projectId`, so a
+ * dropped trigger is visible rather than silent (§20 requires both ids on this path).
+ *
+ * TODO(phase-03): revisit when `repository-index` exists and delivery actually matters.
+ * The fix is a transactional outbox plus a reconcile sweep over `PENDING` rows — not
+ * awaiting this call and not making the HTTP response depend on Inngest being up.
+ */
+export async function emitRepositoryIndexRequested(data: RepositoryIndexRequestedData): Promise<void> {
+  try {
+    await inngest.send({ name: REPOSITORY_INDEX_REQUESTED, data });
+  } catch (err) {
+    logger.error("failed to emit repository/index.requested", {
+      event: REPOSITORY_INDEX_REQUESTED,
+      projectId: data.projectId,
+      repositoryId: data.repositoryId,
       error: err instanceof Error ? err.message : String(err),
     });
   }
