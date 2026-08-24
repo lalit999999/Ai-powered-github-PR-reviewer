@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { env } from "../config/env.js";
 import { requireSession } from "../lib/auth/session.js";
 import { parseOrThrow } from "../lib/validation.js";
 import {
@@ -47,7 +48,21 @@ import * as repositoryService from "../modules/repositories/repository.service.j
  */
 
 /**
- * GET /api/github/installations — the caller's own installations.
+ * The App's public "install" link. Built server-side from `GITHUB_APP_SLUG` and
+ * returned as a response field rather than duplicated into an `apps/web`
+ * `NEXT_PUBLIC_*` variable — sub-task 3.5's decision, recorded in
+ * docs/decisions/phase-02-log.md: a slug living in two env files across two deploy
+ * targets drifts, and the failure mode (a dead install link) is not one anybody
+ * notices quickly. `apps/api` already validates `GITHUB_APP_SLUG` at boot (§19), so
+ * this can never be built from an unset value.
+ */
+function installUrl(): string {
+  return `https://github.com/apps/${env.GITHUB_APP_SLUG}/installations/new`;
+}
+
+/**
+ * GET /api/github/installations — the caller's own installations, plus the install
+ * link the frontend's empty state and "add another account" affordance both need.
  *
  * Syncs from `GET /user/installations` first, rather than returning only what is
  * already stored: until Phase 06's webhooks exist, a page load *is* the sync (§10). A
@@ -59,7 +74,7 @@ export async function listInstallations(req: Request, res: Response): Promise<vo
 
   const installations = await repositoryService.syncInstallations({ userId: session.user.id });
 
-  res.status(200).json({ installations });
+  res.status(200).json({ installations, installUrl: installUrl() });
 }
 
 /**

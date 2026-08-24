@@ -29,6 +29,7 @@ vi.mock("../../src/github/services/repository.github.js", () => ({
 }));
 
 const { emitRepositoryIndexRequested } = await import("../../src/inngest/emit.js");
+const installationGithub = await import("../../src/github/services/installation.github.js");
 const repositoryGithub = await import("../../src/github/services/repository.github.js");
 const { default: app } = await import("../../src/app.js");
 
@@ -40,6 +41,7 @@ beforeEach(async () => {
   vi.mocked(emitRepositoryIndexRequested).mockClear();
   vi.mocked(repositoryGithub.getRepository).mockReset();
   vi.mocked(repositoryGithub.probeBranch).mockReset();
+  vi.mocked(installationGithub.listUserInstallations).mockReset();
   user = await seedSignedInUser("octocat");
   installation = await seedInstallation(user.id, { accountLogin: "octocat" });
 });
@@ -76,6 +78,29 @@ describe("authentication — every repository route is 401 without a session", (
       expect(res.body.error.code).toBe("UNAUTHENTICATED");
     });
   }
+});
+
+describe("GET /api/github/installations", () => {
+  it("returns the caller's stored installations plus an installUrl built from GITHUB_APP_SLUG", async () => {
+    await prisma.account.create({
+      data: { userId: user.id, type: "oauth", provider: "github", providerAccountId: "gh-octocat", access_token: "fixture-oauth-token" },
+    });
+    vi.mocked(installationGithub.listUserInstallations).mockResolvedValueOnce({
+      ok: true,
+      installations: [
+        { installationId: installation.installationId, accountLogin: "octocat", accountType: "User", suspended: false },
+      ],
+    });
+
+    const res = await request(app).get("/api/github/installations").set("Cookie", user.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.installations).toHaveLength(1);
+    expect(res.body.installations[0].installationId).toBe(installation.installationId.toString());
+    // Sub-task 3.5: the install link's single source of truth is the API, not a
+    // NEXT_PUBLIC_* variable duplicated into apps/web.
+    expect(res.body.installUrl).toMatch(/^https:\/\/github\.com\/apps\/.+\/installations\/new$/);
+  });
 });
 
 describe("POST /api/projects/:id/repositories — connect", () => {
