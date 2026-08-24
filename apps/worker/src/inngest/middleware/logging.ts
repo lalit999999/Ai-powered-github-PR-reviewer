@@ -1,5 +1,5 @@
 import { Middleware } from "inngest";
-import { generateTraceId, runWithTraceContext } from "../../lib/tracing.js";
+import { generateTraceId, runWithTraceContext } from "@repo/observability";
 
 /**
  * Attaches a traceId to each function run via AsyncLocalStorage, exactly like

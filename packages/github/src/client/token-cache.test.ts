@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
 import { InMemoryTokenCache, REDIS_ERROR_LOG_WINDOW_MS, RedisTokenCache, type RedisLike } from "./token-cache.js";
 
 /** A controllable clock, in epoch ms, so TTL boundaries are tested without setTimeout. */

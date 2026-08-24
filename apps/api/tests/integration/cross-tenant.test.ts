@@ -15,19 +15,24 @@ vi.mock("../../src/inngest/emit.js", () => ({
 }));
 // GitHub itself is mocked at this boundary, the same as in repositories.test.ts — the
 // GitHub client (token minting, retry, rate limiting, pagination) has its own fixture
-// suite (src/github/github-fixtures.test.ts) and does not need re-proving here.
-vi.mock("../../src/github/services/installation.github.js", () => ({
-  listInstallationRepositories: vi.fn(),
-  listUserInstallations: vi.fn(),
-}));
-vi.mock("../../src/github/services/repository.github.js", () => ({
-  getRepository: vi.fn(),
-  probeBranch: vi.fn(),
-}));
+// suite (packages/github/src/github-fixtures.test.ts) and does not need re-proving here.
+vi.mock("@repo/github", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/github")>();
+  return {
+    ...actual,
+    installationGithub: {
+      listInstallationRepositories: vi.fn(),
+      listUserInstallations: vi.fn(),
+    },
+    repositoryGithub: {
+      getRepository: vi.fn(),
+      probeBranch: vi.fn(),
+    },
+  };
+});
 
 const { default: app } = await import("../../src/app.js");
-const installationGithub = await import("../../src/github/services/installation.github.js");
-const repositoryGithub = await import("../../src/github/services/repository.github.js");
+const { installationGithub, repositoryGithub } = await import("@repo/github");
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════════

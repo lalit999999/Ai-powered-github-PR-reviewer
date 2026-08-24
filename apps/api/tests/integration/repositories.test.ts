@@ -19,18 +19,23 @@ import { assertNoTokenPersisted, githubRepoMetadata, seedInstallation, type Seed
  */
 
 vi.mock("../../src/inngest/emit.js", () => ({ emitRepositoryIndexRequested: vi.fn() }));
-vi.mock("../../src/github/services/installation.github.js", () => ({
-  listInstallationRepositories: vi.fn(),
-  listUserInstallations: vi.fn(),
-}));
-vi.mock("../../src/github/services/repository.github.js", () => ({
-  getRepository: vi.fn(),
-  probeBranch: vi.fn(),
-}));
+vi.mock("@repo/github", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/github")>();
+  return {
+    ...actual,
+    installationGithub: {
+      listInstallationRepositories: vi.fn(),
+      listUserInstallations: vi.fn(),
+    },
+    repositoryGithub: {
+      getRepository: vi.fn(),
+      probeBranch: vi.fn(),
+    },
+  };
+});
 
 const { emitRepositoryIndexRequested } = await import("../../src/inngest/emit.js");
-const installationGithub = await import("../../src/github/services/installation.github.js");
-const repositoryGithub = await import("../../src/github/services/repository.github.js");
+const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { default: app } = await import("../../src/app.js");
 
 let user: SeededUser;

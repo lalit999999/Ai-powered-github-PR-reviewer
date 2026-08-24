@@ -1,4 +1,4 @@
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
 
 /**
  * A tiny key/value cache with a TTL. Values are opaque strings — **this interface knows

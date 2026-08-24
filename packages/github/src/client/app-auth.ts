@@ -1,7 +1,7 @@
 import { createAppAuth } from "@octokit/auth-app";
-import { env } from "../../config/env.js";
-import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../../lib/errors.js";
-import { createLogger, type Logger } from "../../lib/logger.js";
+import { createLogger, type Logger } from "@repo/observability";
+import { getGithubClientConfig } from "../config.js";
+import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../errors.js";
 import { getTokenCache } from "./redis.js";
 import type { Clock, TokenCache } from "./token-cache.js";
 
@@ -136,7 +136,8 @@ const defaultHttp: GithubHttpClient = async ({ method, url, headers }) => {
  * the very expiry boundary phase-02 §22 requires us to test.
  */
 function defaultCreateAppJwt(): () => Promise<string> {
-  const auth = createAppAuth({ appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY });
+  const { appId, privateKey } = getGithubClientConfig();
+  const auth = createAppAuth({ appId, privateKey });
   return async () => {
     const appAuthentication = await auth({ type: "app" });
     return appAuthentication.token;

@@ -1,5 +1,5 @@
 import type { Octokit } from "@octokit/core";
-import { createLogger, type Logger } from "../../lib/logger.js";
+import { createLogger, type Logger } from "@repo/observability";
 import { createInstallationOctokit, createUserOctokit, GITHUB_CLIENT_COMPONENT } from "../client/octokit-factory.js";
 import { classifyGithubError, type GithubResult } from "./github-result.js";
 

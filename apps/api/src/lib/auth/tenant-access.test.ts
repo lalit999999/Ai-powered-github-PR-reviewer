@@ -14,13 +14,16 @@ vi.mock("../../modules/repositories/repository.repository.js", () => ({
 
 // Captures the phase-01 §20 warn line without racing pino's stdout.
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-vi.mock("../logger.js", () => ({ createLogger: () => logSpies }));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => logSpies };
+});
 
 const { findOwnershipById } = await import("../../modules/projects/project.repository.js");
 const repositoryRepository = await import("../../modules/repositories/repository.repository.js");
 const { InternalError, NotFoundError } = await import("../errors.js");
 const { requireTenantAccess } = await import("./tenant-access.js");
-const { getTraceContext, runWithTraceContext } = await import("../tracing.js");
+const { getTraceContext, runWithTraceContext } = await import("@repo/observability");
 
 const OWNER_ID = "user-a";
 const OTHER_ID = "user-b";

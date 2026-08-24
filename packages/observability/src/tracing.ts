@@ -2,11 +2,19 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { ulid } from "ulid";
 
 /**
+ * Promoted from apps/api/src/lib/tracing.ts in Phase 03 (docs/decisions/phase-03-log.md)
+ * so every deployable that imports @repo/github shares the *same* AsyncLocalStorage
+ * instance apps/api's request wrapper (and apps/worker's Inngest middleware) populate —
+ * two separate module copies would mean two separate ALS instances, and a GitHub-client
+ * log line would silently lose traceId/userId/repositoryId correlation. Not just a
+ * dedup: this is the correctness reason a third copy (phase-01-log §9's worker copy)
+ * could not be repeated a third time.
+ *
  * Sortable (ULID) trace id + AsyncLocalStorage context. Deliberately an index-signature
  * type so Phase 01 can add `userId`/`projectId` to the context without changing any call
- * site that only cares about `traceId` (see docs/decisions/phase-00-log.md §1 — this repo's
- * apps/api is a plain Node/Express process, so ALS is reliable end-to-end; the Edge-runtime
- * caveat in phase-00 §5 doesn't apply here).
+ * site that only cares about `traceId` (see docs/decisions/phase-00-log.md §1 — every
+ * consumer of this package is a plain Node/Express process, so ALS is reliable
+ * end-to-end; the Edge-runtime caveat in phase-00 §5 doesn't apply here).
  */
 export interface TraceContext {
   traceId: string;

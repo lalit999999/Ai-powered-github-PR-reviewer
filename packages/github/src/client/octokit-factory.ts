@@ -2,7 +2,7 @@ import { Octokit } from "@octokit/core";
 import { retry } from "@octokit/plugin-retry";
 import { throttling } from "@octokit/plugin-throttling";
 import type { EndpointDefaults } from "@octokit/types";
-import { createLogger, type Logger } from "../../lib/logger.js";
+import { createLogger, type Logger } from "@repo/observability";
 import { getInstallationToken } from "./app-auth.js";
 import { createEtagCachePlugin, TokenCacheEtagStore, type EtagStore } from "./etag-cache.js";
 import { getTokenCache } from "./redis.js";

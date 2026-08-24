@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GithubRepositoryMetadata } from "../../github/services/repository.github.js";
+import type { GithubRepositoryMetadata } from "@repo/github";
 import type { InstallationRecord, RepositoryRecord } from "./repository.types.js";
 
 /**
@@ -21,23 +21,27 @@ vi.mock("./installation.repository.js", () => ({
   findInstallationForUser: vi.fn(),
   findGithubAccessToken: vi.fn(),
 }));
-vi.mock("../../github/services/installation.github.js", () => ({
-  listUserInstallations: vi.fn(),
-  listInstallationRepositories: vi.fn(),
-}));
-vi.mock("../../github/services/repository.github.js", () => ({
-  getRepository: vi.fn(),
-  probeBranch: vi.fn(),
+vi.mock("@repo/github", () => ({
+  installationGithub: {
+    listUserInstallations: vi.fn(),
+    listInstallationRepositories: vi.fn(),
+  },
+  repositoryGithub: {
+    getRepository: vi.fn(),
+    probeBranch: vi.fn(),
+  },
 }));
 vi.mock("../../inngest/emit.js", () => ({ emitRepositoryIndexRequested: vi.fn() }));
 
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-vi.mock("../../lib/logger.js", () => ({ createLogger: () => logSpies }));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => logSpies };
+});
 
 const repositoryRepository = await import("./repository.repository.js");
 const installationRepository = await import("./installation.repository.js");
-const installationGithub = await import("../../github/services/installation.github.js");
-const repositoryGithub = await import("../../github/services/repository.github.js");
+const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { emitRepositoryIndexRequested } = await import("../../inngest/emit.js");
 const { ConflictError, ForbiddenError, ServiceUnavailableError, UnauthenticatedError, UnprocessableEntityError } =
   await import("../../lib/errors.js");

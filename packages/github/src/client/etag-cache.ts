@@ -1,5 +1,5 @@
 import type { Octokit } from "@octokit/core";
-import { createLogger, type Logger } from "../../lib/logger.js";
+import { createLogger, type Logger } from "@repo/observability";
 import type { TokenCache } from "./token-cache.js";
 
 /**

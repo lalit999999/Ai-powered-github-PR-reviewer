@@ -1,8 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { Logger as PinoLogger } from "pino";
 import { AppError, InternalError } from "./errors.js";
-import { createLogger } from "./logger.js";
-import { generateTraceId, runWithTraceContext } from "./tracing.js";
+import { createLogger, generateTraceId, runWithTraceContext } from "@repo/observability";
 
 /**
  * Express equivalent of the phase-00 `withApiRoute` wrapper (see docs/decisions/phase-00-log.md

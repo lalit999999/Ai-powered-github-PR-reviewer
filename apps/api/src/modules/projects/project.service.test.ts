@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectRecord } from "./project.types.js";
 
 // The repository is the seam (it owns the Prisma import), and emit.ts is stubbed so no
-// unit test ever opens a socket to Inngest. Both mocks are hoisted above the imports
-// below, so neither @repo/db nor the config module is ever loaded here.
+// unit test ever opens a socket to Inngest. All three mocks are hoisted above the
+// imports below, so neither @repo/db nor the config module is ever loaded here.
+//
+// project.service.ts also imports the repositories module's service (for
+// getProjectDetail's repository list), which is not exercised by any test in this file
+// but is still a static top-level import — and, through installation.repository.js /
+// repository.repository.js, an unmocked path to @repo/db. Mocked for exactly that
+// reason, not because this file tests it.
 vi.mock("./project.repository.js", () => ({
   create: vi.fn(),
   findSlugsForUserByPrefix: vi.fn(),
@@ -11,10 +17,16 @@ vi.mock("./project.repository.js", () => ({
   listByUser: vi.fn(),
   softDeleteForUser: vi.fn(),
 }));
+vi.mock("../repositories/repository.service.js", () => ({
+  listProjectRepositories: vi.fn(),
+}));
 vi.mock("../../inngest/emit.js", () => ({ emitProjectDeleted: vi.fn() }));
 
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-vi.mock("../../lib/logger.js", () => ({ createLogger: () => logSpies }));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => logSpies };
+});
 
 const projectRepository = await import("./project.repository.js");
 const { emitProjectDeleted } = await import("../../inngest/emit.js");

@@ -2,7 +2,7 @@ import { getSession } from "@auth/express";
 import type { Session } from "@auth/express";
 import type { Request } from "express";
 import { UnauthenticatedError } from "../errors.js";
-import { setTraceUserId } from "../tracing.js";
+import { setTraceUserId } from "@repo/observability";
 import { authConfig } from "./config.js";
 
 export type AuthenticatedSession = Session & { user: NonNullable<Session["user"]> & { id: string } };

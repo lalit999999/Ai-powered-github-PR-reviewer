@@ -1,6 +1,6 @@
 import type { Octokit } from "@octokit/core";
 import type { EndpointDefaults } from "@octokit/types";
-import { createLogger, type Logger } from "../../lib/logger.js";
+import { createLogger, type Logger } from "@repo/observability";
 
 /**
  * Rate-limit policy for the GitHub client, expressed as @octokit/plugin-throttling's

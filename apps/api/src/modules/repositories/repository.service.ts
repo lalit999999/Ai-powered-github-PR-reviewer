@@ -1,5 +1,4 @@
-import * as installationGithub from "../../github/services/installation.github.js";
-import * as repositoryGithub from "../../github/services/repository.github.js";
+import { installationGithub, repositoryGithub } from "@repo/github";
 import { emitRepositoryIndexRequested } from "../../inngest/emit.js";
 import type { OwnerContext, TenantContext } from "../../lib/auth/tenant-access.js";
 import {
@@ -10,7 +9,7 @@ import {
   ServiceUnavailableError,
   UnauthenticatedError,
 } from "../../lib/errors.js";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
 import * as installationRepository from "./installation.repository.js";
 import {
   NO_ACCESS_MESSAGE,

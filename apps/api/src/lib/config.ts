@@ -1,3 +1,4 @@
+import { githubAppPrivateKeySchema, githubRedisUrlSchema } from "@repo/github";
 import { z } from "zod";
 
 export class ConfigError extends Error {
@@ -6,41 +7,6 @@ export class ConfigError extends Error {
     this.name = "ConfigError";
   }
 }
-
-const PEM_HEADER = /-----BEGIN (RSA )?PRIVATE KEY-----/;
-const PEM_FOOTER = /-----END (RSA )?PRIVATE KEY-----/;
-
-const MALFORMED_KEY_MESSAGE =
-  "GITHUB_APP_PRIVATE_KEY is malformed — expected a base64-encoded PKCS#1/PKCS#8 PEM " +
-  "(base64 of the whole .pem file GitHub gave you), or the raw PEM itself. " +
-  "See docs/github-app-setup.md.";
-
-/**
- * A GitHub App private key is a multi-line PEM, and most .env loaders and hosting
- * providers mangle real newlines. The canonical encoding for this variable is therefore
- * **base64 of the entire .pem file** — one token, no escaping rules, survives every env
- * loader and secret store unchanged.
- *
- * A value that already looks like a PEM is passed through unchanged: dotenv supports
- * multi-line double-quoted values, so pasting the file directly works locally, and
- * silently rejecting it would be a hostile local-dev experience. That is a convenience,
- * not a second supported encoding — deployments use base64. See
- * docs/decisions/phase-02-log.md.
- *
- * The decode + shape check happens *here*, at boot, rather than at the first GitHub
- * call: a key that only fails when someone connects a repository is exactly the class of
- * late failure this repo's fail-fast config exists to prevent (phase-00 §19/FR4).
- */
-const githubAppPrivateKeySchema = z
-  .string()
-  .min(1, "GITHUB_APP_PRIVATE_KEY is required")
-  // Buffer.from(_, "base64") never throws — it drops non-base64 characters — so garbage
-  // decodes to garbage and is caught by the PEM shape check below, not by a try/catch.
-  .transform((raw) => {
-    const value = raw.trim();
-    return PEM_HEADER.test(value) ? value : Buffer.from(value, "base64").toString("utf8");
-  })
-  .refine((pem) => PEM_HEADER.test(pem) && PEM_FOOTER.test(pem), MALFORMED_KEY_MESSAGE);
 
 /**
  * Phase 00 §19 vars, plus PORT/FRONTEND_URL which this repo's Express-backend topology
@@ -77,16 +43,9 @@ export const envSchema = z.object({
   // any phase before 06) reads it. Required anyway, so a deployment can never reach
   // Phase 06's webhook endpoint without it already being set — phase-02 §19.
   GITHUB_APP_WEBHOOK_SECRET: z.string().min(1, "GITHUB_APP_WEBHOOK_SECRET is required"),
-  // z.url() alone is too weak here: `new URL("localhost:6379")` parses happily (scheme
-  // "localhost:"), so the common typo of omitting the scheme would sail through boot and
-  // fail at connect time instead. Pin the schemes the client actually speaks.
-  REDIS_URL: z
-    .string()
-    .url("REDIS_URL must be a URL, e.g. redis://localhost:6379")
-    .refine(
-      (value) => /^(rediss?|unix):\/\//.test(value),
-      "REDIS_URL must start with redis://, rediss://, or unix:// — e.g. redis://localhost:6379",
-    ),
+  // Shared with apps/worker via @repo/github rather than re-derived here — see
+  // docs/decisions/phase-03-log.md, sub-task 1.1/1.2.
+  REDIS_URL: githubRedisUrlSchema,
 });
 
 export type Config = Readonly<z.infer<typeof envSchema>>;

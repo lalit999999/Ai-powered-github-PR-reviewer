@@ -39,9 +39,10 @@ vi.mock("../modules/projects/project.service.js", () => ({
   softDeleteProject: vi.fn(),
 }));
 
-vi.mock("../lib/logger.js", () => ({
-  createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
-}));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) };
+});
 
 const repositoryService = await import("../modules/repositories/repository.service.js");
 const { UnauthenticatedError } = await import("../lib/errors.js");

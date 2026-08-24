@@ -237,24 +237,15 @@ importers:
       '@auth/express':
         specifier: ^0.12.3
         version: 0.12.3(express@5.2.1)
-      '@octokit/auth-app':
-        specifier: ^8.3.0
-        version: 8.3.0
-      '@octokit/core':
-        specifier: ^7.0.7
-        version: 7.0.7
-      '@octokit/plugin-retry':
-        specifier: ^8.1.1
-        version: 8.1.1(@octokit/core@7.0.7)
-      '@octokit/plugin-throttling':
-        specifier: ^11.0.5
-        version: 11.0.5(@octokit/core@7.0.7)
-      '@octokit/request-error':
-        specifier: ^7.1.1
-        version: 7.1.1
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@repo/github':
+        specifier: workspace:*
+        version: link:../../packages/github
+      '@repo/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -270,22 +261,13 @@ importers:
       inngest:
         specifier: ^4.18.1
         version: 4.18.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.13.3)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@7.0.2)(zod@4.4.3)
-      ioredis:
-        specifier: ^6.0.0
-        version: 6.0.0
       pino:
         specifier: ^9.6.0
         version: 9.14.0
-      ulid:
-        specifier: ^2.3.0
-        version: 2.4.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@octokit/types':
-        specifier: ^15.0.2
-        version: 15.0.2
       '@testcontainers/postgresql':
         specifier: ^10.16.0
         version: 10.28.0
@@ -304,9 +286,6 @@ importers:
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
-      nock:
-        specifier: 14.0.17
-        version: 14.0.17
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
@@ -419,6 +398,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@repo/github':
+        specifier: workspace:*
+        version: link:../../packages/github
+      '@repo/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -431,12 +419,6 @@ importers:
       inngest:
         specifier: ^4.18.1
         version: 4.18.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.13.3)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@7.0.2)(zod@4.4.3)
-      pino:
-        specifier: ^9.6.0
-        version: 9.14.0
-      ulid:
-        specifier: ^2.3.0
-        version: 2.4.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -453,6 +435,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/db:
     dependencies:
@@ -478,6 +463,68 @@ importers:
       prisma:
         specifier: ^7.9.1
         version: 7.9.1(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2)
+
+  packages/github:
+    dependencies:
+      '@octokit/auth-app':
+        specifier: ^8.3.0
+        version: 8.3.0
+      '@octokit/core':
+        specifier: ^7.0.7
+        version: 7.0.7
+      '@octokit/plugin-retry':
+        specifier: ^8.1.1
+        version: 8.1.1(@octokit/core@7.0.7)
+      '@octokit/plugin-throttling':
+        specifier: ^11.0.5
+        version: 11.0.5(@octokit/core@7.0.7)
+      '@repo/observability':
+        specifier: workspace:*
+        version: link:../observability
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@octokit/types':
+        specifier: ^15.0.2
+        version: 15.0.2
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      nock:
+        specifier: 14.0.17
+        version: 14.0.17
+      pino:
+        specifier: ^9.6.0
+        version: 9.14.0
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/observability:
+    dependencies:
+      pino:
+        specifier: ^9.6.0
+        version: 9.14.0
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/shared: {}
 

@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import nock from "nock";
 import pino from "pino";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../lib/errors.js";
-import { createLogger } from "../lib/logger.js";
+import { createLogger } from "@repo/observability";
+import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "./errors.js";
 import {
   createInstallationTokenService,
   installationTokenCacheKey,
@@ -47,7 +47,7 @@ import { getRepository, probeBranch } from "./services/repository.github.js";
  * each `tests/fixtures/github/*.json` is used by at least one test below.
  */
 
-const FIXTURES_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../tests/fixtures/github");
+const FIXTURES_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../tests/fixtures/github");
 
 const GITHUB_API = "https://api.github.com";
 const INSTALLATION_ID = 58234971n;

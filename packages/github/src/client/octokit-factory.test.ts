@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
 import { etagCacheKey, TokenCacheEtagStore } from "./etag-cache.js";
 import { createInstallationOctokit } from "./octokit-factory.js";
 import { MAX_RATE_LIMIT_WAIT_SECONDS } from "./rate-limiter.js";

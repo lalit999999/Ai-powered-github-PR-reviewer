@@ -1,6 +1,13 @@
 import pino, { type Logger as PinoLogger } from "pino";
 import { getTraceContext } from "./tracing.js";
 
+// Promoted from apps/api/src/lib/logger.ts in Phase 03 (docs/decisions/phase-03-log.md)
+// so apps/api, apps/worker, and @repo/github share one logger — and, more importantly,
+// one AsyncLocalStorage-backed trace context (tracing.ts below). Before this move,
+// apps/worker carried its own byte-identical-at-the-time copy (phase-01-log §9) that had
+// since drifted and was missing the phase-02 §13 redaction rules below; that drift is
+// structurally impossible now that there is exactly one copy.
+//
 // Unconditional redaction — active from this commit, before there is anything to leak
 // (phase-00 §13). Matches on key name anywhere in the log payload, arbitrarily nested.
 const REDACT_EXACT = new Set(["DATABASE_URL"]);

@@ -1,5 +1,4 @@
-import type { BranchProbeResult, GithubRepositoryMetadata } from "../../github/services/repository.github.js";
-import type { GithubResult } from "../../github/services/github-result.js";
+import type { BranchProbeResult, GithubRepositoryMetadata, GithubResult } from "@repo/github";
 import {
   ConflictError,
   ForbiddenError,
@@ -7,7 +6,7 @@ import {
   UnprocessableEntityError,
   ValidationError,
 } from "../../lib/errors.js";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
 import { GITHUB_REPO_URL_MESSAGE, parseGithubRepoUrl, type GithubRepoRef } from "./repository.schema.js";
 import type { RepositoryRecord } from "./repository.types.js";
 

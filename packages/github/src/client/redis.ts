@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
-import { env } from "../../config/env.js";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
+import { getGithubClientConfig } from "../config.js";
 import { InMemoryTokenCache, RedisTokenCache, type TokenCache } from "./token-cache.js";
 
 const logger = createLogger("github.redis");
@@ -32,7 +32,7 @@ let cache: TokenCache | undefined;
 export function getRedisClient(): Redis {
   if (client) return client;
 
-  client = new Redis(env.REDIS_URL, {
+  client = new Redis(getGithubClientConfig().redisUrl, {
     lazyConnect: true,
     connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
     maxRetriesPerRequest: 1,

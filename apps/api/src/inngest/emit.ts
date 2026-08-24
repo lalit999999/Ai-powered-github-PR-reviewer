@@ -4,7 +4,7 @@ import {
   type ProjectDeletedData,
   type RepositoryIndexRequestedData,
 } from "@repo/shared";
-import { createLogger } from "../lib/logger.js";
+import { createLogger } from "@repo/observability";
 import { inngest } from "./client.js";
 
 const logger = createLogger("inngest.emit");

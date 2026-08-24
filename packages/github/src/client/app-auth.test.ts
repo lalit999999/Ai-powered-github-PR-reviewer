@@ -1,8 +1,8 @@
 import { Writable } from "node:stream";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
-import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../../lib/errors.js";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
+import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../errors.js";
 import {
   createInstallationTokenService,
   effectiveTtlSeconds,

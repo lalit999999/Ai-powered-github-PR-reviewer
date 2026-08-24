@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { ConfigError, loadConfig, type Config } from "../lib/config.js";
-import { createLogger } from "../lib/logger.js";
+import { createLogger } from "@repo/observability";
 
 function loadConfigOrExit(): Config {
   try {
