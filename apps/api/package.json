@@ -37,6 +37,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@octokit/types": "^15.0.2",
     "@testcontainers/postgresql": "^10.16.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
