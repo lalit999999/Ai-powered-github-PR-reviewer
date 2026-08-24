@@ -57,6 +57,11 @@ export type Project = Prisma.ProjectModel
  */
 export type GithubInstallation = Prisma.GithubInstallationModel
 /**
+ * Model Repository
+ * 
+ */
+export type Repository = Prisma.RepositoryModel
+/**
  * Model Account
  * 
  */

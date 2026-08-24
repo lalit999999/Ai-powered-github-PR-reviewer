@@ -56,9 +56,7 @@ model Project {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // repositories Repository[] — Phase 02 model. Phase-01 §6 lists this relation, but
-  // Repository does not exist yet; intentionally omitted until Phase 02 defines it
-  // (see the Prompt 2 implementation instructions).
+  repositories Repository[]
 
   @@unique([userId, slug])
   @@index([userId, deletedAt])
@@ -77,6 +75,80 @@ model GithubInstallation {
   updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Phase 02 (phase-02-github-repository-integration.md §6). A GitHub repository
+// connected to a Project through a GitHub App installation. Created in indexStatus
+// PENDING; nothing in Phase 02 moves it further — Phase 03 owns every other transition.
+//
+// Four deliberate departures from / additions to §6's block, each argued in
+// docs/decisions/phase-02-log.md §4:
+//   · htmlUrl added — §6's Prisma block omits it, but §4 Data Requirements and
+//     plan.md §24.2 both list it as required.
+//   · sizeBytes / webhookId added as nullable — plan.md §24.2 has them, §6 doesn't;
+//     both follow §6's own "declare later-phase fields now" rationale.
+//   · installationId stays a plain BigInt, NOT a foreign key to GithubInstallation,
+//     even though that relation is possible (GithubInstallation.installationId is
+//     @unique). A real FK would cascade-delete these rows when the App is uninstalled;
+//     losing connection history is worse than the missing referential integrity, and
+//     ACCESS_LOST exists precisely to represent "installation gone, row kept".
+//   · No standalone @@index([projectId]) — plan.md §24.2 lists one, but
+//     @@unique([projectId, githubRepoId]) already creates a projectId-prefixed
+//     composite index that serves WHERE projectId = ? equally well.
+//
+// githubRepoId is deliberately NOT globally unique: the same GitHub repository may be
+// connected to two different projects, and both connections must work independently
+// (§4 FR / plan.md §45's named failure point for this phase). Every query keys on
+// (projectId, githubRepoId), never githubRepoId alone.
+model Repository {
+  id               String      @id @default(uuid())
+  projectId        String
+  installationId   BigInt
+  githubRepoId     BigInt
+  owner            String
+  name             String
+  fullName         String
+  defaultBranch    String
+  isPrivate        Boolean     @default(true)
+  htmlUrl          String
+  sizeBytes        Int?
+  webhookId        BigInt?
+  // ACTIVE | DISCONNECTED | ACCESS_LOST. A String, not an enum — both source documents
+  // specify it that way, in contrast to indexStatus below. The legal values are pinned
+  // as a TypeScript union in apps/api/src/modules/repositories/repository.types.ts so
+  // nothing type-unsafe leaks upward.
+  connectionStatus String      @default("ACTIVE")
+  indexStatus      IndexStatus @default(PENDING)
+
+  // Declared now, null/default until Phase 03–05 populate them (§6) — declaring them
+  // up front avoids a schema-churning migration mid-indexing-buildout.
+  indexedCommitSha String?
+  indexVersion     Int       @default(1)
+  indexedFileCount Int       @default(0)
+  skippedFileCount Int       @default(0)
+  reviewProfile    String?
+  lastIndexedAt    DateTime?
+  indexError       Json?
+
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, githubRepoId])
+  @@index([githubRepoId])
+  @@index([indexStatus])
+}
+
+// Full lifecycle declared now; only (none) → PENDING is reachable in Phase 02 (§11).
+enum IndexStatus {
+  PENDING
+  INDEXING
+  INDEXED
+  UPDATING
+  FAILED
+  PARTIAL
 }
 
 // --- Auth.js adapter tables (@auth/prisma-adapter) ---
