@@ -12,8 +12,10 @@ deploy is a manual step (see [Outstanding](#outstanding-manual-steps)).
 | `apps/api` | `pnpm --filter api build` | `pnpm --filter api start` | Express API, `/api/health`, `/api/auth/*`, `/api/projects*`, `/auth/*` (sign-in/error bridge) |
 | `apps/worker` | `pnpm --filter worker build` | `pnpm --filter worker start` | Inngest functions at `/api/inngest` |
 
-`apps/worker` has exactly one diagnostic function (`noop-handler`) until Phase 03 gives
-it real work. Its container/Dockerfile is deliberately deferred to Phase 03 (phase-00 §18).
+`apps/worker` has its own Postgres and GitHub App access as of Phase 03 (`Dockerfile.worker`
+at the repo root — see [Worker container](#worker-container) below), but still registers only
+one diagnostic Inngest function (`noop-handler`); `repository-index`, the first real one,
+is Prompt 2 of Phase 03.
 
 ## Release path
 
@@ -39,7 +41,7 @@ Names only — never commit values. `.env.example` is the authoritative list.
 |---|:--:|:--:|:--:|---|
 | `NODE_ENV` | ✅ | ✅ | ✅ | `production` in staging and production |
 | `LOG_LEVEL` | ○ | ○ | — | defaults to `info` |
-| `DATABASE_URL` | ✅ | — | — | also needed by the release-step `migrate deploy` |
+| `DATABASE_URL` | ✅ | ✅ | — | also needed by the release-step `migrate deploy`; same database, two deployables |
 | `INNGEST_EVENT_KEY` | ✅ | ✅ | — | per-environment key |
 | `INNGEST_SIGNING_KEY` | ✅ | ✅ | — | per-environment key |
 | `PORT` | ✅ | — | — | api's listen port (defaults to 4000) |
@@ -50,11 +52,14 @@ Names only — never commit values. `.env.example` is the authoritative list.
 | `AUTH_SECRET` | ✅ | — | — | `openssl rand -hex 32`; distinct per environment |
 | `AUTH_URL` | ✅ | — | — | **per-environment** — see below |
 | `NEXT_PUBLIC_API_URL` | — | — | ✅ | the deployed `apps/api` origin |
-| `GITHUB_APP_ID` | ✅ | — | — | Phase 02 — the GitHub **App**, not the OAuth App |
-| `GITHUB_APP_PRIVATE_KEY` | ✅ | — | — | base64 of the `.pem` — see below |
-| `GITHUB_APP_SLUG` | ✅ | — | — | builds the install link |
-| `GITHUB_APP_WEBHOOK_SECRET` | ✅ | — | — | set on GitHub now; unread until Phase 06 |
-| `REDIS_URL` | ✅ | — | — | Phase 02 — installation-token cache |
+| `GITHUB_APP_ID` | ✅ | ✅ | — | Phase 02/03 — the GitHub **App**, not the OAuth App; same App, two deployables |
+| `GITHUB_APP_PRIVATE_KEY` | ✅ | ✅ | — | base64 of the `.pem` — see below |
+| `GITHUB_APP_SLUG` | ✅ | — | — | builds the install link; worker never needs it |
+| `GITHUB_APP_WEBHOOK_SECRET` | ✅ | — | — | set on GitHub now; unread until Phase 06; worker never receives webhooks |
+| `REDIS_URL` | ✅ | ✅ | — | Phase 02/03 — installation-token cache, shared by both deployables |
+| `WORKER_TEMP_DIR` | — | ○ | — | Phase 03 — tarball extraction scratch dir; defaults to a container-standard temp path |
+| `INDEX_MAX_TOTAL_BYTES` | — | ○ | — | Phase 03 — zip-bomb defense; defaults to 2 GiB |
+| `INDEX_MAX_FILE_COUNT` | — | ○ | — | Phase 03 — defaults to 200,000 |
 
 ✅ required · ○ optional · — not used
 
@@ -121,8 +126,8 @@ origin, api) and `NEXT_PUBLIC_API_URL` (api origin, web) must point at that pair
 
 | Dependency | Used by | Since | Notes |
 |---|---|---|---|
-| PostgreSQL | `apps/api` | Phase 00 | The system of record. |
-| Redis | `apps/api` | **Phase 02** | Installation-access-token cache only. |
+| PostgreSQL | `apps/api`, `apps/worker` | Phase 00 (worker: **Phase 03**) | The system of record. One database, two deployables. |
+| Redis | `apps/api`, `apps/worker` | Phase 02 (worker: **Phase 03**) | Installation-access-token cache only. |
 
 **Redis holds no durable state.** It caches GitHub installation tokens (50-minute TTL)
 and ETag entries. Losing it costs one extra token mint per installation and some
