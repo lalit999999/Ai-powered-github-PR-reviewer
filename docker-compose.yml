@@ -15,5 +15,21 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
+  # Phase 02 — first use of Redis in the system: the installation-access-token cache
+  # (phase-02 §4 Technical Requirements). Nothing durable lives here; the named volume
+  # exists only so a local restart doesn't force a fresh JWT→token exchange for every
+  # installation. Losing it costs one extra GitHub call per installation, nothing more.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    container_name: redisdb
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
 volumes:
   pg_data:
+  redis_data:

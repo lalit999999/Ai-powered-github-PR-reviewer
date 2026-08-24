@@ -5,7 +5,8 @@ pnpm + Turborepo monorepo:
 ```text
 apps/
   api/      Express backend — routes, controllers, src/lib/ (logger, tracing, errors,
-            config, validation, http, auth) — most backend code lives here
+            config, validation, http, auth), src/github/ (GitHub App client: token
+            minting, Octokit factory, ETag cache) — most backend code lives here
   web/      Next.js (App Router) frontend
   worker/   Inngest client, middleware, and functions, served at /api/inngest
 packages/
@@ -25,16 +26,44 @@ documents' rules/paths map onto it.
 ```bash
 pnpm install
 
-docker compose up -d              # local Postgres on localhost:5432 (db: dev)
+docker compose up -d              # Postgres on :5432 (db: dev) + Redis on :6379
 
-cp .env.example apps/api/.env     # dev-only values are fine locally; see the
-                                   # AUTH_URL note below before real GitHub sign-in
+cp .env.example apps/api/.env     # then FILL IN the empty values — every variable in
+                                   # it is required, and apps/api refuses to boot while
+                                   # any one of them is blank (that is the point)
 
 pnpm db:generate                  # generate the Prisma client (no DB connection needed)
 pnpm db:migrate                   # apply migrations (prisma migrate dev)
 
 pnpm dev                          # api :4000 · web :3000 · worker :4500
 ```
+
+Throwaway values that are enough to boot and to run the whole test suite — nothing here
+contacts GitHub:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dev
+NODE_ENV=development
+INNGEST_EVENT_KEY=dev
+INNGEST_SIGNING_KEY=dev
+PORT=4000
+FRONTEND_URL=http://localhost:3000
+GITHUB_OAUTH_CLIENT_ID=dev
+GITHUB_OAUTH_CLIENT_SECRET=dev
+AUTH_SECRET=$(openssl rand -hex 32)
+AUTH_URL=http://localhost:4000
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY=$(base64 -w0 <<< '-----BEGIN RSA PRIVATE KEY-----
+placeholder
+-----END RSA PRIVATE KEY-----')
+GITHUB_APP_SLUG=dev-app-slug
+GITHUB_APP_WEBHOOK_SECRET=dev
+REDIS_URL=redis://localhost:6379
+```
+
+Real GitHub sign-in needs a real OAuth App (see the `AUTH_URL` note below); connecting a
+real repository needs a real GitHub App (see
+[`docs/github-app-setup.md`](docs/github-app-setup.md)).
 
 `apps/worker` needs its own `.env` (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`,
 `WORKER_PORT`) — same dev values as `apps/api`. `apps/web` needs
@@ -51,11 +80,19 @@ In a second terminal, alongside `pnpm dev`:
 pnpm dev:inngest                  # Dev Server UI on http://localhost:8288
 ```
 
-Run the worker with `INNGEST_DEV=1` set (put it in `apps/worker/.env`) so the SDK talks
-to the local Dev Server instead of Inngest Cloud — without it, requests are rejected as
-unsigned. Then open http://localhost:8288, confirm the app registers with exactly one
-function (`noop-handler`), and send `internal/noop.ping` to see a `traceId`-carrying log
-line from the worker.
+Set `INNGEST_DEV=1` in **both** `apps/worker/.env` and `apps/api/.env` so the SDK talks
+to the local Dev Server instead of Inngest Cloud. Missing it on the worker side gets
+requests rejected as unsigned; missing it on the API side is quieter and easier to
+miss — every event `apps/api` emits (`project/deleted`, `repository/index.requested`)
+goes to Inngest Cloud instead, comes back `401 Event key not found`, is logged at
+`error`, and is dropped, because emission is deliberately non-fatal
+(`apps/api/src/inngest/emit.ts`). Nothing crashes; the event just never appears in the
+Dev Server UI. Found the hard way during Phase 02's own smoke pass — see
+`docs/decisions/phase-02-log.md` §27.
+
+Then open http://localhost:8288, confirm the app registers with exactly one function
+(`noop-handler`), and send `internal/noop.ping` to see a `traceId`-carrying log line
+from the worker.
 
 ### GitHub OAuth (sign-in)
 
@@ -64,6 +101,56 @@ sign-in, create a GitHub OAuth App whose callback URL is **exactly**
 `$AUTH_URL/api/auth/callback/github` (locally: `http://localhost:4000/api/auth/callback/github`)
 and set `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET`. Callback-URL mismatch is
 the most common failure here — see `docs/deployment.md`.
+
+### GitHub App (repository access)
+
+Separately from the OAuth App above, Phase 02 needs a GitHub **App** — the credential
+that reads repository contents and publishes review comments. The two are never
+interchangeable; `plan.md` §45 names conflating them as a top failure point.
+
+`.env.example`'s placeholder App values are enough to boot and to run every test (no
+test contacts GitHub). To connect a real repository, follow
+[`docs/github-app-setup.md`](docs/github-app-setup.md) — it covers the permissions to
+select, the events to subscribe to, and how to encode the private key
+(`base64 -w0 your-app.private-key.pem`). What the App asks for and why, in
+customer-legible terms, is in
+[`docs/github-app-permissions.md`](docs/github-app-permissions.md).
+
+Two things that look broken but are not:
+
+- The App's webhook deliveries will 404 until **Phase 06** builds the receiving
+  endpoint. `GITHUB_APP_WEBHOOK_SECRET` is required and set now, but no code reads it
+  before Phase 06. GitHub retries; nothing in Phases 02–05 depends on delivery
+  succeeding — see `docs/github-app-setup.md`'s "The webhook 404s until Phase 06".
+- If Redis is down, `apps/api` logs a warning and keeps working off an in-memory token
+  cache. It is a cache, not a database.
+
+#### Connecting a repository
+
+With a real GitHub App registered (`docs/github-app-setup.md`) and installed on a test
+account:
+
+1. Sign in, open a project, and the **GitHub installations** panel syncs from
+   `GET /user/installations` on page load. Nothing there yet? Click **Install GitHub
+   App**, finish GitHub's flow, and come back to this tab — click **Refresh** rather
+   than waiting; nothing pushes the update to you until Phase 06's webhooks exist (§10).
+2. Click **Connect repository**. Search the installation's repositories, or switch to
+   **Paste URL** and give it `https://github.com/{owner}/{repo}` directly.
+3. On success the dialog closes and a repository card appears showing **Waiting to be
+   indexed** — `indexStatus=PENDING` is as far as this phase goes; Phase 03 is what
+   actually indexes it.
+4. Each invalid case answers its own way: a malformed URL is a 400 before any GitHub
+   call; a repository the installation can't see is a 403 linking to GitHub's
+   installation settings; reconnecting the same repository to the same project is a 409
+   linking to the existing card; an empty or oversized repository is a 422 with its own
+   message for each.
+
+No real GitHub App in this environment? Every test in `pnpm test:unit` /
+`pnpm test:integration` exercises this whole flow with GitHub mocked (or, for the
+client layer specifically, replayed against the fixtures in
+`apps/api/tests/fixtures/github/` via `nock`) — see that directory's own README for
+what "fixture" means here, since nothing in this repository has ever talked to a real
+GitHub App.
 
 `packages/db` reads its own `packages/db/.env` for `DATABASE_URL` when you run Prisma
 CLI commands directly from that package — keep it pointed at your local Postgres
@@ -87,7 +174,8 @@ unless you deliberately mean to target another database.
 ## Architecture boundaries (enforced by lint, not just docs)
 
 - `apps/api/src/routes/**` and `apps/api/src/controllers/**` may not import the future
-  `ai`/`github`/`embedings` packages directly.
+  `ai`/`github`/`embedings` packages directly — nor, since Phase 02, the in-app GitHub
+  client tree at `apps/api/src/github/**` by relative path.
 - Only `packages/db/**` (or a `*.repository.ts` file) may import `@prisma/client` —
   everything else imports the `prisma` singleton from `@repo/db`.
 - `apps/worker/src/inngest/functions/**` may not import `apps/api`'s routes/controllers.
@@ -111,8 +199,8 @@ Inngest function runs get the same envelope from
 GitHub OAuth via Auth.js (`@auth/express`) with **database-backed sessions** through the
 Prisma adapter — deliberately not JWT, so sessions can be revoked (plan.md §35.1,
 phase-01 §1/§22). Requested scopes are `read:user` and `user:email` only; the OAuth
-identity answers *who is signed in* and is never used for repository access (that is the
-GitHub App installation identity, arriving in Phase 02).
+identity answers *who is signed in* and is never used for repository access — that is the
+GitHub App installation identity from Phase 02 (`docs/github-app-setup.md`).
 
 `requireSession(req)` (`apps/api/src/lib/auth/session.ts`) is the single entry point for
 resolving the caller. A missing, invalid, or expired session throws

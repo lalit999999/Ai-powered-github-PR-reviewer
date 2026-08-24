@@ -5,11 +5,33 @@ import { getTraceContext } from "./tracing.js";
 // (phase-00 §13). Matches on key name anywhere in the log payload, arbitrarily nested.
 const REDACT_EXACT = new Set(["DATABASE_URL"]);
 const REDACT_SUFFIXES = ["_KEY", "_SECRET", "_TOKEN"];
+
+// Phase 02 §13 requires that installation tokens are "never logged". The SCREAMING_CASE
+// suffix rules above only ever matched environment-variable names; a camelCase or plain
+// field — `token`, `accessToken`, `privateKey` — would have gone straight to stdout.
+// These rules match on a normalized key (lowercased, separators stripped), so
+// `token` / `access_token` / `accessToken` / `ACCESS-TOKEN` are all one rule.
+//
+// Deliberately NOT redacted: a bare `key`. The token cache logs its *cache key* by
+// design (phase-02 sub-task 1.3 — "log the key, the hit/miss, and the remaining TTL,
+// never the token"), and a cache key is not a secret. `apiKey`/`privateKey` are matched
+// explicitly instead of by a blanket `*key` suffix.
+const REDACT_NORMALIZED_EXACT = new Set(["authorization", "cookie", "setcookie", "credentials", "pem"]);
+const REDACT_NORMALIZED_SUFFIXES = ["token", "secret", "password", "passphrase", "privatekey", "apikey"];
+
 const REDACTED_VALUE = "[REDACTED]";
 const MAX_REDACT_DEPTH = 10;
 
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function shouldRedactKey(key: string): boolean {
-  return REDACT_EXACT.has(key) || REDACT_SUFFIXES.some((suffix) => key.endsWith(suffix));
+  if (REDACT_EXACT.has(key) || REDACT_SUFFIXES.some((suffix) => key.endsWith(suffix))) {
+    return true;
+  }
+  const normalized = normalizeKey(key);
+  return REDACT_NORMALIZED_EXACT.has(normalized) || REDACT_NORMALIZED_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
 }
 
 export function redact(value: unknown, depth = 0): unknown {

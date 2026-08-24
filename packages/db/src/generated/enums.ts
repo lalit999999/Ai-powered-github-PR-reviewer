@@ -9,7 +9,13 @@
 * 🟢 You can import this file directly.
 */
 
+export const IndexStatus = {
+  PENDING: 'PENDING',
+  INDEXING: 'INDEXING',
+  INDEXED: 'INDEXED',
+  UPDATING: 'UPDATING',
+  FAILED: 'FAILED',
+  PARTIAL: 'PARTIAL'
+} as const
 
-
-// This file is empty because there are no enums in the schema.
-export {}
+export type IndexStatus = (typeof IndexStatus)[keyof typeof IndexStatus]

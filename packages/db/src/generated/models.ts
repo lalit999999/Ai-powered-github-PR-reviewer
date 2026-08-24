@@ -11,6 +11,7 @@
 export type * from './models/User'
 export type * from './models/Project'
 export type * from './models/GithubInstallation'
+export type * from './models/Repository'
 export type * from './models/Account'
 export type * from './models/Session'
 export type * from './models/VerificationToken'

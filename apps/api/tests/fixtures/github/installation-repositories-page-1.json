@@ -1,0 +1,2413 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "x-ratelimit-remaining": "4990"
+  },
+  "body": {
+    "total_count": 137,
+    "repository_selection": "selected",
+    "repositories": [
+      {
+        "id": 700000001,
+        "node_id": "R_kgDObkrfgh",
+        "name": "service-1",
+        "full_name": "acme-corp/service-1",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-1",
+        "fork": false,
+        "size": 67,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000002,
+        "node_id": "R_kgDObkrfgi",
+        "name": "service-2",
+        "full_name": "acme-corp/service-2",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-2",
+        "fork": false,
+        "size": 84,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000003,
+        "node_id": "R_kgDObkrfgj",
+        "name": "service-3",
+        "full_name": "acme-corp/service-3",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-3",
+        "fork": false,
+        "size": 101,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000004,
+        "node_id": "R_kgDObkrfgk",
+        "name": "service-4",
+        "full_name": "acme-corp/service-4",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-4",
+        "fork": false,
+        "size": 118,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000005,
+        "node_id": "R_kgDObkrfgl",
+        "name": "service-5",
+        "full_name": "acme-corp/service-5",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-5",
+        "fork": false,
+        "size": 135,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000006,
+        "node_id": "R_kgDObkrfgm",
+        "name": "service-6",
+        "full_name": "acme-corp/service-6",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-6",
+        "fork": false,
+        "size": 152,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000007,
+        "node_id": "R_kgDObkrfgn",
+        "name": "service-7",
+        "full_name": "acme-corp/service-7",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-7",
+        "fork": false,
+        "size": 169,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000008,
+        "node_id": "R_kgDObkrfgo",
+        "name": "service-8",
+        "full_name": "acme-corp/service-8",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-8",
+        "fork": false,
+        "size": 186,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000009,
+        "node_id": "R_kgDObkrfgp",
+        "name": "service-9",
+        "full_name": "acme-corp/service-9",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-9",
+        "fork": false,
+        "size": 203,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000010,
+        "node_id": "R_kgDObkrfgq",
+        "name": "service-10",
+        "full_name": "acme-corp/service-10",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-10",
+        "fork": false,
+        "size": 220,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000011,
+        "node_id": "R_kgDObkrfgr",
+        "name": "service-11",
+        "full_name": "acme-corp/service-11",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-11",
+        "fork": false,
+        "size": 237,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000012,
+        "node_id": "R_kgDObkrfgs",
+        "name": "service-12",
+        "full_name": "acme-corp/service-12",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-12",
+        "fork": false,
+        "size": 254,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000013,
+        "node_id": "R_kgDObkrfgt",
+        "name": "service-13",
+        "full_name": "acme-corp/service-13",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-13",
+        "fork": false,
+        "size": 271,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000014,
+        "node_id": "R_kgDObkrfgu",
+        "name": "service-14",
+        "full_name": "acme-corp/service-14",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-14",
+        "fork": false,
+        "size": 288,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000015,
+        "node_id": "R_kgDObkrfgv",
+        "name": "service-15",
+        "full_name": "acme-corp/service-15",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-15",
+        "fork": false,
+        "size": 305,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000016,
+        "node_id": "R_kgDObkrfgw",
+        "name": "service-16",
+        "full_name": "acme-corp/service-16",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-16",
+        "fork": false,
+        "size": 322,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000017,
+        "node_id": "R_kgDObkrfgx",
+        "name": "service-17",
+        "full_name": "acme-corp/service-17",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-17",
+        "fork": false,
+        "size": 339,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000018,
+        "node_id": "R_kgDObkrfgy",
+        "name": "service-18",
+        "full_name": "acme-corp/service-18",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-18",
+        "fork": false,
+        "size": 356,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000019,
+        "node_id": "R_kgDObkrfgz",
+        "name": "service-19",
+        "full_name": "acme-corp/service-19",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-19",
+        "fork": false,
+        "size": 373,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000020,
+        "node_id": "R_kgDObkrfh0",
+        "name": "service-20",
+        "full_name": "acme-corp/service-20",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-20",
+        "fork": false,
+        "size": 50,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000021,
+        "node_id": "R_kgDObkrfh1",
+        "name": "service-21",
+        "full_name": "acme-corp/service-21",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-21",
+        "fork": false,
+        "size": 67,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000022,
+        "node_id": "R_kgDObkrfh2",
+        "name": "service-22",
+        "full_name": "acme-corp/service-22",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-22",
+        "fork": false,
+        "size": 84,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000023,
+        "node_id": "R_kgDObkrfh3",
+        "name": "service-23",
+        "full_name": "acme-corp/service-23",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-23",
+        "fork": false,
+        "size": 101,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000024,
+        "node_id": "R_kgDObkrfh4",
+        "name": "service-24",
+        "full_name": "acme-corp/service-24",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-24",
+        "fork": false,
+        "size": 118,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000025,
+        "node_id": "R_kgDObkrfh5",
+        "name": "service-25",
+        "full_name": "acme-corp/service-25",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-25",
+        "fork": false,
+        "size": 135,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000026,
+        "node_id": "R_kgDObkrfh6",
+        "name": "service-26",
+        "full_name": "acme-corp/service-26",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-26",
+        "fork": false,
+        "size": 152,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000027,
+        "node_id": "R_kgDObkrfh7",
+        "name": "service-27",
+        "full_name": "acme-corp/service-27",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-27",
+        "fork": false,
+        "size": 169,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000028,
+        "node_id": "R_kgDObkrfh8",
+        "name": "service-28",
+        "full_name": "acme-corp/service-28",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-28",
+        "fork": false,
+        "size": 186,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000029,
+        "node_id": "R_kgDObkrfh9",
+        "name": "service-29",
+        "full_name": "acme-corp/service-29",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-29",
+        "fork": false,
+        "size": 203,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000030,
+        "node_id": "R_kgDObkrfha",
+        "name": "service-30",
+        "full_name": "acme-corp/service-30",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-30",
+        "fork": false,
+        "size": 220,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000031,
+        "node_id": "R_kgDObkrfhb",
+        "name": "service-31",
+        "full_name": "acme-corp/service-31",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-31",
+        "fork": false,
+        "size": 237,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000032,
+        "node_id": "R_kgDObkrfhc",
+        "name": "service-32",
+        "full_name": "acme-corp/service-32",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-32",
+        "fork": false,
+        "size": 254,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000033,
+        "node_id": "R_kgDObkrfhd",
+        "name": "service-33",
+        "full_name": "acme-corp/service-33",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-33",
+        "fork": false,
+        "size": 271,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000034,
+        "node_id": "R_kgDObkrfhe",
+        "name": "service-34",
+        "full_name": "acme-corp/service-34",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-34",
+        "fork": false,
+        "size": 288,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000035,
+        "node_id": "R_kgDObkrfhf",
+        "name": "service-35",
+        "full_name": "acme-corp/service-35",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-35",
+        "fork": false,
+        "size": 305,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000036,
+        "node_id": "R_kgDObkrfhg",
+        "name": "service-36",
+        "full_name": "acme-corp/service-36",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-36",
+        "fork": false,
+        "size": 322,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000037,
+        "node_id": "R_kgDObkrfhh",
+        "name": "service-37",
+        "full_name": "acme-corp/service-37",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-37",
+        "fork": false,
+        "size": 339,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000038,
+        "node_id": "R_kgDObkrfhi",
+        "name": "service-38",
+        "full_name": "acme-corp/service-38",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-38",
+        "fork": false,
+        "size": 356,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000039,
+        "node_id": "R_kgDObkrfhj",
+        "name": "service-39",
+        "full_name": "acme-corp/service-39",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-39",
+        "fork": false,
+        "size": 373,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000040,
+        "node_id": "R_kgDObkrfhk",
+        "name": "service-40",
+        "full_name": "acme-corp/service-40",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-40",
+        "fork": false,
+        "size": 50,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000041,
+        "node_id": "R_kgDObkrfhl",
+        "name": "service-41",
+        "full_name": "acme-corp/service-41",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-41",
+        "fork": false,
+        "size": 67,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000042,
+        "node_id": "R_kgDObkrfhm",
+        "name": "service-42",
+        "full_name": "acme-corp/service-42",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-42",
+        "fork": false,
+        "size": 84,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000043,
+        "node_id": "R_kgDObkrfhn",
+        "name": "service-43",
+        "full_name": "acme-corp/service-43",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-43",
+        "fork": false,
+        "size": 101,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000044,
+        "node_id": "R_kgDObkrfho",
+        "name": "service-44",
+        "full_name": "acme-corp/service-44",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-44",
+        "fork": false,
+        "size": 118,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000045,
+        "node_id": "R_kgDObkrfhp",
+        "name": "service-45",
+        "full_name": "acme-corp/service-45",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-45",
+        "fork": false,
+        "size": 135,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000046,
+        "node_id": "R_kgDObkrfhq",
+        "name": "service-46",
+        "full_name": "acme-corp/service-46",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-46",
+        "fork": false,
+        "size": 152,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000047,
+        "node_id": "R_kgDObkrfhr",
+        "name": "service-47",
+        "full_name": "acme-corp/service-47",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-47",
+        "fork": false,
+        "size": 169,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000048,
+        "node_id": "R_kgDObkrfhs",
+        "name": "service-48",
+        "full_name": "acme-corp/service-48",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-48",
+        "fork": false,
+        "size": 186,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000049,
+        "node_id": "R_kgDObkrfht",
+        "name": "service-49",
+        "full_name": "acme-corp/service-49",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-49",
+        "fork": false,
+        "size": 203,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000050,
+        "node_id": "R_kgDObkrfhu",
+        "name": "service-50",
+        "full_name": "acme-corp/service-50",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-50",
+        "fork": false,
+        "size": 220,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000051,
+        "node_id": "R_kgDObkrfhv",
+        "name": "service-51",
+        "full_name": "acme-corp/service-51",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-51",
+        "fork": false,
+        "size": 237,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000052,
+        "node_id": "R_kgDObkrfhw",
+        "name": "service-52",
+        "full_name": "acme-corp/service-52",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-52",
+        "fork": false,
+        "size": 254,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000053,
+        "node_id": "R_kgDObkrfhx",
+        "name": "service-53",
+        "full_name": "acme-corp/service-53",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-53",
+        "fork": false,
+        "size": 271,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000054,
+        "node_id": "R_kgDObkrfhy",
+        "name": "service-54",
+        "full_name": "acme-corp/service-54",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-54",
+        "fork": false,
+        "size": 288,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000055,
+        "node_id": "R_kgDObkrfhz",
+        "name": "service-55",
+        "full_name": "acme-corp/service-55",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-55",
+        "fork": false,
+        "size": 305,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000056,
+        "node_id": "R_kgDObkrfi0",
+        "name": "service-56",
+        "full_name": "acme-corp/service-56",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-56",
+        "fork": false,
+        "size": 322,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000057,
+        "node_id": "R_kgDObkrfi1",
+        "name": "service-57",
+        "full_name": "acme-corp/service-57",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-57",
+        "fork": false,
+        "size": 339,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000058,
+        "node_id": "R_kgDObkrfi2",
+        "name": "service-58",
+        "full_name": "acme-corp/service-58",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-58",
+        "fork": false,
+        "size": 356,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000059,
+        "node_id": "R_kgDObkrfi3",
+        "name": "service-59",
+        "full_name": "acme-corp/service-59",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-59",
+        "fork": false,
+        "size": 373,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000060,
+        "node_id": "R_kgDObkrfi4",
+        "name": "service-60",
+        "full_name": "acme-corp/service-60",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-60",
+        "fork": false,
+        "size": 50,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000061,
+        "node_id": "R_kgDObkrfi5",
+        "name": "service-61",
+        "full_name": "acme-corp/service-61",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-61",
+        "fork": false,
+        "size": 67,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000062,
+        "node_id": "R_kgDObkrfi6",
+        "name": "service-62",
+        "full_name": "acme-corp/service-62",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-62",
+        "fork": false,
+        "size": 84,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000063,
+        "node_id": "R_kgDObkrfi7",
+        "name": "service-63",
+        "full_name": "acme-corp/service-63",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-63",
+        "fork": false,
+        "size": 101,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000064,
+        "node_id": "R_kgDObkrfi8",
+        "name": "service-64",
+        "full_name": "acme-corp/service-64",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-64",
+        "fork": false,
+        "size": 118,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000065,
+        "node_id": "R_kgDObkrfi9",
+        "name": "service-65",
+        "full_name": "acme-corp/service-65",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-65",
+        "fork": false,
+        "size": 135,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000066,
+        "node_id": "R_kgDObkrfia",
+        "name": "service-66",
+        "full_name": "acme-corp/service-66",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-66",
+        "fork": false,
+        "size": 152,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000067,
+        "node_id": "R_kgDObkrfib",
+        "name": "service-67",
+        "full_name": "acme-corp/service-67",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-67",
+        "fork": false,
+        "size": 169,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000068,
+        "node_id": "R_kgDObkrfic",
+        "name": "service-68",
+        "full_name": "acme-corp/service-68",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-68",
+        "fork": false,
+        "size": 186,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000069,
+        "node_id": "R_kgDObkrfid",
+        "name": "service-69",
+        "full_name": "acme-corp/service-69",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-69",
+        "fork": false,
+        "size": 203,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000070,
+        "node_id": "R_kgDObkrfie",
+        "name": "service-70",
+        "full_name": "acme-corp/service-70",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-70",
+        "fork": false,
+        "size": 220,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000071,
+        "node_id": "R_kgDObkrfif",
+        "name": "service-71",
+        "full_name": "acme-corp/service-71",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-71",
+        "fork": false,
+        "size": 237,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000072,
+        "node_id": "R_kgDObkrfig",
+        "name": "service-72",
+        "full_name": "acme-corp/service-72",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-72",
+        "fork": false,
+        "size": 254,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000073,
+        "node_id": "R_kgDObkrfih",
+        "name": "service-73",
+        "full_name": "acme-corp/service-73",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-73",
+        "fork": false,
+        "size": 271,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000074,
+        "node_id": "R_kgDObkrfii",
+        "name": "service-74",
+        "full_name": "acme-corp/service-74",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-74",
+        "fork": false,
+        "size": 288,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000075,
+        "node_id": "R_kgDObkrfij",
+        "name": "service-75",
+        "full_name": "acme-corp/service-75",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-75",
+        "fork": false,
+        "size": 305,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000076,
+        "node_id": "R_kgDObkrfik",
+        "name": "service-76",
+        "full_name": "acme-corp/service-76",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-76",
+        "fork": false,
+        "size": 322,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000077,
+        "node_id": "R_kgDObkrfil",
+        "name": "service-77",
+        "full_name": "acme-corp/service-77",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-77",
+        "fork": false,
+        "size": 339,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000078,
+        "node_id": "R_kgDObkrfim",
+        "name": "service-78",
+        "full_name": "acme-corp/service-78",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-78",
+        "fork": false,
+        "size": 356,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000079,
+        "node_id": "R_kgDObkrfin",
+        "name": "service-79",
+        "full_name": "acme-corp/service-79",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-79",
+        "fork": false,
+        "size": 373,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000080,
+        "node_id": "R_kgDObkrfio",
+        "name": "service-80",
+        "full_name": "acme-corp/service-80",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-80",
+        "fork": false,
+        "size": 50,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000081,
+        "node_id": "R_kgDObkrfip",
+        "name": "service-81",
+        "full_name": "acme-corp/service-81",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-81",
+        "fork": false,
+        "size": 67,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000082,
+        "node_id": "R_kgDObkrfiq",
+        "name": "service-82",
+        "full_name": "acme-corp/service-82",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-82",
+        "fork": false,
+        "size": 84,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000083,
+        "node_id": "R_kgDObkrfir",
+        "name": "service-83",
+        "full_name": "acme-corp/service-83",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-83",
+        "fork": false,
+        "size": 101,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000084,
+        "node_id": "R_kgDObkrfis",
+        "name": "service-84",
+        "full_name": "acme-corp/service-84",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-84",
+        "fork": false,
+        "size": 118,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000085,
+        "node_id": "R_kgDObkrfit",
+        "name": "service-85",
+        "full_name": "acme-corp/service-85",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-85",
+        "fork": false,
+        "size": 135,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000086,
+        "node_id": "R_kgDObkrfiu",
+        "name": "service-86",
+        "full_name": "acme-corp/service-86",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-86",
+        "fork": false,
+        "size": 152,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000087,
+        "node_id": "R_kgDObkrfiv",
+        "name": "service-87",
+        "full_name": "acme-corp/service-87",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-87",
+        "fork": false,
+        "size": 169,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000088,
+        "node_id": "R_kgDObkrfiw",
+        "name": "service-88",
+        "full_name": "acme-corp/service-88",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-88",
+        "fork": false,
+        "size": 186,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000089,
+        "node_id": "R_kgDObkrfix",
+        "name": "service-89",
+        "full_name": "acme-corp/service-89",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-89",
+        "fork": false,
+        "size": 203,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000090,
+        "node_id": "R_kgDObkrfiy",
+        "name": "service-90",
+        "full_name": "acme-corp/service-90",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-90",
+        "fork": false,
+        "size": 220,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000091,
+        "node_id": "R_kgDObkrfiz",
+        "name": "service-91",
+        "full_name": "acme-corp/service-91",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-91",
+        "fork": false,
+        "size": 237,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000092,
+        "node_id": "R_kgDObkrfj0",
+        "name": "service-92",
+        "full_name": "acme-corp/service-92",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-92",
+        "fork": false,
+        "size": 254,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000093,
+        "node_id": "R_kgDObkrfj1",
+        "name": "service-93",
+        "full_name": "acme-corp/service-93",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-93",
+        "fork": false,
+        "size": 271,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000094,
+        "node_id": "R_kgDObkrfj2",
+        "name": "service-94",
+        "full_name": "acme-corp/service-94",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-94",
+        "fork": false,
+        "size": 288,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000095,
+        "node_id": "R_kgDObkrfj3",
+        "name": "service-95",
+        "full_name": "acme-corp/service-95",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-95",
+        "fork": false,
+        "size": 305,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000096,
+        "node_id": "R_kgDObkrfj4",
+        "name": "service-96",
+        "full_name": "acme-corp/service-96",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-96",
+        "fork": false,
+        "size": 322,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000097,
+        "node_id": "R_kgDObkrfj5",
+        "name": "service-97",
+        "full_name": "acme-corp/service-97",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-97",
+        "fork": false,
+        "size": 339,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000098,
+        "node_id": "R_kgDObkrfj6",
+        "name": "service-98",
+        "full_name": "acme-corp/service-98",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-98",
+        "fork": false,
+        "size": 356,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000099,
+        "node_id": "R_kgDObkrfj7",
+        "name": "service-99",
+        "full_name": "acme-corp/service-99",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": true,
+        "html_url": "https://github.com/acme-corp/service-99",
+        "fork": false,
+        "size": 373,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "private",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      },
+      {
+        "id": 700000100,
+        "node_id": "R_kgDObkrfj8",
+        "name": "service-100",
+        "full_name": "acme-corp/service-100",
+        "owner": {
+          "login": "acme-corp",
+          "id": 71834621,
+          "type": "Organization"
+        },
+        "private": false,
+        "html_url": "https://github.com/acme-corp/service-100",
+        "fork": false,
+        "size": 50,
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false,
+        "visibility": "public",
+        "permissions": {
+          "admin": false,
+          "push": false,
+          "pull": true
+        }
+      }
+    ]
+  }
+}

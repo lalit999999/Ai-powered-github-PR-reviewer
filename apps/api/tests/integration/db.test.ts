@@ -57,7 +57,7 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     ).rejects.toThrow();
   });
 
-  it("creates every phase-01 table, including the Auth.js adapter tables", async () => {
+  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository", async () => {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name <> '_prisma_migrations';`,
@@ -66,6 +66,7 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
       "Account",
       "GithubInstallation",
       "Project",
+      "Repository",
       "Session",
       "User",
       "VerificationToken",
@@ -112,6 +113,136 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     );
     expect(projectColumns.map((c) => c.column_name).sort()).toEqual(
       ["createdAt", "deletedAt", "id", "name", "settings", "slug", "updatedAt", "userId"].sort(),
+    );
+  });
+});
+
+// Phase 02 §6/§14 Database Verification. Schema-level facts only — the service and
+// routes that write these rows are Prompt 2's work, so the rows here are inserted
+// directly through Prisma.
+describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
+  async function createProject(slug: string, githubUserId: bigint) {
+    const user = await prisma.user.create({ data: { githubUserId, githubLogin: `user-${slug}` } });
+    return prisma.project.create({ data: { userId: user.id, name: slug, slug } });
+  }
+
+  function repositoryData(projectId: string, githubRepoId: bigint) {
+    return {
+      projectId,
+      installationId: 555_000_111n,
+      githubRepoId,
+      owner: "octocat",
+      name: "hello-world",
+      fullName: "octocat/hello-world",
+      defaultBranch: "main",
+      htmlUrl: "https://github.com/octocat/hello-world",
+    };
+  }
+
+  it("defaults a freshly connected repository to PENDING / ACTIVE and nothing further", async () => {
+    const project = await createProject("proj-a", 2001n);
+    const repository = await prisma.repository.create({ data: repositoryData(project.id, 9_000_000_001n) });
+
+    expect(repository.indexStatus).toBe("PENDING");
+    expect(repository.connectionStatus).toBe("ACTIVE");
+    expect(repository.isPrivate).toBe(true);
+    expect(repository.indexVersion).toBe(1);
+    expect(repository.indexedFileCount).toBe(0);
+    expect(repository.skippedFileCount).toBe(0);
+    expect(repository.settings).toEqual({});
+    // Declared now, populated from Phase 03 onward (§6).
+    expect(repository.indexedCommitSha).toBeNull();
+    expect(repository.lastIndexedAt).toBeNull();
+    expect(repository.indexError).toBeNull();
+    // Additions to §6's block, argued in docs/decisions/phase-02-log.md §4.
+    expect(repository.sizeBytes).toBeNull();
+    expect(repository.webhookId).toBeNull();
+    // BigInt columns really are bigint at the Prisma boundary — this is the first
+    // model in the schema where that stops being theoretical (phase-01-log §4).
+    expect(typeof repository.githubRepoId).toBe("bigint");
+    expect(typeof repository.installationId).toBe("bigint");
+  });
+
+  it("allows the SAME githubRepoId under two different projects (plan.md §45 named failure point)", async () => {
+    const projectA = await createProject("proj-b", 2002n);
+    const projectB = await createProject("proj-c", 2003n);
+    const sharedRepoId = 9_000_000_002n;
+
+    const a = await prisma.repository.create({ data: repositoryData(projectA.id, sharedRepoId) });
+    const b = await prisma.repository.create({ data: repositoryData(projectB.id, sharedRepoId) });
+
+    expect(a.id).not.toBe(b.id);
+    expect(a.githubRepoId).toBe(b.githubRepoId);
+    expect(await prisma.repository.count({ where: { githubRepoId: sharedRepoId } })).toBe(2);
+  });
+
+  it("rejects the same githubRepoId twice under ONE project ((projectId, githubRepoId) unique)", async () => {
+    const project = await createProject("proj-d", 2004n);
+    await prisma.repository.create({ data: repositoryData(project.id, 9_000_000_003n) });
+    await expect(prisma.repository.create({ data: repositoryData(project.id, 9_000_000_003n) })).rejects.toThrow();
+  });
+
+  it("cascade-deletes repositories when their project is hard-deleted", async () => {
+    const project = await createProject("proj-e", 2005n);
+    await prisma.repository.create({ data: repositoryData(project.id, 9_000_000_004n) });
+    await prisma.project.delete({ where: { id: project.id } });
+    expect(await prisma.repository.count()).toBe(0);
+  });
+
+  it("carries exactly the §6 columns plus the three documented additions", async () => {
+    const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'Repository';`,
+    );
+    expect(columns.map((c) => c.column_name).sort()).toEqual(
+      [
+        "connectionStatus",
+        "createdAt",
+        "defaultBranch",
+        "fullName",
+        "githubRepoId",
+        "htmlUrl",
+        "id",
+        "indexError",
+        "indexStatus",
+        "indexVersion",
+        "indexedCommitSha",
+        "indexedFileCount",
+        "installationId",
+        "isPrivate",
+        "lastIndexedAt",
+        "name",
+        "owner",
+        "projectId",
+        "reviewProfile",
+        "settings",
+        "sizeBytes",
+        "skippedFileCount",
+        "updatedAt",
+        "webhookId",
+      ].sort(),
+    );
+  });
+
+  it("creates the §6 indexes and no standalone projectId index", async () => {
+    const indexes = await prisma.$queryRawUnsafe<{ indexname: string }[]>(
+      `SELECT indexname FROM pg_indexes WHERE tablename = 'Repository';`,
+    );
+    const names = indexes.map((i) => i.indexname);
+    expect(names).toContain("Repository_projectId_githubRepoId_key");
+    expect(names).toContain("Repository_githubRepoId_idx");
+    expect(names).toContain("Repository_indexStatus_idx");
+    // plan.md §24.2 asks for @@index([projectId]); §6 does not, because the composite
+    // unique above is already projectId-prefixed. Asserted so the omission reads as a
+    // decision (docs/decisions/phase-02-log.md §4) rather than an oversight.
+    expect(names).not.toContain("Repository_projectId_idx");
+  });
+
+  it("declares the full IndexStatus enum even though only PENDING is reachable this phase", async () => {
+    const values = await prisma.$queryRawUnsafe<{ enumlabel: string }[]>(
+      `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'IndexStatus';`,
+    );
+    expect(values.map((v) => v.enumlabel).sort()).toEqual(
+      ["FAILED", "INDEXED", "INDEXING", "PARTIAL", "PENDING", "UPDATING"].sort(),
     );
   });
 });

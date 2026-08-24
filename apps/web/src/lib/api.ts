@@ -69,10 +69,41 @@ export async function listProjects(): Promise<Project[]> {
   return body.projects;
 }
 
+/**
+ * A connected GitHub repository as `GET /api/projects/:id` and
+ * `GET /api/repositories/:id` return it (phase-02 §7).
+ *
+ * `installationId` and `githubRepoId` are **strings**, not numbers. They are `BigInt`
+ * columns server-side and JSON has no bigint, so the API converts them explicitly at
+ * the DTO boundary. Parsing them back into `number` here would silently lose precision
+ * on ids past 2^53 — treat them as opaque identifiers.
+ */
+export interface Repository {
+  id: string;
+  projectId: string;
+  installationId: string;
+  githubRepoId: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  htmlUrl: string;
+  sizeBytes: number | null;
+  connectionStatus: "ACTIVE" | "DISCONNECTED" | "ACCESS_LOST";
+  indexStatus: string;
+  indexedCommitSha: string | null;
+  indexedFileCount: number;
+  lastIndexedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectDetail {
   project: Project;
-  /** Always empty until Phase 02 connects repositories (phase-01 §7). */
-  repositories: never[];
+  /** The project's active repositories — `DISCONNECTED` ones are excluded server-side.
+   * Was `never[]` until Phase 02 connected repositories (phase-01 §7). */
+  repositories: Repository[];
 }
 
 /** `null` means "not yours, or gone" — the API answers 404 for both, deliberately
@@ -84,4 +115,71 @@ export async function getProjectDetail(projectId: string): Promise<ProjectDetail
     throw new Error(`Could not load project (${res.status})`);
   }
   return (await res.json()) as ProjectDetail;
+}
+
+/** A `GithubInstallation` row as `GET /api/github/installations` returns it
+ * (phase-02 §7). `installationId` is a decimal string for the same BigInt-safety
+ * reason `Repository`'s ids are. */
+export interface Installation {
+  id: string;
+  installationId: string;
+  accountLogin: string;
+  accountType: string;
+  suspended: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InstallationsResponse {
+  installations: Installation[];
+  /** The App's public install link (`https://github.com/apps/{slug}/installations/new`),
+   * built server-side from `GITHUB_APP_SLUG` (sub-task 3.5). Returned by the API rather
+   * than duplicated into a `NEXT_PUBLIC_*` variable here — one source of truth for a
+   * value that would otherwise have to be kept in sync across two deploy targets. */
+  installUrl: string;
+}
+
+/**
+ * A 401 here is real and distinct from an invalid *session* (which never reaches this
+ * far — `(app)/layout.tsx` already checked it): it means the caller's stored GitHub
+ * *OAuth token* is missing or was revoked (`repository.service.ts`'s
+ * `syncInstallations`). That is an actionable, expected state, not a crash — so this
+ * is a discriminated result rather than a throw, the same "distinct signal, not an
+ * exception" treatment `getProjectDetail`'s 404-means-null gets.
+ */
+export type InstallationsResult =
+  | ({ ok: true } & InstallationsResponse)
+  | { ok: false; reason: "UNAUTHENTICATED" };
+
+/**
+ * `GET /api/github/installations` — syncs from GitHub first (§10's polling fallback,
+ * temporary until Phase 06's webhooks), so this call itself IS the "Refresh" action;
+ * the frontend's Refresh button just calls this again.
+ */
+export async function listInstallations(): Promise<InstallationsResult> {
+  const res = await apiFetch("/api/github/installations");
+  if (res.status === 401) return { ok: false, reason: "UNAUTHENTICATED" };
+  if (!res.ok) {
+    throw new Error(`Could not load installations (${res.status})`);
+  }
+  const body = (await res.json()) as InstallationsResponse;
+  return { ok: true, ...body };
+}
+
+/** `GET /api/repositories/:id` response body (phase-02 §7). `indexJob` is always `null`
+ * until Phase 03 introduces the job model that populates it. */
+export interface RepositoryDetail {
+  repository: Repository;
+  indexJob: null;
+}
+
+/** `null` means "not yours, or gone" — same 404-for-both convention as
+ * `getProjectDetail`. */
+export async function getRepository(repositoryId: string): Promise<RepositoryDetail | null> {
+  const res = await apiFetch(`/api/repositories/${encodeURIComponent(repositoryId)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Could not load repository (${res.status})`);
+  }
+  return (await res.json()) as RepositoryDetail;
 }

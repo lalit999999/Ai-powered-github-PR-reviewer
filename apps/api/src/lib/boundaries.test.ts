@@ -25,6 +25,15 @@ describe("architectural boundary lint rules", () => {
     expect(result?.messages.some((m) => m.ruleId === "no-restricted-imports" && /Rule A/.test(m.message))).toBe(true);
   });
 
+  it("Rule A also fires on a relative import of the in-app GitHub client tree (phase-02)", async () => {
+    // The GitHub client lives inside apps/api, not in a @repo/* package, so the
+    // original package-name patterns could not see it. This asserts the widened rule.
+    const result = await lintFixture("rule-a-github-tree-violation.ts");
+    expect(result?.errorCount).toBeGreaterThan(0);
+    expect(result?.messages.some((m) => m.ruleId === "no-restricted-imports" && /Rule A/.test(m.message))).toBe(true);
+    expect(result?.messages.some((m) => /GitHub client/.test(m.message))).toBe(true);
+  });
+
   it("Rule B fails: only the repository layer may import @prisma/client", async () => {
     const result = await lintFixture("rule-b-violation.ts");
     expect(result?.errorCount).toBeGreaterThan(0);

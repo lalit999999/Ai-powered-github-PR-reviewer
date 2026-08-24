@@ -30,8 +30,41 @@ export const PROJECT_DELETED = "project/deleted";
 export type ProjectDeletedData = { projectId: string };
 
 /**
- * Every product event this system defines, keyed by event name. Phase 02 adds
- * `repository/index.requested`; later phases append their own. Kept as a plain type
+ * Phase 02 §8. Emitted by `POST /api/projects/:id/repositories` after a `Repository`
+ * row is created in `indexStatus: PENDING`.
+ *
+ * **Deliberately has no consumer in Phase 02** — §8 states that Phase 03 registers the
+ * first function (`repository-index`), and the acceptance signal for this phase's
+ * Inngest work is simply seeing the event land in the Dev Server UI with the right
+ * payload. Do not write a handler for it in this phase.
+ */
+export const REPOSITORY_INDEX_REQUESTED = "repository/index.requested";
+
+/**
+ * Payload of {@link REPOSITORY_INDEX_REQUESTED}. A `type` (not an `interface`) so it
+ * satisfies `Record<string, unknown>`, which Inngest's `staticSchema<T>()` requires.
+ *
+ * `mode` and `reason` are literal-typed rather than plain strings even though each has
+ * exactly one value today. Phase 03 adds `mode: "INCREMENTAL"` (a webhook-driven
+ * re-index) and Phase 06 adds `reason: "webhook"`; declaring them as unions now means
+ * those additions are a one-line widening whose every `switch` becomes a compile error
+ * — as opposed to `string`, where a new value silently falls through whatever `else`
+ * the handler happens to have.
+ *
+ * `projectId` rides along with `repositoryId` even though the repository row names its
+ * project: a consumer that had to look it up would be making a database round trip
+ * inside a step just to know which tenant it is working for.
+ */
+export type RepositoryIndexRequestedData = {
+  projectId: string;
+  repositoryId: string;
+  mode: "FULL";
+  reason: "connected";
+};
+
+/**
+ * Every product event this system defines, keyed by event name. Later phases append
+ * their own. Kept as a plain type
  * registry because Inngest v4 has no client-level `schemas` option — typing is
  * per-event via `eventType()` (verified against the installed inngest@4.18.1's
  * `ClientOptions`, which has no `schemas` field; the v3 `EventSchemas.fromRecord`
@@ -39,6 +72,7 @@ export type ProjectDeletedData = { projectId: string };
  */
 export type EventRegistry = {
   "project/deleted": { data: ProjectDeletedData };
+  "repository/index.requested": { data: RepositoryIndexRequestedData };
 };
 
 /** Event names as a union — useful anywhere a name must be one of the declared events. */

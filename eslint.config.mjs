@@ -24,6 +24,7 @@ const RULE_A_FILES = [
   "apps/api/src/routes/**/*.ts",
   "apps/api/src/controllers/**/*.ts",
   "apps/api/tests/fixtures/lint/rule-a-violation.ts",
+  "apps/api/tests/fixtures/lint/rule-a-github-tree-violation.ts",
 ];
 
 const RULE_B_FILES = [
@@ -95,6 +96,17 @@ export default tseslint.config(
               group: ["@repo/ai", "@repo/ai/*", "@repo/github", "@repo/github/*", "@repo/embedings", "@repo/embedings/*"],
               message:
                 "API routes/controllers may not import the ai/github/embedings (ai/indexing/retrieval) packages directly — go through a module service instead (Rule A, phase-00 §3).",
+            },
+            {
+              // Phase 02 put the GitHub App client inside apps/api itself
+              // (apps/api/src/github/**) rather than in the @repo/github package, so a
+              // controller reaching it by *relative* path would never have matched the
+              // package-name patterns above — the rule would have silently stopped
+              // covering the thing it was written for. See
+              // docs/decisions/phase-02-log.md §10.
+              group: ["**/src/github/**", "**/github/client/*", "**/github/services/*"],
+              message:
+                "API routes/controllers may not import the GitHub client (apps/api/src/github/**) directly — go through a module service instead (Rule A, phase-00 §3, extended in phase-02).",
             },
           ],
         },

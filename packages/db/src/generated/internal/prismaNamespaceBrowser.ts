@@ -54,6 +54,7 @@ export const ModelName = {
   User: 'User',
   Project: 'Project',
   GithubInstallation: 'GithubInstallation',
+  Repository: 'Repository',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -120,6 +121,36 @@ export const GithubInstallationScalarFieldEnum = {
 export type GithubInstallationScalarFieldEnum = (typeof GithubInstallationScalarFieldEnum)[keyof typeof GithubInstallationScalarFieldEnum]
 
 
+export const RepositoryScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  installationId: 'installationId',
+  githubRepoId: 'githubRepoId',
+  owner: 'owner',
+  name: 'name',
+  fullName: 'fullName',
+  defaultBranch: 'defaultBranch',
+  isPrivate: 'isPrivate',
+  htmlUrl: 'htmlUrl',
+  sizeBytes: 'sizeBytes',
+  webhookId: 'webhookId',
+  connectionStatus: 'connectionStatus',
+  indexStatus: 'indexStatus',
+  indexedCommitSha: 'indexedCommitSha',
+  indexVersion: 'indexVersion',
+  indexedFileCount: 'indexedFileCount',
+  skippedFileCount: 'skippedFileCount',
+  reviewProfile: 'reviewProfile',
+  lastIndexedAt: 'lastIndexedAt',
+  indexError: 'indexError',
+  settings: 'settings',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
+
+
 export const AccountScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -170,6 +201,14 @@ export const JsonNullValueInput = {
 } as const
 
 export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {

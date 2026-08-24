@@ -1,0 +1,13 @@
+{
+  "status": 403,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": "0",
+    "x-ratelimit-reset": "__RATE_LIMIT_RESET__"
+  },
+  "body": {
+    "message": "API rate limit exceeded for installation ID 58234971.",
+    "documentation_url": "https://docs.github.com/rest/overview/rate-limits-for-the-rest-api"
+  }
+}

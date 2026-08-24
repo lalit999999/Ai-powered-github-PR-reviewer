@@ -3,13 +3,31 @@ import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedSignedInUser, type SeededUser } from "./auth-helpers.js";
 import { resetDatabase } from "./db-helpers.js";
+import { githubRepoMetadata, seedInstallation, type SeededInstallation } from "./repository-helpers.js";
 
-// project/deleted has no consumer in this phase (phase-01 §8) and CI has no Inngest
-// server; stubbing the emit boundary keeps the suite off the network entirely. The
-// emit's own behavior is covered by src/inngest/emit.test.ts.
-vi.mock("../../src/inngest/emit.js", () => ({ emitProjectDeleted: vi.fn() }));
+// project/deleted and repository/index.requested have no consumer in this phase
+// (phase-01 §8, phase-02 §8) and CI has no Inngest server; stubbing the emit boundary
+// keeps the suite off the network entirely. Each emit's own behavior is covered by
+// src/inngest/emit.test.ts.
+vi.mock("../../src/inngest/emit.js", () => ({
+  emitProjectDeleted: vi.fn(),
+  emitRepositoryIndexRequested: vi.fn(),
+}));
+// GitHub itself is mocked at this boundary, the same as in repositories.test.ts — the
+// GitHub client (token minting, retry, rate limiting, pagination) has its own fixture
+// suite (src/github/github-fixtures.test.ts) and does not need re-proving here.
+vi.mock("../../src/github/services/installation.github.js", () => ({
+  listInstallationRepositories: vi.fn(),
+  listUserInstallations: vi.fn(),
+}));
+vi.mock("../../src/github/services/repository.github.js", () => ({
+  getRepository: vi.fn(),
+  probeBranch: vi.fn(),
+}));
 
 const { default: app } = await import("../../src/app.js");
+const installationGithub = await import("../../src/github/services/installation.github.js");
+const repositoryGithub = await import("../../src/github/services/repository.github.js");
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════════
@@ -40,12 +58,21 @@ const { default: app } = await import("../../src/app.js");
 let userA: SeededUser;
 let userB: SeededUser;
 let projectOfA: { id: string; slug: string };
+let installationOfA: SeededInstallation;
+let installationOfB: SeededInstallation;
+let repositoryOfA: { id: string; fullName: string; githubRepoId: string; projectId: string };
 
 beforeEach(async () => {
   await resetDatabase();
+  vi.mocked(repositoryGithub.getRepository).mockReset();
+  vi.mocked(repositoryGithub.probeBranch).mockReset();
+  vi.mocked(installationGithub.listInstallationRepositories).mockReset();
+  vi.mocked(installationGithub.listUserInstallations).mockReset();
 
   userA = await seedSignedInUser("user-a");
   userB = await seedSignedInUser("user-b");
+  installationOfA = await seedInstallation(userA.id, { accountLogin: "user-a" });
+  installationOfB = await seedInstallation(userB.id, { accountLogin: "user-b" });
 
   const created = await request(app)
     .post("/api/projects")
@@ -53,6 +80,23 @@ beforeEach(async () => {
     .send({ name: "A's Private Project" });
   expect(created.status).toBe(201);
   projectOfA = created.body.project;
+
+  // A resource for user B to be hostile toward, alongside the project — the whole
+  // point of extending this file for Phase 02 (phase-02 §14/§15: "user B cannot view,
+  // connect to, or disconnect user A's repositories").
+  const metadataForA = githubRepoMetadata({ owner: "user-a", name: "a-private-repo" });
+  vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({ ok: true, repository: metadataForA });
+  const connected = await request(app)
+    .post(`/api/projects/${projectOfA.id}/repositories`)
+    .set("Cookie", userA.cookie)
+    .send({ repoUrl: `https://github.com/${metadataForA.owner}/${metadataForA.name}` });
+  expect(connected.status).toBe(202);
+  repositoryOfA = connected.body.repository;
+
+  // Clears call HISTORY only (mockReset() above already cleared implementations) — the
+  // setup call above must not count against a test body's "was GitHub ever called"
+  // assertion.
+  vi.mocked(repositoryGithub.getRepository).mockClear();
 });
 
 afterAll(async () => {
@@ -138,5 +182,205 @@ describe("cross-tenant access — a revoked session stops authenticating immedia
     const res = await request(app).get("/api/projects").set("Cookie", staleCookie);
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
+  });
+});
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *  PHASE 02 EXTENSION — repositories, following the exact same three-part pattern.
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * phase-02 §14/§15: "user B cannot view, connect to, or disconnect user A's
+ * repositories" (automated test), plus the dual-project case that is the actual named
+ * failure point (`plan.md` §45 — assuming `githubRepoId` is globally unique).
+ *
+ * **On the FOREIGN vs MISSING log-content assertion** (sub-task 3.4's "assert the
+ * denial warn log lines carry the right reason"): that assertion already exists,
+ * precisely, at the unit level — `src/lib/auth/tenant-access.test.ts` mocks
+ * `createLogger` directly and asserts the exact `{projectId, userId, reason,
+ * repositoryId}` payload for FOREIGN, MISSING, DELETED, and MISMATCH on the repository
+ * path. Re-asserting it here would mean capturing the shared module-level pino
+ * instance's real stdout output — pino's default destination writes through
+ * `sonic-boom`, which buffers asynchronously, so a stdout-spy assertion in an HTTP-level
+ * integration test would be racing pino's own internals rather than proving anything
+ * about `tenant-access.ts`. `requireTenantAccess`'s logger is not an injectable
+ * parameter (unlike the GitHub client's), so there is no seam here to swap it through
+ * cleanly the way `github-fixtures.test.ts` does. This file instead proves the same
+ * distinction the way an HTTP-level test can: every case below gets the SAME 404,
+ * whether it is FOREIGN or MISSING underneath, and the database is asserted unchanged —
+ * which is the property the log split exists to make debuggable, not the property the
+ * caller-visible contract depends on.
+ */
+
+describe("cross-tenant access — user B cannot reach user A's repository by any route", () => {
+  it("GET /api/repositories/:id — 404, not 403, not the repository", async () => {
+    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("repository");
+  });
+
+  it("DELETE /api/repositories/:id — 404, and user A's repository is unchanged in the database", async () => {
+    const res = await request(app).delete(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+
+    // The status code alone would not catch a handler that disconnects and *then*
+    // discovers it should not have — same discipline as the project DELETE case above.
+    const row = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryOfA.id } });
+    expect(row.connectionStatus).toBe("ACTIVE");
+    expect(row.projectId).toBe(projectOfA.id);
+  });
+
+  it("POST /api/projects/:id/repositories — 404 for user A's project, from user B, before any GitHub call", async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectOfA.id}/repositories`)
+      .set("Cookie", userB.cookie)
+      .send({ repoUrl: "https://github.com/user-a/some-other-repo" });
+
+    expect(res.status).toBe(404);
+    expect(repositoryGithub.getRepository).not.toHaveBeenCalled();
+  });
+
+  it("GET /api/projects/:id — 404, and user A's repository never appears in user B's project detail", async () => {
+    const res = await request(app).get(`/api/projects/${projectOfA.id}`).set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body)).not.toContain(repositoryOfA.fullName);
+  });
+
+  it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+    const nonexistent = await request(app).get("/api/repositories/00000000-0000-0000-0000-000000000000").set("Cookie", userB.cookie);
+
+    expect(foreign.status).toBe(nonexistent.status);
+    expect(foreign.body).toEqual(nonexistent.body);
+  });
+
+  it("user A is still able to reach their own repository — the isolation is not just a blanket deny", async () => {
+    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userA.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.repository.id).toBe(repositoryOfA.id);
+  });
+});
+
+describe("cross-tenant access — GitHub installations", () => {
+  it("GET /api/github/installations — user B's list only ever contains user B's own installations", async () => {
+    await prisma.account.create({
+      data: {
+        userId: userB.id,
+        type: "oauth",
+        provider: "github",
+        providerAccountId: "gh-user-b",
+        access_token: "fixture-oauth-token-b",
+      },
+    });
+    // `GET /api/github/installations` syncs before it answers (§10) — it returns what
+    // THIS sync found, not a raw re-read of every stored row (see repository.service.ts
+    // syncInstallations). In production that is equivalent to "all of B's current
+    // installations" because listUserInstallations always returns GitHub's complete,
+    // fully-paginated current list; modelling anything less here (e.g. an empty
+    // response) would test an unrealistic scenario, not the real scoping property.
+    vi.mocked(installationGithub.listUserInstallations).mockResolvedValueOnce({
+      ok: true,
+      installations: [
+        { installationId: installationOfB.installationId, accountLogin: "user-b", accountType: "User", suspended: false },
+      ],
+    });
+
+    const res = await request(app).get("/api/github/installations").set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.installations.map((installation: { installationId: string }) => installation.installationId);
+    expect(ids).toEqual([installationOfB.installationId.toString()]);
+    expect(ids).not.toContain(installationOfA.installationId.toString());
+  });
+
+  it("GET /api/github/installations/:id/repos — 403 for an installation user B does not own", async () => {
+    // The deliberate exception to this file's usual 404 (docs/decisions/phase-02-log.md
+    // §19): an installation id is a GitHub-global integer the user can already read on
+    // github.com, not this system's identifier, so confirming it names *an*
+    // installation is not an enumeration oracle the way a project/repository uuid is.
+    // What stays protected — the repository names it can see — never leaves the server:
+    // this assertion is that the ownership check refuses before any GitHub call is made.
+    const res = await request(app)
+      .get(`/api/github/installations/${installationOfA.installationId}/repos`)
+      .set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+    expect(installationGithub.listInstallationRepositories).not.toHaveBeenCalled();
+  });
+
+  it("user B can still list repositories through their OWN installation — not a blanket deny", async () => {
+    vi.mocked(installationGithub.listInstallationRepositories).mockResolvedValueOnce({
+      ok: true,
+      repositories: [
+        { githubRepoId: 555_000_111n, owner: "user-b", name: "b-repo", fullName: "user-b/b-repo", isPrivate: false, defaultBranch: "main" },
+      ],
+    });
+
+    const res = await request(app)
+      .get(`/api/github/installations/${installationOfB.installationId}/repos`)
+      .set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.repos).toHaveLength(1);
+  });
+});
+
+describe("cross-tenant access — the dual-project case (plan.md §45's named failure point)", () => {
+  it("user B connects the SAME GitHub repository user A already connected, to user B's OWN project — succeeds, and B gets access to only B's own row", async () => {
+    const projectOfB = await request(app)
+      .post("/api/projects")
+      .set("Cookie", userB.cookie)
+      .send({ name: "B's Own Project" })
+      .expect(201);
+
+    // The same githubRepoId user A's repository carries, resolved this time through
+    // B's OWN installation via the id path — modelling a repository both users'
+    // installations can independently see (a shared org, or a public repository). A
+    // `githubRepoId`-keyed lookup, or an assumption that this id is globally unique,
+    // would show up here as either a spurious 409 or a genuine cross-tenant leak
+    // (docs/decisions/phase-02-log.md §4/§23; repository.repository.ts's header).
+    const sharedGithubRepoId = BigInt(repositoryOfA.githubRepoId);
+    vi.mocked(installationGithub.listInstallationRepositories).mockResolvedValueOnce({
+      ok: true,
+      repositories: [
+        {
+          githubRepoId: sharedGithubRepoId,
+          owner: "user-a",
+          name: "a-private-repo",
+          fullName: "user-a/a-private-repo",
+          isPrivate: false,
+          defaultBranch: "main",
+        },
+      ],
+    });
+    vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({
+      ok: true,
+      repository: githubRepoMetadata({ owner: "user-a", name: "a-private-repo", githubRepoId: sharedGithubRepoId }),
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectOfB.body.project.id}/repositories`)
+      .set("Cookie", userB.cookie)
+      .send({ githubRepoId: sharedGithubRepoId.toString() });
+
+    expect(res.status).toBe(202);
+    expect(res.body.repository.id).not.toBe(repositoryOfA.id);
+    expect(res.body.repository.projectId).toBe(projectOfB.body.project.id);
+
+    const rows = await prisma.repository.findMany({ where: { githubRepoId: sharedGithubRepoId } });
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((row) => row.projectId))).toEqual(new Set([projectOfA.id, projectOfB.body.project.id]));
+
+    // B can read B's own new row...
+    const bReadsOwn = await request(app).get(`/api/repositories/${res.body.repository.id}`).set("Cookie", userB.cookie);
+    expect(bReadsOwn.status).toBe(200);
+    // ...but still never A's, even though the two rows now share a githubRepoId.
+    const bReadsA = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+    expect(bReadsA.status).toBe(404);
   });
 });

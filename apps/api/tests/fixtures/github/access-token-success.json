@@ -1,0 +1,19 @@
+{
+  "status": 201,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": "4999",
+    "x-ratelimit-reset": "1700000000"
+  },
+  "body": {
+    "token": "FIXTURE-INSTALLATION-TOKEN-DO-NOT-USE",
+    "expires_at": "__EXPIRES_AT__",
+    "permissions": {
+      "contents": "read",
+      "pull_requests": "write",
+      "metadata": "read"
+    },
+    "repository_selection": "selected"
+  }
+}
