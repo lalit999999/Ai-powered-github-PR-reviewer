@@ -30,6 +30,51 @@ services:
     volumes:
       - redis_data:/data
 
+  # Phase 03 — the indexer worker's real deployable, built from Dockerfile.worker
+  # (docs/decisions/phase-03-log.md). Opt-in via the "worker" profile
+  # (`docker compose --profile worker up`) rather than started by every plain
+  # `docker compose up`, per phase-03 §16: verification must happen on the actual
+  # worker deployable, not a `tsx watch` shortcut — this service is what makes that
+  # possible locally without making it the default for everyone who just wants
+  # Postgres/Redis for `pnpm dev`.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    container_name: worker
+
+    depends_on:
+      - postgresdb
+      - redis
+
+    environment:
+      NODE_ENV: production
+      WORKER_PORT: "4500"
+      DATABASE_URL: postgresql://postgres:postgres@postgresdb:5432/dev
+      REDIS_URL: redis://redis:6379
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-}
+      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:-}
+      INNGEST_DEV: ${INNGEST_DEV:-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      WORKER_TEMP_DIR: /tmp/worker
+
+    ports:
+      - "4500:4500"
+
+    # The hardening §4 Security / plan.md §35.10 require, exercised locally too rather
+    # than only asserted in prose: read-only root filesystem, a writable tmpfs scratch
+    # mount for tarball extraction, no more capabilities than a plain process needs.
+    read_only: true
+    tmpfs:
+      - /tmp/worker:uid=1001,gid=1001
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   pg_data:
   redis_data:
