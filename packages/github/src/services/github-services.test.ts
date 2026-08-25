@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Octokit } from "@octokit/core";
 import { classifyGithubError } from "./github-result.js";
 import { MAX_PAGES, listInstallationRepositories, listUserInstallations } from "./installation.github.js";
-import { getRepository } from "./repository.github.js";
+import { getHeadCommit, getRepository } from "./repository.github.js";
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
@@ -288,6 +288,66 @@ describe("getRepository — one fetch per connect attempt (§21)", () => {
     expect(logger.info).toHaveBeenCalledWith(
       "fetched repository metadata",
       expect.objectContaining({ installationId: "4242" }),
+    );
+  });
+});
+
+describe("getHeadCommit — phase-03 §8 step 2, the second of exactly two GitHub calls per index", () => {
+  it("resolves a branch to its head SHA", async () => {
+    const octokit = stubOctokit(() => ({ data: { sha: "abc123def456" } }));
+
+    const result = await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger });
+
+    expect(result).toEqual({ ok: true, commit: { sha: "abc123def456" } });
+  });
+
+  it("issues exactly one request against the branch ref", async () => {
+    const octokit = stubOctokit(() => ({ data: { sha: "abc123" } }));
+
+    await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger });
+
+    expect(octokit.request).toHaveBeenCalledTimes(1);
+    expect(octokit.request).toHaveBeenCalledWith("GET /repos/{owner}/{repo}/commits/{ref}", {
+      owner: "octocat",
+      repo: "hello-world",
+      ref: "main",
+    });
+  });
+
+  it("returns NOT_ACCESSIBLE for a 404 — the branch is gone even though the repo metadata call already succeeded", async () => {
+    const octokit = stubOctokit(() => {
+      throw githubError(404);
+    });
+
+    await expect(getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "deleted-branch", { octokit, logger })).resolves.toEqual({
+      ok: false,
+      reason: "NOT_ACCESSIBLE",
+    });
+  });
+
+  it("reports a body it does not understand (missing/empty sha) as UNAVAILABLE", async () => {
+    const octokit = stubOctokit(() => ({ data: { message: "something else entirely" } }));
+
+    await expect(getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger })).resolves.toEqual({
+      ok: false,
+      reason: "UNAVAILABLE",
+    });
+
+    const emptySha = stubOctokit(() => ({ data: { sha: "" } }));
+    await expect(getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit: emptySha, logger })).resolves.toEqual({
+      ok: false,
+      reason: "UNAVAILABLE",
+    });
+  });
+
+  it("logs installationId and the resolved sha on success (§20)", async () => {
+    const octokit = stubOctokit(() => ({ data: { sha: "deadbeef" } }));
+
+    await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger });
+
+    expect(logger.info).toHaveBeenCalledWith(
+      "resolved branch head commit",
+      expect.objectContaining({ installationId: "4242", sha: "deadbeef" }),
     );
   });
 });

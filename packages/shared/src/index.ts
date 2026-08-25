@@ -1,8 +1,9 @@
-export { PROJECT_DELETED, REPOSITORY_INDEX_REQUESTED } from "./events.js";
+export { PROJECT_DELETED, REPOSITORY_INDEXED, REPOSITORY_INDEX_REQUESTED } from "./events.js";
 export type {
   EventName,
   EventRegistry,
   ProjectDeletedData,
+  RepositoryIndexedData,
   RepositoryIndexRequestedData,
 } from "./events.js";
 export {

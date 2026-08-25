@@ -63,6 +63,32 @@ export type RepositoryIndexRequestedData = {
 };
 
 /**
+ * Phase 03 §8/§10 ("Emit repository.indexed — no consumer until Phase 04/07"). The
+ * terminal step of `repository-index` emits this once `Repository.indexStatus` has
+ * moved to `INDEXED` (this phase's limited sense — see phase-03-repository-indexing.md
+ * §1) and the row is committed. As with the two forward-declared events above, no
+ * function in this phase consumes it — Phase 04 (knowledge graph) and Phase 07
+ * (PR ingestion, "waiting reviews" in `plan.md` §27.1's own table) are its real
+ * consumers, and the payload is settled now specifically so neither has to renegotiate
+ * it later.
+ *
+ * `projectId` rides along for the same reason `RepositoryIndexRequestedData`'s own
+ * payload does (see its doc comment) — a consumer scoping work to a tenant should not
+ * need a database round trip just to learn which one. `fileCount`/`durationMs` are
+ * `plan.md` §27.1's own named fields for this event: cheap summary stats a
+ * UI-invalidation consumer wants without re-querying `IndexJob`.
+ */
+export const REPOSITORY_INDEXED = "repository/indexed";
+
+export type RepositoryIndexedData = {
+  projectId: string;
+  repositoryId: string;
+  commitSha: string;
+  fileCount: number;
+  durationMs: number;
+};
+
+/**
  * Every product event this system defines, keyed by event name. Later phases append
  * their own. Kept as a plain type
  * registry because Inngest v4 has no client-level `schemas` option — typing is
@@ -73,6 +99,7 @@ export type RepositoryIndexRequestedData = {
 export type EventRegistry = {
   "project/deleted": { data: ProjectDeletedData };
   "repository/index.requested": { data: RepositoryIndexRequestedData };
+  "repository/indexed": { data: RepositoryIndexedData };
 };
 
 /** Event names as a union — useful anywhere a name must be one of the declared events. */

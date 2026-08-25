@@ -63,5 +63,5 @@ export * as repositoryGithub from "./services/repository.github.js";
 // Also named directly — repository-validation.service.ts (apps/api) references these
 // as bare types throughout, and re-deriving every reference through the namespace above
 // would be exactly the kind of unrelated rewrite sub-task 1.1 asked to avoid.
-export type { BranchProbeResult, GithubRepositoryMetadata } from "./services/repository.github.js";
+export type { BranchProbeResult, GithubRepositoryMetadata, HeadCommit } from "./services/repository.github.js";
 export type { GithubInstallationSummary, InstallationRepositorySummary } from "./services/installation.github.js";

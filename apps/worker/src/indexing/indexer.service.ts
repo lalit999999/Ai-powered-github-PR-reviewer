@@ -68,10 +68,15 @@ export interface ProgressCheckpoint {
 export type IndexRepositoryResult =
   | {
       ok: true;
-      /** `INDEXED + SKIPPED + FAILED` — see index-job.repository.ts's header comment
-       * for why this excludes hard-ignored paths, and why the other two counts sum to it. */
+      /** `filesIndexed + filesSkipped + filesFailed` — see index-job.repository.ts's
+       * header comment for why this excludes hard-ignored paths. */
       filesTotal: number;
+      /** Successfully indexed only — what `Repository.indexedFileCount` stores. */
+      filesIndexed: number;
+      /** `filesIndexed + filesFailed` — what `IndexJob.filesProcessed` stores; see
+       * index-job.repository.ts for why "processed" means "attempted", not "succeeded". */
       filesProcessed: number;
+      filesFailed: number;
       filesSkipped: number;
       hardIgnoredCount: number;
       hardIgnoreRatio: number;
@@ -107,16 +112,25 @@ function toUpsertInput(repositoryId: string, sha: string, file: WalkSummary["fil
   };
 }
 
-/** See index-job.repository.ts's header comment — this is where the definition is
- * actually applied to a walk's results. */
-function countByBucket(files: WalkSummary["files"]): { filesProcessed: number; filesSkipped: number } {
-  let filesProcessed = 0;
+/**
+ * See index-job.repository.ts's header comment for `filesProcessed` (= `filesIndexed +
+ * filesFailed`) and `filesSkipped`'s definitions — this is where they're actually
+ * applied to a walk's results. `filesIndexed` is split out separately from
+ * `filesProcessed` because `Repository.indexedFileCount` (unlike `IndexJob.filesProcessed`)
+ * means *successfully* indexed only — repository-index.ts's terminal step needs the
+ * narrower number, `IndexJob`'s progress tracking needs the broader one, and both come
+ * from the same walk.
+ */
+function countByBucket(files: WalkSummary["files"]): { filesIndexed: number; filesFailed: number; filesSkipped: number } {
+  let filesIndexed = 0;
+  let filesFailed = 0;
   let filesSkipped = 0;
   for (const file of files) {
     if (file.indexState === "SKIPPED") filesSkipped += 1;
-    else filesProcessed += 1; // INDEXED or FAILED — see the shared definition
+    else if (file.indexState === "FAILED") filesFailed += 1;
+    else filesIndexed += 1;
   }
-  return { filesProcessed, filesSkipped };
+  return { filesIndexed, filesFailed, filesSkipped };
 }
 
 export async function indexRepository(options: IndexRepositoryOptions): Promise<IndexRepositoryResult> {
@@ -150,7 +164,8 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     },
   );
 
-  const { filesProcessed, filesSkipped } = countByBucket(walkSummary.files);
+  const { filesIndexed, filesFailed, filesSkipped } = countByBucket(walkSummary.files);
+  const filesProcessed = filesIndexed + filesFailed;
   const filesTotal = walkSummary.files.length;
 
   await options.onProgress?.({ currentStep: "persist-repository-files", progressPercent: 70, filesTotal });
@@ -163,7 +178,8 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     repositoryId: options.repositoryId,
     jobId: options.jobId,
     filesTotal,
-    filesProcessed,
+    filesIndexed,
+    filesFailed,
     filesSkipped,
     hardIgnoredCount: walkSummary.hardIgnoredCount,
     staleRowsRemoved,
@@ -174,7 +190,9 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
   return {
     ok: true,
     filesTotal,
+    filesIndexed,
     filesProcessed,
+    filesFailed,
     filesSkipped,
     hardIgnoredCount: walkSummary.hardIgnoredCount,
     hardIgnoreRatio: walkSummary.hardIgnoreRatio,

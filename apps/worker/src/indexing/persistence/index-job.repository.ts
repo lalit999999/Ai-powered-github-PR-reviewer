@@ -91,6 +91,18 @@ export async function createIndexJob(input: CreateIndexJobInput): Promise<IndexJ
 }
 
 /**
+ * `repository-index.ts`'s `onFailure` handler runs as a fresh, separate invocation with
+ * no closure over the main handler's `job` variable — it only has the *original*
+ * triggering event and Inngest's own `run_id`, which is exactly why {@link createIndexJob}
+ * stores `inngestRunId` at all. This is the lookup that reconnects the two. Returns
+ * `null` if the run failed before step 1 ever created a row (e.g. a transient DB error
+ * on the very first write) — `onFailure` treats that as "nothing to mark", not an error.
+ */
+export async function findByInngestRunId(inngestRunId: string): Promise<IndexJobRecord | null> {
+  return prisma.indexJob.findFirst({ where: { inngestRunId }, orderBy: { createdAt: "desc" } });
+}
+
+/**
  * Called once per genuine retry (never on the run's first attempt — see
  * repository-index.ts's own use of `ctx.attempt` to decide when this runs), so
  * `attempts` reflects how many times this run's function body has actually executed

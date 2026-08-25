@@ -134,9 +134,11 @@ export type IndexJobMode = (typeof INDEX_JOB_MODES)[number];
 /**
  * Both columns are `Json?`, so nothing at the database level constrains `.code` — but
  * the value is read by the UI (§12: "Repository card shows a reconnect CTA" for
- * REPO_NOT_FOUND) and needs to be stable across the producers that set it. Covers only
- * the codes this phase's own steps (tarball-fetcher, archive-extractor) can actually
- * produce (§12); later phases append their own rather than inventing a parallel field.
+ * REPO_NOT_FOUND) and needs to be stable across the producers that set it. Prompt 1
+ * covered the codes `tarball-fetcher.ts`/`archive-extractor.ts` can produce on their
+ * own; Prompt 2 (`repository-index.ts`) extends the same union with the one additional
+ * outcome those modules cannot themselves distinguish — see `ACCESS_REVOKED` below —
+ * rather than starting a second, parallel vocabulary (docs/decisions/phase-03-log.md).
  */
 export const INDEX_ERROR_CODES = [
   /** Tarball or metadata call returned 404 — repository deleted, renamed, or the
@@ -144,10 +146,19 @@ export const INDEX_ERROR_CODES = [
   "REPO_NOT_FOUND",
   /** Tarball download exhausted its retries against a 5xx or a network failure. */
   "TARBALL_DOWNLOAD_FAILED",
-  /** archive-extractor rejected a hostile entry (path traversal, symlink escape, etc.).
-   * Non-retriable — attack details are logged, never surfaced past this code. */
+  /** archive-extractor rejected a hostile entry (path traversal, symlink escape, etc.),
+   * or the tarball fetch's redirect target failed the codeload.github.com pin (the same
+   * "this looks tampered with, abort, do not retry, do not leak detail" family — see
+   * tarball-fetcher.ts's own `UNSAFE_REDIRECT` result variant). Non-retriable — attack
+   * details are logged, never surfaced past this code. */
   "UNSAFE_ARCHIVE",
   /** Extraction exceeded INDEX_MAX_TOTAL_BYTES or INDEX_MAX_FILE_COUNT. Non-retriable. */
   "REPO_TOO_LARGE",
+  /** The installation's token mint came back 401 mid-run (`GithubAccessRevokedError`) —
+   * distinct from `REPO_NOT_FOUND`: the repository still exists, but the App's access to
+   * it was revoked, suspended, or uninstalled since the repository connected.
+   * Non-retriable, per `plan.md` §27.5 rule 5 ("installation revoked" is named
+   * explicitly as a case that must not retry). */
+  "ACCESS_REVOKED",
 ] as const;
 export type IndexErrorCode = (typeof INDEX_ERROR_CODES)[number];

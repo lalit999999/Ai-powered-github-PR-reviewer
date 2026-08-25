@@ -126,6 +126,80 @@ export async function getRepository(
   }
 }
 
+// ---------------------------------------------------------------------------
+// GET /repos/{owner}/{repo}/commits/{ref} — head SHA resolution (phase-03 §8 step 2)
+// ---------------------------------------------------------------------------
+
+export interface HeadCommit {
+  sha: string;
+}
+
+interface RawCommit {
+  sha?: string;
+}
+
+/**
+ * Resolves a branch name to its current head commit SHA — `plan.md` §8.2 step 2, the
+ * second (and last) of the two GitHub API calls a full index spends (§9/§15: "exactly
+ * two GitHub API calls per full index run"). Always called with the `default_branch`
+ * {@link getRepository} just returned, never a user-supplied ref.
+ *
+ * `404` here means the branch itself does not exist on a repository whose metadata call
+ * just succeeded — §9's own External Integrations table names this explicitly ("404
+ * branch missing"). `classifyGithubError` still reports it as `NOT_ACCESSIBLE`
+ * (indistinguishable from "repository not accessible" at the wire level, same reasoning
+ * as `getRepository`'s own doc comment) — the caller already knows the repository is
+ * accessible by this point, so in practice this reason means "branch gone", and
+ * `repository-index.ts` treats it the same as `REPO_NOT_FOUND` (a moved/deleted default
+ * branch is not meaningfully different from a moved/deleted repository, from an
+ * indexing job's point of view).
+ */
+export async function getHeadCommit(
+  installationId: bigint,
+  owner: string,
+  repo: string,
+  branch: string,
+  options: GetRepositoryOptions = {},
+): Promise<GithubResult<{ commit: HeadCommit }>> {
+  const logger = options.logger ?? defaultLogger;
+  const octokit = options.octokit ?? createInstallationOctokit(installationId, { logger });
+
+  try {
+    const response = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}", { owner, repo, ref: branch });
+    const sha = (response.data as RawCommit).sha;
+
+    if (typeof sha !== "string" || sha.length === 0) {
+      logger.warn("github returned a commit body this code does not understand", {
+        installationId: installationId.toString(),
+        endpoint: "GET /repos/{owner}/{repo}/commits/{ref}",
+        fullName: `${owner}/${repo}`,
+        branch,
+      });
+      return { ok: false, reason: "UNAVAILABLE" };
+    }
+
+    logger.info("resolved branch head commit", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/commits/{ref}",
+      fullName: `${owner}/${repo}`,
+      branch,
+      sha,
+    });
+
+    return { ok: true, commit: { sha } };
+  } catch (error) {
+    const reason = classifyGithubError(error);
+    logger.warn("failed to resolve branch head commit", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/commits/{ref}",
+      fullName: `${owner}/${repo}`,
+      branch,
+      reason,
+    });
+    return { ok: false, reason };
+  }
+}
+
 function toMetadata(raw: RawRepository): GithubRepositoryMetadata | null {
   const owner = raw.owner?.login;
   if (typeof raw.id !== "number" || typeof raw.name !== "string" || typeof owner !== "string") return null;
