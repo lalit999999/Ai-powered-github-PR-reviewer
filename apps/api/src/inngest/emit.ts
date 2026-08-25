@@ -84,9 +84,16 @@ export async function emitProjectDeleted(data: ProjectDeletedData): Promise<void
  * The failure is logged at **`error`** with `repositoryId` and `projectId`, so a
  * dropped trigger is visible rather than silent (§20 requires both ids on this path).
  *
- * TODO(phase-03): revisit when `repository-index` exists and delivery actually matters.
- * The fix is a transactional outbox plus a reconcile sweep over `PENDING` rows — not
- * awaiting this call and not making the HTTP response depend on Inngest being up.
+ * **Resolved in Phase 03**, per point 2 above: `apps/worker`'s `stale-index-sweeper`
+ * (`plan.md` §27.2's own named cron function) is the reconcile sweep — it finds
+ * repositories stuck `PENDING` for at least 15 minutes and re-emits this exact event
+ * for each (`reason: "sweep"`). This function itself is unchanged: still fire-and-forget,
+ * still logging its own failures at `error`, for exactly the three reasons argued
+ * above — the sweeper is what makes a dropped event self-healing within its 6-hour
+ * cadence, not a reason to change how this call behaves. A transactional outbox (a
+ * tighter bound than "up to 6 hours") remains unbuilt, deliberately — see
+ * `stale-index-sweeper.ts`'s own header comment for why the sweep alone is this phase's
+ * scope and the outbox is not, and docs/decisions/phase-03-log.md for the fuller record.
  */
 export async function emitRepositoryIndexRequested(data: RepositoryIndexRequestedData): Promise<void> {
   try {

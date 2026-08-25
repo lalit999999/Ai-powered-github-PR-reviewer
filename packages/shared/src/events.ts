@@ -61,8 +61,12 @@ export type RepositoryIndexRequestedData = {
   mode: "FULL";
   /** `"connected"` — `repositoryService.connectRepository` (Phase 02). `"manual"` —
    * `POST /api/repositories/:id/index` (Phase 03 §7, `repositoryService.triggerIndex`).
-   * Phase 06 adds `"webhook"`, per this field's original forward-declared comment. */
-  reason: "connected" | "manual";
+   * `"sweep"` — `stale-index-sweeper` (Phase 03, `apps/worker`'s own cron function,
+   * `plan.md` §27.2), re-requesting an index for a repository stuck `PENDING` because
+   * its original `"connected"` event was dropped — the resolution to `emit.ts`'s
+   * `TODO(phase-03)`; see that file and docs/decisions/phase-03-log.md. Phase 06 adds
+   * `"webhook"`, per this field's original forward-declared comment. */
+  reason: "connected" | "manual" | "sweep";
   /**
    * Phase 03 addition. `POST /api/repositories/:id/index` must return `{ indexJobId }`
    * synchronously (§7) — before the worker's own step 1 has run and created the row —

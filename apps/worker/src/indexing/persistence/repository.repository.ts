@@ -30,6 +30,34 @@ export async function acquireIndexingLock(repositoryId: string): Promise<Acquire
   return { acquired: result.count === 1 };
 }
 
+export interface StalePendingRepository {
+  id: string;
+  projectId: string;
+}
+
+/**
+ * `stale-index-sweeper`'s own query (phase-03's resolution to `emit.ts`'s
+ * `TODO(phase-03)` — see that file and docs/decisions/phase-03-log.md). Finds
+ * repositories stuck `PENDING` — meaning their `repository/index.requested` event was
+ * never processed, dropped or otherwise — for at least `olderThanMs`, so a repository
+ * that connected moments ago and simply hasn't been picked up *yet* is not re-swept on
+ * every cron tick. `updatedAt` is the staleness signal: nothing ever writes to a
+ * genuinely stuck row, so it stays pinned at connect time.
+ *
+ * Deliberately imprecise, on purpose: a false positive (a real run is in flight but has
+ * not yet updated `indexStatus` away from `PENDING`) costs nothing — `acquireIndexingLock`
+ * is the actual safety net, and a redundant `repository/index.requested` for an
+ * already-running repository simply fails to acquire the lock and exits gracefully
+ * (§11/§12). This query only ever has to be a reasonable heuristic for "probably stuck",
+ * not a proof.
+ */
+export async function findStalePending(olderThanMs: number): Promise<StalePendingRepository[]> {
+  return prisma.repository.findMany({
+    where: { indexStatus: "PENDING", updatedAt: { lt: new Date(Date.now() - olderThanMs) } },
+    select: { id: true, projectId: true },
+  });
+}
+
 export interface IndexTarget {
   owner: string;
   name: string;
