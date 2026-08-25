@@ -70,6 +70,28 @@ describe("walkTree", () => {
     expect(summary.files[0]?.packageName).toBeNull();
   });
 
+  it("gives a file-pattern hard-ignored path (not inside any ignored directory) no row either", async () => {
+    // Regression test for a real bug found via repository-fixtures.test.ts (Prompt 3):
+    // collectAllPaths only pruned whole hard-ignored *directories* — a bare filename or
+    // extension-anchored HARD_IGNORE_PATTERNS entry that is never inside a prunable
+    // directory (a top-level lockfile, a *.min.js anywhere) fell through to processFile,
+    // whose own classifyIgnore call only branched on "SKIP", never "HARD_IGNORE" — so
+    // these files were silently indexed instead of excluded. See
+    // docs/decisions/phase-03-log.md for the fix (walk-tree.ts's collectAllPaths now
+    // checks isHardIgnored per file, and processFile defensively throws if a
+    // hard-ignored path ever reaches it again).
+    const dir = await makeTempRepo({
+      "src/index.ts": "export const x = 1;\n",
+      "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
+      "src/bundle.min.js": "!function(){}();\n",
+    });
+
+    const summary = await walkTree(dir, { logger: noopLogger() as never });
+
+    expect(summary.files.map((f) => f.path)).toEqual(["src/index.ts"]);
+    expect(summary.hardIgnoredCount).toBe(2);
+  });
+
   it("gives a .gitattributes-generated file a row marked SKIPPED_GENERATED, not a silent drop", async () => {
     const dir = await makeTempRepo({
       ".gitattributes": "api/**/*.pb.go linguist-generated\n",

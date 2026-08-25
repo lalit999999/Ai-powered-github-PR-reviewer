@@ -16,6 +16,7 @@ import {
 } from "./filter/file-classifier.js";
 import {
   classifyIgnore,
+  isHardIgnored,
   isHardIgnoredDirectory,
   parseGitattributes,
   type GitattributesRule,
@@ -178,6 +179,16 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
 
   try {
     const ignoreDecision = classifyIgnore(relativePath, deps.gitattributesRules);
+
+    if (ignoreDecision.kind === "HARD_IGNORE") {
+      // Unreachable in practice: `collectAllPaths` already excludes every hard-ignored
+      // file (both directory-pruned and file-pattern-matched) from `candidatePaths`
+      // before `processFile` is ever called for it. A defensive throw here, rather than
+      // silently falling through to the KEEP branch below, is deliberate — that silent
+      // fallthrough is exactly the bug this comment exists to prevent from recurring
+      // (see docs/decisions/phase-03-log.md: found via repository-fixtures.test.ts).
+      throw new Error(`processFile reached for a hard-ignored path — collectAllPaths should have excluded it: ${relativePath}`);
+    }
 
     if (ignoreDecision.kind === "SKIP") {
       // A .gitattributes-declared generated/vendored file. The decision is already
@@ -399,7 +410,15 @@ async function collectAllPaths(rootDir: string): Promise<CandidateEntry[]> {
       }
 
       if (entry.isFile()) {
-        results.push({ path: relativePath, hardIgnored: false });
+        // A directory-anchored pattern (node_modules/**, dist/**, ...) is pruned above,
+        // before its files are ever listed here — but roughly half of
+        // HARD_IGNORE_PATTERNS is filename/extension-anchored (lockfiles, **/*.min.js,
+        // **/*.png, ...) and matches an individual file that is never inside a prunable
+        // directory. Those must be checked per file, here, or they silently fall through
+        // to KEEP with a real RepositoryFile row — exactly the "no row at all" contract
+        // ignore-rules.ts's own header comment promises being violated. (Found by
+        // repository-fixtures.test.ts, Prompt 3 — see docs/decisions/phase-03-log.md.)
+        results.push({ path: relativePath, hardIgnored: isHardIgnored(relativePath) });
       }
     }
   }
