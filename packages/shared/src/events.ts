@@ -59,7 +59,23 @@ export type RepositoryIndexRequestedData = {
   projectId: string;
   repositoryId: string;
   mode: "FULL";
-  reason: "connected";
+  /** `"connected"` — `repositoryService.connectRepository` (Phase 02). `"manual"` —
+   * `POST /api/repositories/:id/index` (Phase 03 §7, `repositoryService.triggerIndex`).
+   * Phase 06 adds `"webhook"`, per this field's original forward-declared comment. */
+  reason: "connected" | "manual";
+  /**
+   * Phase 03 addition. `POST /api/repositories/:id/index` must return `{ indexJobId }`
+   * synchronously (§7) — before the worker's own step 1 has run and created the row —
+   * so the API pre-generates the id and the worker's `createIndexJob` adopts it instead
+   * of generating its own. Absent on the `"connected"` path: `connectRepository` has no
+   * synchronous caller waiting on a job id (§7's connect response is just
+   * `{ repository }`), so there is nothing to pre-allocate for. See
+   * docs/decisions/phase-03-log.md for the full argument, including the narrow,
+   * accepted race this creates (the pre-allocated id can go unused if this run loses
+   * the lock to a concurrent one — cosmetic, since neither route requires the client to
+   * poll *by* this id; both poll `/index-status`, which is scoped to the repository).
+   */
+  indexJobId?: string;
 };
 
 /**

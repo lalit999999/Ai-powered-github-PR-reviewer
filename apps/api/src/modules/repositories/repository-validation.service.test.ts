@@ -154,6 +154,7 @@ describe("step 3 — already connected to THIS project (409)", () => {
       indexedFileCount: 0,
       skippedFileCount: 0,
       lastIndexedAt: null,
+      indexError: null,
       settings: {},
       createdAt: new Date(),
       updatedAt: new Date(),

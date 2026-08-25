@@ -6,6 +6,7 @@ import {
   InternalError,
   NotFoundError,
   ServiceUnavailableError,
+  TooManyRequestsError,
   UnauthenticatedError,
   ValidationError,
 } from "./errors.js";
@@ -19,6 +20,7 @@ const cases = [
   { ErrorClass: ForbiddenError, httpStatus: 403, code: "FORBIDDEN" },
   { ErrorClass: NotFoundError, httpStatus: 404, code: "NOT_FOUND" },
   { ErrorClass: ConflictError, httpStatus: 409, code: "CONFLICT" },
+  { ErrorClass: TooManyRequestsError, httpStatus: 429, code: "RATE_LIMITED" },
   { ErrorClass: ServiceUnavailableError, httpStatus: 503, code: "SERVICE_UNAVAILABLE" },
   { ErrorClass: InternalError, httpStatus: 500, code: "INTERNAL_ERROR" },
 ] as const;

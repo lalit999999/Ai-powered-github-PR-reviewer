@@ -70,6 +70,13 @@ export interface CreateIndexJobInput {
   repositoryId: string;
   mode: IndexJobMode;
   inngestRunId: string;
+  /** `POST /api/repositories/:id/index` (apps/api) pre-generates this and rides it on
+   * the triggering event, because that route must return `{ indexJobId }` synchronously
+   * — before this function ever runs (§7). When present, this row adopts that id
+   * instead of letting Prisma generate one, so the id the client received is the id
+   * this row actually gets. Absent on the `connectRepository` path, which has no
+   * synchronous caller waiting on an id — Prisma generates one as before. */
+  id?: string;
 }
 
 /** Inserts the run's `IndexJob` row already `RUNNING` (see this module's header
@@ -78,6 +85,7 @@ export interface CreateIndexJobInput {
 export async function createIndexJob(input: CreateIndexJobInput): Promise<IndexJobRecord> {
   return prisma.indexJob.create({
     data: {
+      ...(input.id ? { id: input.id } : {}),
       repositoryId: input.repositoryId,
       mode: input.mode,
       status: "RUNNING",

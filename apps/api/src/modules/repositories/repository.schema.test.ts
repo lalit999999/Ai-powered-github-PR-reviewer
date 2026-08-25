@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   GITHUB_REPO_URL_MESSAGE,
+  INCREMENTAL_NOT_SUPPORTED_MESSAGE,
   MAX_REPO_URL_LENGTH,
   connectRepositoryBodySchema,
   githubRepoUrlSchema,
@@ -8,6 +9,7 @@ import {
   listInstallationReposQuerySchema,
   parseGithubRepoUrl,
   repositoryIdParamSchema,
+  triggerIndexBodySchema,
   type GithubRepoUrlRejection,
 } from "./repository.schema.js";
 
@@ -201,5 +203,33 @@ describe("params and query schemas", () => {
 
   it("rejects an over-long ?q", () => {
     expect(listInstallationReposQuerySchema.safeParse({ q: "a".repeat(101) }).success).toBe(false);
+  });
+});
+
+/**
+ * phase-03 §7: `"INCREMENTAL"` must be a **named, explicit** 400 — the schema
+ * recognizes it as a legal enum value, not merely "not FULL" — so it is rejected with
+ * a specific, actionable message rather than an accidental catch-all rejection that
+ * would just as happily reject a typo.
+ */
+describe("triggerIndexBodySchema — INCREMENTAL is explicitly rejected, not merely absent (§7)", () => {
+  it("accepts mode: FULL", () => {
+    expect(triggerIndexBodySchema.safeParse({ mode: "FULL" }).success).toBe(true);
+  });
+
+  it("rejects mode: INCREMENTAL with the specific not-yet-supported message", () => {
+    const result = triggerIndexBodySchema.safeParse({ mode: "INCREMENTAL" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message === INCREMENTAL_NOT_SUPPORTED_MESSAGE)).toBe(true);
+    }
+  });
+
+  it("rejects a mode that is neither FULL nor INCREMENTAL", () => {
+    expect(triggerIndexBodySchema.safeParse({ mode: "PARTIAL" }).success).toBe(false);
+  });
+
+  it("rejects a missing mode", () => {
+    expect(triggerIndexBodySchema.safeParse({}).success).toBe(false);
   });
 });

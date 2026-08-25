@@ -2,7 +2,9 @@ import { Router } from "express";
 import {
   connectRepository,
   disconnectRepository,
+  getIndexStatus,
   getRepository,
+  triggerIndex,
 } from "../controllers/repositories.controller.js";
 import { withRoute } from "../lib/http.js";
 
@@ -11,6 +13,8 @@ const router = Router();
 
 router.get("/:repositoryId", withRoute(getRepository, { component: "api.repositories" }));
 router.delete("/:repositoryId", withRoute(disconnectRepository, { component: "api.repositories" }));
+router.get("/:repositoryId/index-status", withRoute(getIndexStatus, { component: "api.repositories" }));
+router.post("/:repositoryId/index", withRoute(triggerIndex, { component: "api.repositories" }));
 
 export default router;
 

@@ -28,6 +28,8 @@ vi.mock("../modules/repositories/repository.service.js", () => ({
   connectRepository: vi.fn(),
   getRepositoryDetail: vi.fn(),
   disconnectRepository: vi.fn(),
+  getIndexStatus: vi.fn(),
+  triggerIndex: vi.fn(),
   listInstallationRepositories: vi.fn(),
   syncInstallations: vi.fn(),
   listProjectRepositories: vi.fn(),
@@ -70,6 +72,7 @@ const repositoryDto = {
   indexedCommitSha: null,
   indexedFileCount: 0,
   lastIndexedAt: null,
+  indexError: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
@@ -227,6 +230,108 @@ describe("DELETE /api/repositories/:repositoryId (§7)", () => {
     requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
 
     await expect(request(app).delete(`/api/repositories/${REPOSITORY_ID}`)).resolves.toMatchObject({ status: 401 });
+  });
+});
+
+describe("GET /api/repositories/:repositoryId/index-status (§7)", () => {
+  const statusBody = {
+    status: "RUNNING",
+    currentStep: "extract-filter-hash",
+    progressPercent: 35,
+    filesTotal: 100,
+    filesProcessed: 40,
+    error: null,
+  };
+
+  it("answers 200 with exactly the six §7 fields", async () => {
+    signedIn();
+    vi.mocked(repositoryService.getIndexStatus).mockResolvedValue(statusBody);
+
+    const res = await request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(statusBody);
+  });
+
+  it("resolves tenancy by repositoryId", async () => {
+    signedIn();
+    vi.mocked(repositoryService.getIndexStatus).mockResolvedValue(statusBody);
+
+    await request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`);
+
+    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), { repositoryId: REPOSITORY_ID });
+  });
+
+  it("401s without a session", async () => {
+    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+
+    await expect(request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`)).resolves.toMatchObject({
+      status: 401,
+    });
+  });
+});
+
+describe("POST /api/repositories/:repositoryId/index (§7)", () => {
+  it("answers 202 with { indexJobId }", async () => {
+    signedIn();
+    vi.mocked(repositoryService.triggerIndex).mockResolvedValue({ indexJobId: "job-1" });
+
+    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "FULL" });
+
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ indexJobId: "job-1" });
+  });
+
+  it("400s mode: INCREMENTAL, without touching the service", async () => {
+    signedIn();
+
+    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "INCREMENTAL" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(repositoryService.triggerIndex).not.toHaveBeenCalled();
+  });
+
+  it("400s a missing mode", async () => {
+    signedIn();
+
+    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({});
+
+    expect(res.status).toBe(400);
+    expect(repositoryService.triggerIndex).not.toHaveBeenCalled();
+  });
+
+  it("409s when the service reports the repository is already indexing", async () => {
+    signedIn();
+    const { ConflictError } = await import("../lib/errors.js");
+    vi.mocked(repositoryService.triggerIndex).mockRejectedValue(new ConflictError("This repository is already being indexed"));
+
+    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "FULL" });
+
+    expect(res.status).toBe(409);
+  });
+
+  it("429s when the service reports the rate limit was exceeded", async () => {
+    signedIn();
+    const { TooManyRequestsError } = await import("../lib/errors.js");
+    vi.mocked(repositoryService.triggerIndex).mockRejectedValue(
+      new TooManyRequestsError("Too many index requests for this repository — try again later", {
+        details: { retryAfterSeconds: 1800 },
+      }),
+    );
+
+    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "FULL" });
+
+    expect(res.status).toBe(429);
+  });
+
+  it("401s without a session, before any validation", async () => {
+    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+
+    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({});
+
+    expect(res.status).toBe(401);
+    expect(requireTenantAccess).not.toHaveBeenCalled();
   });
 });
 

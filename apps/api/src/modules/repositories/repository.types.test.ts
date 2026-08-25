@@ -37,6 +37,7 @@ function repositoryRow(overrides: Partial<RepositoryRecord> = {}): RepositoryRec
     indexedFileCount: 0,
     skippedFileCount: 0,
     lastIndexedAt: null,
+    indexError: null,
     settings: {},
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-02T00:00:00.000Z"),

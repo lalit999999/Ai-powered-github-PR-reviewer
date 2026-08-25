@@ -89,6 +89,17 @@ export class ServiceUnavailableError extends AppError {
   readonly httpStatus = 503;
 }
 
+/**
+ * Phase 03 §7/§28: `POST /api/repositories/:id/index`'s 10/hour/repository limit. The
+ * first 429 this codebase throws — every prior route's failures were genuinely
+ * 400/403/404/409/422/503. `details.retryAfterSeconds`, when known, lets a client show
+ * "try again in N minutes" instead of a bare rejection.
+ */
+export class TooManyRequestsError extends AppError {
+  readonly code = "RATE_LIMITED";
+  readonly httpStatus = 429;
+}
+
 /** Distinct from ServiceUnavailableError so /api/health (and any future dependency
  * check) can report the specific cause per phase-00 §7/§12: `{"code": "DB_UNAVAILABLE"}`. */
 export class DbUnavailableError extends AppError {

@@ -229,7 +229,14 @@ export const repositoryIndex = inngest.createFunction(
       return { skipped: true as const, reason: "ALREADY_INDEXING" as const };
     }
 
-    const job = await step.run("create-index-job", () => indexJobRepository.createIndexJob({ repositoryId, mode: event.data.mode, inngestRunId: runId }));
+    const job = await step.run("create-index-job", () =>
+      indexJobRepository.createIndexJob({
+        repositoryId,
+        mode: event.data.mode,
+        inngestRunId: runId,
+        id: event.data.indexJobId,
+      }),
+    );
 
     // Genuine retries only (never the run's first attempt, which createIndexJob's own
     // attempts:1 already counts) — a fresh step id per attempt number means this
