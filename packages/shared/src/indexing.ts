@@ -14,6 +14,47 @@
  */
 
 // ---------------------------------------------------------------------------
+// RepositoryFile.classification
+// ---------------------------------------------------------------------------
+
+/**
+ * `RepositoryFile.classification` **is** a real Postgres/Prisma enum (`FileClassification`
+ * in schema.prisma) — unlike every other union in this file, which pins a plain `String`
+ * column's legal values. It is mirrored here anyway, deliberately, rather than having
+ * every consumer import the type from `@repo/db`'s generated client:
+ *
+ * `packages/db/src/index.ts`'s barrel re-exports `prisma` from `./client.ts`, and
+ * `client.ts` reads `process.env.DATABASE_URL` and **throws at module-load time** if it
+ * is unset (`packages/db/src/client.ts`) — a real, load-bearing fail-fast for the actual
+ * database connection, not a bug to fix there. But it means importing *anything* from
+ * `@repo/db`'s public surface — including a pure, side-effect-free enum with no
+ * connection to open — pulls that throw into the importer's module graph. Prompt 2
+ * discovered this the direct way: `file-classifier.ts` (apps/worker/src/indexing/filter/,
+ * no database access, no `*.repository.ts` involvement) needs the `FileClassification`
+ * vocabulary to build its return value, and its unit tests have no `DATABASE_URL`
+ * configured (correctly — they are pure-function tests over buffers and strings).
+ *
+ * So `FileClassification` is treated the same way `IndexState`/`SkipReason`/etc. already
+ * are: pinned here, in `@repo/shared`, matched string-for-string against
+ * `schema.prisma`'s enum. `apps/worker/src/indexing/persistence/repository-file.repository.ts`
+ * (the one `*.repository.ts` file that actually writes this column) is the only place in
+ * the system that ever imports the real Prisma-generated enum type, and the two are
+ * structurally identical string-literal unions, so passing a `@repo/shared` value into a
+ * Prisma `data.classification` field requires no cast.
+ */
+export const FILE_CLASSIFICATIONS = [
+  "SOURCE",
+  "TEST",
+  "CONFIG",
+  "GENERATED",
+  "DEPENDENCY_LOCK",
+  "DOCUMENTATION",
+  "ASSET",
+  "UNKNOWN",
+] as const;
+export type FileClassification = (typeof FILE_CLASSIFICATIONS)[number];
+
+// ---------------------------------------------------------------------------
 // RepositoryFile.indexState
 // ---------------------------------------------------------------------------
 

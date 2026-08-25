@@ -6,6 +6,7 @@ export type {
   RepositoryIndexRequestedData,
 } from "./events.js";
 export {
+  FILE_CLASSIFICATIONS,
   INDEX_ERROR_CODES,
   INDEX_JOB_MODES,
   INDEX_JOB_STATUSES,
@@ -15,6 +16,7 @@ export {
   SKIP_REASONS,
 } from "./indexing.js";
 export type {
+  FileClassification,
   IndexErrorCode,
   IndexJobMode,
   IndexJobStatus,
