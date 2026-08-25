@@ -19,6 +19,15 @@ import { assertNoTokenPersisted, githubRepoMetadata, seedInstallation, type Seed
  */
 
 vi.mock("../../src/inngest/emit.js", () => ({ emitRepositoryIndexRequested: vi.fn() }));
+// `checkRateLimit` itself is unit-tested directly (src/lib/rate-limit.test.ts) — the
+// real Redis-backed fixed-window logic is not what this file's job is. Wrapped with
+// `importOriginal` (not a narrow replacement) so every other route in this file keeps
+// exercising the real implementation, which fails open against this environment's real
+// Redis without needing 10 real requests per test to observe a 429.
+vi.mock("../../src/lib/rate-limit.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/lib/rate-limit.js")>();
+  return { ...actual, checkRateLimit: vi.fn(actual.checkRateLimit) };
+});
 vi.mock("@repo/github", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/github")>();
   return {
@@ -36,6 +45,7 @@ vi.mock("@repo/github", async (importOriginal) => {
 
 const { emitRepositoryIndexRequested } = await import("../../src/inngest/emit.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
+const { checkRateLimit } = await import("../../src/lib/rate-limit.js");
 const { default: app } = await import("../../src/app.js");
 
 let user: SeededUser;
@@ -47,6 +57,7 @@ beforeEach(async () => {
   vi.mocked(repositoryGithub.getRepository).mockReset();
   vi.mocked(repositoryGithub.probeBranch).mockReset();
   vi.mocked(installationGithub.listUserInstallations).mockReset();
+  vi.mocked(checkRateLimit).mockClear();
   user = await seedSignedInUser("octocat");
   installation = await seedInstallation(user.id, { accountLogin: "octocat" });
 });
@@ -315,6 +326,123 @@ describe("GET /api/repositories/:id", () => {
 
   it("returns 404 for a repository id that was never connected", async () => {
     const res = await request(app).get("/api/repositories/never-existed").set("Cookie", user.cookie);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/repositories/:id/index-status (phase-03 §7)", () => {
+  it("falls back to the Repository row's own status when no IndexJob exists yet", async () => {
+    const project = await createProject();
+    mockRepo({ owner: "octocat", name: "status-repo" });
+    const connected = await request(app)
+      .post(`/api/projects/${project.id}/repositories`)
+      .set("Cookie", user.cookie)
+      .send({ repoUrl: "https://github.com/octocat/status-repo" })
+      .expect(202);
+
+    const res = await request(app)
+      .get(`/api/repositories/${connected.body.repository.id}/index-status`)
+      .set("Cookie", user.cookie);
+
+    expect(res.status).toBe(200);
+    // The exact six-field shape §7 specifies — no `id`, no `filesSkipped` (that is
+    // IndexJobSummaryDto's, not this cheap-poll DTO's).
+    expect(Object.keys(res.body).sort()).toEqual(
+      ["status", "currentStep", "progressPercent", "filesTotal", "filesProcessed", "error"].sort(),
+    );
+    expect(res.body.status).toBe("PENDING");
+    expect(res.body.currentStep).toBeNull();
+    expect(res.body.progressPercent).toBe(0);
+    expect(res.body.error).toBeNull();
+  });
+
+  it("returns 404 for a repository id that was never connected", async () => {
+    const res = await request(app).get("/api/repositories/never-existed/index-status").set("Cookie", user.cookie);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /api/repositories/:id/index (phase-03 §7)", () => {
+  it("returns 202 { indexJobId } and emits repository/index.requested with reason: manual", async () => {
+    const project = await createProject();
+    mockRepo({ owner: "octocat", name: "trigger-repo" });
+    const connected = await request(app)
+      .post(`/api/projects/${project.id}/repositories`)
+      .set("Cookie", user.cookie)
+      .send({ repoUrl: "https://github.com/octocat/trigger-repo" })
+      .expect(202);
+    vi.mocked(emitRepositoryIndexRequested).mockClear(); // connect's own emit must not count here
+
+    const res = await request(app)
+      .post(`/api/repositories/${connected.body.repository.id}/index`)
+      .set("Cookie", user.cookie)
+      .send({ mode: "FULL" });
+
+    expect(res.status).toBe(202);
+    expect(res.body).toHaveProperty("indexJobId");
+    expect(emitRepositoryIndexRequested).toHaveBeenCalledWith(
+      expect.objectContaining({ repositoryId: connected.body.repository.id, mode: "FULL", reason: "manual", indexJobId: res.body.indexJobId }),
+    );
+  });
+
+  it("returns 409 when the repository is already INDEXING", async () => {
+    const project = await createProject();
+    mockRepo({ owner: "octocat", name: "already-indexing-repo" });
+    const connected = await request(app)
+      .post(`/api/projects/${project.id}/repositories`)
+      .set("Cookie", user.cookie)
+      .send({ repoUrl: "https://github.com/octocat/already-indexing-repo" })
+      .expect(202);
+    await prisma.repository.update({ where: { id: connected.body.repository.id }, data: { indexStatus: "INDEXING" } });
+
+    const res = await request(app)
+      .post(`/api/repositories/${connected.body.repository.id}/index`)
+      .set("Cookie", user.cookie)
+      .send({ mode: "FULL" });
+
+    expect(res.status).toBe(409);
+  });
+
+  it("returns 400 for mode: INCREMENTAL — rejected at the schema boundary, forward-compatible but not implemented until Phase 14", async () => {
+    const project = await createProject();
+    mockRepo({ owner: "octocat", name: "incremental-repo" });
+    const connected = await request(app)
+      .post(`/api/projects/${project.id}/repositories`)
+      .set("Cookie", user.cookie)
+      .send({ repoUrl: "https://github.com/octocat/incremental-repo" })
+      .expect(202);
+
+    const res = await request(app)
+      .post(`/api/repositories/${connected.body.repository.id}/index`)
+      .set("Cookie", user.cookie)
+      .send({ mode: "INCREMENTAL" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 429 with retryAfterSeconds when rate-limited, and does not emit an index request", async () => {
+    const project = await createProject();
+    mockRepo({ owner: "octocat", name: "rate-limited-repo" });
+    const connected = await request(app)
+      .post(`/api/projects/${project.id}/repositories`)
+      .set("Cookie", user.cookie)
+      .send({ repoUrl: "https://github.com/octocat/rate-limited-repo" })
+      .expect(202);
+    vi.mocked(emitRepositoryIndexRequested).mockClear();
+    vi.mocked(checkRateLimit).mockResolvedValueOnce({ allowed: false, retryAfterSeconds: 1800 });
+
+    const res = await request(app)
+      .post(`/api/repositories/${connected.body.repository.id}/index`)
+      .set("Cookie", user.cookie)
+      .send({ mode: "FULL" });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.details).toMatchObject({ retryAfterSeconds: 1800 });
+    expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for a repository id that was never connected", async () => {
+    const res = await request(app).post("/api/repositories/never-existed/index").set("Cookie", user.cookie).send({ mode: "FULL" });
     expect(res.status).toBe(404);
   });
 });

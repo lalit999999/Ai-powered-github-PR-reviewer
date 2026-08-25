@@ -33,6 +33,7 @@ vi.mock("@repo/github", async (importOriginal) => {
 
 const { default: app } = await import("../../src/app.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
+const { emitRepositoryIndexRequested } = await import("../../src/inngest/emit.js");
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════════
@@ -102,6 +103,9 @@ beforeEach(async () => {
   // setup call above must not count against a test body's "was GitHub ever called"
   // assertion.
   vi.mocked(repositoryGithub.getRepository).mockClear();
+  // connectRepository's own fire-and-forget emit for the setup connect above must not
+  // count against a test body's "no index was triggered" assertion (phase-03 extension).
+  vi.mocked(emitRepositoryIndexRequested).mockClear();
 });
 
 afterAll(async () => {
@@ -267,6 +271,66 @@ describe("cross-tenant access — user B cannot reach user A's repository by any
 
     expect(res.status).toBe(200);
     expect(res.body.repository.id).toBe(repositoryOfA.id);
+  });
+});
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *  PHASE 03 EXTENSION — the two new indexing routes, same three-part pattern.
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * phase-03 §3.2: "a user must not be able to read another tenant's index status or
+ * trigger another tenant's index — the single easiest place for a phase to introduce a
+ * leak." Both routes share `requireTenantAccess` with every other repository route
+ * (`getIndexStatus`/`triggerIndex` in repository.service.ts), so this is confirmation
+ * that the shared seam actually covers the new routes too, not a new mechanism.
+ */
+describe("cross-tenant access — user B cannot reach user A's repository's index state or trigger its indexing", () => {
+  it("GET /api/repositories/:id/index-status — 404, not 403, not the status", async () => {
+    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}/index-status`).set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("status");
+    expect(res.body).not.toHaveProperty("progressPercent");
+  });
+
+  it("POST /api/repositories/:id/index — 404 for user A's repository, from user B, and no index is triggered", async () => {
+    const res = await request(app)
+      .post(`/api/repositories/${repositoryOfA.id}/index`)
+      .set("Cookie", userB.cookie)
+      .send({ mode: "FULL" });
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("indexJobId");
+    expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
+
+    // The status code alone would not catch a handler that flips the lock and *then*
+    // discovers it should not have — same discipline as the DELETE cases above.
+    const row = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryOfA.id } });
+    expect(row.indexStatus).not.toBe("INDEXING");
+  });
+
+  it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await request(app).get(`/api/repositories/${repositoryOfA.id}/index-status`).set("Cookie", userB.cookie);
+    const nonexistent = await request(app)
+      .get("/api/repositories/00000000-0000-0000-0000-000000000000/index-status")
+      .set("Cookie", userB.cookie);
+
+    expect(foreign.status).toBe(nonexistent.status);
+    expect(foreign.body).toEqual(nonexistent.body);
+  });
+
+  it("user A is still able to read their own repository's index status and trigger its indexing — not a blanket deny", async () => {
+    const statusRes = await request(app).get(`/api/repositories/${repositoryOfA.id}/index-status`).set("Cookie", userA.cookie);
+    expect(statusRes.status).toBe(200);
+    expect(statusRes.body).toHaveProperty("status");
+
+    const triggerRes = await request(app)
+      .post(`/api/repositories/${repositoryOfA.id}/index`)
+      .set("Cookie", userA.cookie)
+      .send({ mode: "FULL" });
+    expect(triggerRes.status).toBe(202);
+    expect(triggerRes.body).toHaveProperty("indexJobId");
   });
 });
 
