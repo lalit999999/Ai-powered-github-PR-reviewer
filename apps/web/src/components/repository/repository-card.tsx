@@ -1,27 +1,39 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DisconnectRepositoryButton } from "@/components/repository/disconnect-repository-button";
-import type { Repository } from "@/lib/api";
+import { IndexStatusPoller } from "@/components/repository/index-status-poller";
+import type { IndexStatus, Repository } from "@/lib/api";
 
 /**
- * Every `IndexStatus` value gets a caption, even though only `PENDING` is reachable
- * this phase (phase-02 §11) — `INDEXING`/`INDEXED`/`FAILED`/`PARTIAL`/`UPDATING` arrive
- * with Phase 03's real progress reporting, and this card should not need restructuring
- * to grow a progress bar or a "view index" link then; it should only need a new branch
- * in this map and whatever Phase 03 wants to render next to it.
+ * Exactly the prediction phase-02's own doc comment made here: "this card should not
+ * need restructuring to grow a progress bar... only a new branch in this map [not true
+ * any more — see below] and whatever Phase 03 wants to render next to it." What
+ * actually shipped is even smaller than that — the static caption map moved to
+ * `index-status-poller.tsx` (it now needs to react to *live*, polled status, not just
+ * this page-load snapshot), and the one line that used to render a plain `Badge` here
+ * now renders `IndexStatusPoller` instead. Nothing else in this file changed.
+ *
+ * `initialStatus` is deliberately just `repository.indexStatus` plus safe zero/`null`
+ * defaults for the fields this list endpoint doesn't carry (`currentStep`,
+ * `progressPercent`, `filesTotal`, `filesProcessed`) — exactly the shape
+ * `getIndexStatus`'s own "no IndexJob yet" fallback produces (apps/api). If a job is
+ * already mid-run when this card first renders, this under-reports progress for at
+ * most one poll interval (2s) before the poller's first live fetch corrects it — a
+ * deliberate trade-off against fetching every card's `/index-status` a second time
+ * server-side just to seed a number that self-corrects almost immediately anyway.
  */
-const INDEX_STATUS_CAPTIONS: Record<string, string> = {
-  PENDING: "Waiting to be indexed",
-  INDEXING: "Indexing…",
-  INDEXED: "Indexed",
-  UPDATING: "Updating index…",
-  FAILED: "Indexing failed",
-  PARTIAL: "Indexed (partial)",
-};
+function toInitialStatus(repository: Repository): IndexStatus {
+  return {
+    status: repository.indexStatus,
+    currentStep: null,
+    progressPercent: 0,
+    filesTotal: 0,
+    filesProcessed: 0,
+    error: repository.indexError,
+  };
+}
 
 export function RepositoryCard({ repository }: { repository: Repository }) {
-  const statusCaption = INDEX_STATUS_CAPTIONS[repository.indexStatus] ?? repository.indexStatus;
-
   return (
     <Card id={`repository-${repository.id}`}>
       <CardHeader>
@@ -45,7 +57,7 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <Badge variant="outline">{statusCaption}</Badge>
+        <IndexStatusPoller repositoryId={repository.id} initialStatus={toInitialStatus(repository)} />
       </CardContent>
     </Card>
   );

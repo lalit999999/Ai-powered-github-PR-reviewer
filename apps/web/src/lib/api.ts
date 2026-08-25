@@ -203,3 +203,34 @@ export async function getRepository(repositoryId: string): Promise<RepositoryDet
   }
   return (await res.json()) as RepositoryDetail;
 }
+
+/**
+ * `GET /api/repositories/:id/index-status` response body (phase-03 §7) — the exact six
+ * fields that endpoint returns, deliberately narrower than `IndexJobSummary` above (no
+ * `id`, no `filesSkipped`) since this is the cheap-poll shape a client hits repeatedly.
+ *
+ * This server-side helper exists for the same reason `getRepository` does — an RSC that
+ * wants a repository's index state without a full detail fetch — but
+ * `index-status-poller.tsx`'s own live polling loop runs client-side and cannot use it
+ * (`apiFetch` reads `next/headers` cookies, which only work in a Server Component); that
+ * component does its own `credentials: "include"` fetch instead, following
+ * `disconnect-repository-button.tsx`'s established pattern.
+ */
+export interface IndexStatus {
+  status: string;
+  currentStep: string | null;
+  progressPercent: number;
+  filesTotal: number;
+  filesProcessed: number;
+  error: unknown;
+}
+
+/** `null` means "not yours, or gone" — same 404-for-both convention as `getRepository`. */
+export async function getIndexStatus(repositoryId: string): Promise<IndexStatus | null> {
+  const res = await apiFetch(`/api/repositories/${encodeURIComponent(repositoryId)}/index-status`);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Could not load index status (${res.status})`);
+  }
+  return (await res.json()) as IndexStatus;
+}
