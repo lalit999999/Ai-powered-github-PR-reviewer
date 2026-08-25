@@ -113,13 +113,36 @@ export function isHardIgnored(relativePath: string): boolean {
   return false;
 }
 
+/**
+ * Whether a **directory** can be pruned — skipped without ever descending into it —
+ * rather than merely having its files rejected one at a time. A performance
+ * optimization for §21/§22's committed-`node_modules` case, not a new exclusion rule:
+ * every directory-anchored pattern in {@link HARD_IGNORE_PATTERNS}
+ * (`node_modules/**`, `.git/**`, `vendor/**`, `dist/**`, `build/**`, `out/**`,
+ * `.next/**`, `target/**`, `__pycache__/**`, `coverage/**`, `.venv/**`,
+ * `**\/__snapshots__/**`) matches *any* path under that directory, so testing one
+ * synthetic child path against the same compiled pattern set {@link isHardIgnored}
+ * already uses correctly answers "would everything under here be hard-ignored anyway".
+ *
+ * This cannot false-positive-prune a directory because of an extension-anchored
+ * pattern (`**\/*.min.js` and friends): the synthetic probe name carries no extension,
+ * so only a directory-anchored pattern can ever match it. Without this, indexer.service.ts
+ * would still walk every file inside a committed `node_modules` tree only to reject each
+ * one individually — on a monorepo where that can be 90% of the raw file count, the
+ * difference is walking hundreds of thousands of directory entries versus walking past
+ * one.
+ */
+export function isHardIgnoredDirectory(relativeDirPath: string): boolean {
+  return isHardIgnored(`${relativeDirPath}/__phase03_prune_probe__`);
+}
+
 // ---------------------------------------------------------------------------
 // .gitattributes — linguist-generated / linguist-vendored
 // ---------------------------------------------------------------------------
 
 export type GitattributesFlag = "GENERATED" | "VENDORED";
 
-interface GitattributesRule {
+export interface GitattributesRule {
   regex: RegExp;
   flag: GitattributesFlag;
   /** `linguist-generated` (bare or `=true`) is `true`; `-linguist-generated` or
