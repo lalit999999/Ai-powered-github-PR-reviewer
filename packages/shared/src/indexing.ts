@@ -99,16 +99,104 @@ export type SkipReason = (typeof SKIP_REASONS)[number];
 // ---------------------------------------------------------------------------
 
 /**
- * Only "OK" is reachable before Phase 04 — every file that reaches the hashing step in
- * this phase is structurally fine as far as this phase can tell; parsing itself does not
- * exist yet (§6: "set meaningfully starting Phase 04"). Deliberately typed as the single
- * literal "OK" rather than `string`, so that Phase 04 introducing "FAILED" (plan.md §8.2
- * step 7) is a compile error at every call site instead of a silent widening — the same
- * forcing-function `RepositoryDetail.indexJob: null` already uses for Phase 03 itself
- * (docs/decisions/phase-02-log.md §26).
+ * Widened from the single-value `["OK"]` Phase 03 deliberately pinned (see that
+ * commit's own comment, and phase-04's prompt-1 §2.5) — this is the compile-error
+ * forcing-function actually firing: every call site that assigned/compared the old
+ * literal type now has to say which of the three real states it means, rather than the
+ * widening happening silently as a `string`.
+ *
+ * `"OK"` — parse succeeded, symbols extracted. `"FAILED"` — tree-sitter either threw or
+ * returned a tree whose error-node tolerance was exceeded (Prompt 2's adapter decides
+ * the threshold); the file stays indexed for Phase 05's text/semantic search, only its
+ * symbol/edge data is missing (§1 non-negotiable rule 4: one malformed file never fails
+ * a repository index). `"NOT_PARSED"` — this file was never eligible for parsing at all:
+ * wrong language, `indexState=SKIPPED`, or binary/over-size-cap. Deliberately not named
+ * `"SKIPPED"`, which already means something specific on `RepositoryFile.indexState`/
+ * `skipReason` — a `NOT_PARSED` file can have `indexState="INDEXED"` (a `.json` or
+ * `.md` file: successfully indexed, just not a parseable language).
  */
-export const PARSE_STATES = ["OK"] as const;
+export const PARSE_STATES = ["OK", "FAILED", "NOT_PARSED"] as const;
 export type ParseState = (typeof PARSE_STATES)[number];
+export function isParseState(value: unknown): value is ParseState {
+  return typeof value === "string" && (PARSE_STATES as readonly string[]).includes(value);
+}
+
+// ---------------------------------------------------------------------------
+// CodeSymbol.kind
+// ---------------------------------------------------------------------------
+
+/**
+ * `CodeSymbol.kind` is a plain `String` column (phase-04 §6's own Prisma block), not a
+ * Postgres enum — same asymmetry as `RepositoryFile.indexState`/`skipReason` above, for
+ * the same reason: `apps/worker` writes it (the parser/graph-builder), and any future
+ * consumer that reads `CodeSymbol` rows across a package boundary must not re-derive the
+ * vocabulary. Sourced from `plan.md` §10.2's own symbol list, not invented here.
+ */
+export const SYMBOL_KINDS = [
+  "FUNCTION",
+  "ARROW_FUNCTION",
+  "CLASS",
+  "METHOD",
+  "INTERFACE",
+  "TYPE_ALIAS",
+  "ENUM",
+  "REACT_COMPONENT",
+  "HOOK",
+  "VARIABLE",
+] as const;
+export type SymbolKind = (typeof SYMBOL_KINDS)[number];
+export function isSymbolKind(value: unknown): value is SymbolKind {
+  return typeof value === "string" && (SYMBOL_KINDS as readonly string[]).includes(value);
+}
+
+// ---------------------------------------------------------------------------
+// CodeDependency.resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * `CodeDependency.resolution` — a plain `String` column defaulting to `"RESOLVED"`;
+ * phase-04 §6's own inline comment already names the complete three-value vocabulary
+ * (`RESOLVED | EXTERNAL | UNRESOLVED`), mirrored here rather than left as an
+ * un-typed default string for the same producer/consumer reason as every other union in
+ * this file.
+ */
+export const DEPENDENCY_RESOLUTIONS = ["RESOLVED", "EXTERNAL", "UNRESOLVED"] as const;
+export type DependencyResolution = (typeof DEPENDENCY_RESOLUTIONS)[number];
+export function isDependencyResolution(value: unknown): value is DependencyResolution {
+  return typeof value === "string" && (DEPENDENCY_RESOLUTIONS as readonly string[]).includes(value);
+}
+
+// ---------------------------------------------------------------------------
+// CodeDependency.kind
+// ---------------------------------------------------------------------------
+
+/**
+ * Mirrors the real `DependencyKind` Prisma **enum** (`schema.prisma`) — unlike every
+ * other union in this file, `kind` is a genuine Postgres enum, not a plain `String`
+ * column. Mirrored here anyway, for the identical reason `FILE_CLASSIFICATIONS` above is
+ * mirrored rather than imported from `@repo/db`: importing anything from `@repo/db`'s
+ * public surface pulls in `client.ts`'s module-load-time `DATABASE_URL` throw, which the
+ * parsing layer's pure-function unit tests (no database, no `*.repository.ts` involved)
+ * must not require. `apps/worker/src/indexing/graph/graph-builder.ts` (the one
+ * `*.repository.ts`-adjacent module that actually writes this column) is the only place
+ * that ever imports the real Prisma-generated enum type; the two are structurally
+ * identical string-literal unions, so passing a `@repo/shared` value into a Prisma
+ * `data.kind` field requires no cast.
+ */
+export const DEPENDENCY_KINDS = [
+  "IMPORTS",
+  "EXPORTS",
+  "CONTAINS",
+  "CALLS",
+  "EXTENDS",
+  "IMPLEMENTS",
+  "REFERENCES",
+  "TESTS",
+] as const;
+export type DependencyKind = (typeof DEPENDENCY_KINDS)[number];
+export function isDependencyKind(value: unknown): value is DependencyKind {
+  return typeof value === "string" && (DEPENDENCY_KINDS as readonly string[]).includes(value);
+}
 
 // ---------------------------------------------------------------------------
 // IndexJob.status / IndexJob.mode
