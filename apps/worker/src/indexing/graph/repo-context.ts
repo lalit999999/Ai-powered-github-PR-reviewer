@@ -471,8 +471,13 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
 
     if (basename === "pnpm-workspace.yaml") {
       workspaceMarkers.pnpmWorkspaceYaml = true;
+      // A `pnpm-workspace.yaml` with no `packages:` key at all is a legitimate shape, not
+      // a malformed one — the file's only real-world purpose here can be its
+      // `allowBuilds` map, with nothing about `packages:` intended (found directly by
+      // this prompt's own self-resolution dry run against this repository: `apps/web/
+      // pnpm-workspace.yaml` is exactly this shape). Only an unreadable file counts as
+      // malformed; an empty glob list is simply "declares no packages."
       const globs = parsePnpmWorkspaceYaml(text);
-      if (globs.length === 0) malformedManifestCount += 1;
       workspaceGlobs.push(...globs);
       continue;
     }
