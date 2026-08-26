@@ -45,6 +45,41 @@
  * no error, just quietly missing data. `parser-pool.test.ts`'s
  * `queries.test.ts` sibling (see that file) re-runs this same non-empty-match assertion
  * as a permanent regression test, not just a one-time check.
+ *
+ * ## Prompt 2 additions (sub-task 2.1)
+ *
+ * Prompt 1 already inlined the bulk of this module (see the two sections above, both
+ * dated to that prompt). Prompt 2's own reading of `phase-04-code-parsing-and-knowledge-
+ * graph.md` §18 named three separate `.scm` files at a different path
+ * (`tree-sitter/queries/{typescript,tsx,javascript}.scm`) as the expected deliverable;
+ * per this prompt's own non-negotiable rule 1 ("read prompt 1's actual output before
+ * writing anything"), that literal path was **not** recreated — doing so would have
+ * duplicated queries this module already owns and re-opened the exact dist/ packaging
+ * gap Prompt 1's own header comment above documents choosing inlining specifically to
+ * avoid. Instead, this module is extended in place with the handful of constructs
+ * Prompt 1's original sweep did not yet cover, verified against the real grammar the same
+ * empirical way (a throwaway probe script dumping S-expressions, not guessed from
+ * memory — see docs/decisions/phase-04-log.md, Prompt 2 section, for the transcripts):
+ *
+ * - `symbol.arrow.node`/`.name` extended to also match a `function_expression` value
+ *   (`const foo = function () {}`), not just `arrow_function` — phase-04 §14's own
+ *   construct table puts both on the same `arrow-function` row.
+ * - `symbol.class.node`/`.name` and `symbol.method.node`/`.name` extended to also match
+ *   `abstract_class_declaration` / `abstract_method_signature` — a distinct node type
+ *   from `class_declaration` / `method_definition` in this grammar, confirmed empirically
+ *   (probe: `abstract class Foo { abstract bar(): void; }`).
+ * - `import.named.typeOnly.name` (new): the per-specifier `type` marker
+ *   (`import { type Foo, Bar } from "./m"`) is a literal anonymous `"type"` token that is
+ *   a *child of the individual `import_specifier`*, not a sibling of `import_clause` the
+ *   way the whole-statement marker is — confirmed via a full-tree dump including
+ *   anonymous nodes (`toString()` alone hides it). TypeScript-only, same reasoning as the
+ *   whole-statement marker already documented above.
+ * - `export.equals.node`/`.name` (new): `export = Foo;` — TypeScript's CommonJS-interop
+ *   export form. Confirmed empirically that this parses as `export_statement` with the
+ *   identifier as a *positional* child (no `declaration:`/`value:` field at all, unlike
+ *   every other `export_statement` shape this module already handles), which is why it
+ *   needs its own pattern rather than composing with `export.default`/`export.node`.
+ *   TypeScript-only (the plain JS grammar has no `=` export form).
  */
 
 // ---------------------------------------------------------------------------
@@ -134,6 +169,14 @@ export const JAVASCRIPT_QUERY = `
   name: (identifier) @symbol.arrow.name
   value: (arrow_function)) @symbol.arrow.node
 
+; A function *expression* bound the same way (const foo = function () {}) — a distinct
+; grammar node from arrow_function, but phase-04 §14's construct table puts both on the
+; same "arrow-function" row, so the adapter maps both capture pairs to the same
+; SymbolKind. Prompt 2 addition (see this module's header).
+(variable_declarator
+  name: (identifier) @symbol.arrow.name
+  value: (function_expression)) @symbol.arrow.node
+
 ; name: (_) rather than a grammar-specific node type — TS/TSX name a class with
 ; type_identifier, plain JS with identifier. One pattern, both shapes.
 (class_declaration
@@ -204,6 +247,35 @@ export const TYPESCRIPT_QUERY =
 ; interface Foo extends Bar, Baz — a distinct grammar node from a class's extends_clause
 (extends_type_clause
   type: (_) @heritage.interfaceExtends)
+
+; abstract class Foo { abstract bar(): void; } — abstract_class_declaration and
+; abstract_method_signature are distinct node types from class_declaration and
+; method_definition in this grammar (confirmed empirically, not assumed — see this
+; module's header). An abstract method has no body field at all, only a signature; the
+; adapter's signature/body-boundary logic already tolerates a missing body field by
+; falling back to the whole node text, so no separate handling is needed there.
+; Prompt 2 addition.
+(abstract_class_declaration
+  name: (type_identifier) @symbol.class.name) @symbol.class.node
+
+(abstract_method_signature
+  name: (property_identifier) @symbol.method.name) @symbol.method.node
+
+; import { type Foo, Bar } from "./m" — the per-specifier marker, a literal anonymous
+; "type" token that is a *child of the individual import_specifier* (not a sibling of
+; import_clause the way the whole-statement marker above is). Confirmed via a full-tree
+; dump including anonymous nodes; toString() alone hides it. Prompt 2 addition.
+(import_specifier
+  "type"
+  name: (_) @import.named.typeOnly.name)
+
+; export = Foo; — TypeScript's CommonJS-interop export form. Confirmed empirically that
+; this parses as export_statement with the identifier as a *positional* child (no
+; declaration:/value: field at all, unlike every other export_statement shape above),
+; which is why it needs its own pattern. Prompt 2 addition.
+(export_statement
+  "="
+  (identifier) @export.equals.name) @export.equals.node
 `;
 
 // ---------------------------------------------------------------------------

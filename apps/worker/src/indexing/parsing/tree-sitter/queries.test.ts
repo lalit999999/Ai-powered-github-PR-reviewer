@@ -52,6 +52,7 @@ export enum ExportedEnum { A, B }
 
 function plainFn(a: number, b: string): boolean { return true; }
 const arrowConst = (x: number): number => x + 1;
+const functionExprConst = function () { return 1; };
 export class MyClass extends BaseClass implements IFoo, IBar {
   method(a: number): void {}
 }
@@ -60,6 +61,11 @@ interface MyInterface extends OtherInterface {
 }
 type MyAlias = { a: number };
 enum MyEnum { A, B, C }
+abstract class AbstractBase {
+  abstract doThing(): void;
+}
+import { type OnlyTypeSpecifier, namedConst as importedAliasUnused } from "./types-2";
+export = MyClass;
 
 const helperConst = 42;
 export default helperConst;
@@ -143,6 +149,10 @@ const TYPESCRIPT_ONLY_CAPTURE_NAMES = [
   "heritage.extends",
   "heritage.implements",
   "heritage.interfaceExtends",
+  // Prompt 2 additions (see queries.ts's own header for what each covers).
+  "import.named.typeOnly.name",
+  "export.equals.name",
+  "export.equals.node",
 ];
 
 const TSX_ONLY_CAPTURE_NAMES = ["jsx.element.name", "jsx.selfClosing.name"];
