@@ -1,0 +1,21 @@
+{
+  "action": "removed",
+  "installation": {
+    "id": 60123456,
+    "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNjAxMjM0NTY=",
+    "account": { "login": "octocat", "id": 1, "type": "User" }
+  },
+  "repository_selection": "selected",
+  "repositories_added": [],
+  "repositories_removed": [
+    {
+      "id": 1296269,
+      "name": "hello-world",
+      "full_name": "octocat/hello-world",
+      "private": false,
+      "owner": { "login": "octocat" },
+      "html_url": "https://github.com/octocat/hello-world"
+    }
+  ],
+  "sender": { "login": "octocat", "id": 1, "type": "User" }
+}
