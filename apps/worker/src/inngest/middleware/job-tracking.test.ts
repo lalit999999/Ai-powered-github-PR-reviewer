@@ -88,4 +88,61 @@ describe("JobTrackingMiddleware", () => {
     expect(result).toBe("ok");
     expect(next).toHaveBeenCalledOnce();
   });
+
+  it("phase-06: an event carrying data.traceId overrides LoggingMiddleware's generated value", async () => {
+    const middleware = new JobTrackingMiddleware({ client: {} as never });
+    let observedTraceId: unknown;
+
+    await runWithTraceContext({ traceId: "generated-by-logging-middleware" }, async () => {
+      await middleware.wrapFunctionHandler({
+        ctx: ctxWithEventData({ traceId: "inbound-from-webhook" }) as never,
+        fn: {} as never,
+        next: async () => {
+          observedTraceId = getTraceContext()?.traceId;
+        },
+      });
+    });
+
+    expect(observedTraceId).toBe("inbound-from-webhook");
+  });
+
+  it("regression guard: an event with no traceId falls back to LoggingMiddleware's generated value", async () => {
+    const middleware = new JobTrackingMiddleware({ client: {} as never });
+    let observedTraceId: unknown;
+
+    await runWithTraceContext({ traceId: "generated-by-logging-middleware" }, async () => {
+      await middleware.wrapFunctionHandler({
+        ctx: ctxWithEventData({ repositoryId: "repo-6" }) as never,
+        fn: {} as never,
+        next: async () => {
+          observedTraceId = getTraceContext()?.traceId;
+        },
+      });
+    });
+
+    expect(observedTraceId).toBe("generated-by-logging-middleware");
+  });
+
+  it("an empty-string or non-string traceId falls back rather than crashing", async () => {
+    const middleware = new JobTrackingMiddleware({ client: {} as never });
+    const observed: unknown[] = [];
+
+    await runWithTraceContext({ traceId: "generated-by-logging-middleware" }, async () => {
+      for (const badTraceId of ["", 12345, null]) {
+        await middleware.wrapFunctionHandler({
+          ctx: ctxWithEventData({ traceId: badTraceId }) as never,
+          fn: {} as never,
+          next: async () => {
+            observed.push(getTraceContext()?.traceId);
+          },
+        });
+      }
+    });
+
+    expect(observed).toEqual([
+      "generated-by-logging-middleware",
+      "generated-by-logging-middleware",
+      "generated-by-logging-middleware",
+    ]);
+  });
 });
