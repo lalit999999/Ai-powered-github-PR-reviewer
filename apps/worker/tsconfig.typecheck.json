@@ -4,5 +4,10 @@
     "noEmit": true,
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  // Golden-file parser fixtures (Prompt 2, phase-04 §2.6) are deliberately not all valid,
+  // type-checkable TypeScript — one is intentionally malformed syntax, and none of them
+  // are meant to compile as part of this project; they are read as raw text by
+  // typescript.adapter.golden.test.ts, never imported. tsc must not attempt to check them.
+  "exclude": ["tests/fixtures/parsing/**"]
 }

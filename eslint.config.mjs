@@ -51,6 +51,12 @@ export default tseslint.config(
       "**/build/**",
       "**/generated/**",
       "**/tests/fixtures/lint/**",
+      // Phase-04 Prompt 2's golden-file parser fixtures (apps/worker/tests/fixtures/
+      // parsing/) are read as raw text by typescript.adapter.golden.test.ts, never
+      // imported or compiled — one is deliberately malformed syntax, and several use
+      // unused type parameters/decorator arguments on purpose to exercise those
+      // constructs. Real source-quality rules do not apply to fixture data.
+      "**/tests/fixtures/parsing/**",
       // apps/web has its own complete, Next.js-flavored eslint.config.mjs (react-hooks,
       // react-compiler, etc.) run via `turbo lint` — linting it again here with this
       // generic config would conflict rather than add coverage.
