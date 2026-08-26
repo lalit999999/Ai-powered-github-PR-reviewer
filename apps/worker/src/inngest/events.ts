@@ -1,9 +1,11 @@
 import {
   PROJECT_DELETED,
+  PULL_REQUEST_REVIEW_REQUESTED,
   REPOSITORY_INDEXED,
   REPOSITORY_INDEX_REQUESTED,
   type EventRegistry,
   type ProjectDeletedData,
+  type PullRequestReviewRequestedData,
   type RepositoryIndexedData,
   type RepositoryIndexRequestedData,
 } from "@repo/shared";
@@ -61,4 +63,17 @@ export const repositoryIndexRequested = eventType(REPOSITORY_INDEX_REQUESTED, {
  */
 export const repositoryIndexed = eventType(REPOSITORY_INDEXED, {
   schema: staticSchema<RepositoryIndexedData>(),
+});
+
+/**
+ * Phase 06 §8: `pull-request/review.requested`, defined with **no function consuming
+ * it** — the same forward-declaration pattern `projectDeleted` and `repositoryIndexed`
+ * above already use twice in this file, not a third, coincidentally similar decision.
+ * Phase 07 registers the first consumer (`pull-request-process`). The acceptance signal
+ * for this phase is the same one Phase 02 and Phase 03 used for their own forward
+ * declarations: the event appearing in the Inngest Dev Server UI with the correct
+ * payload, because nothing reads it yet.
+ */
+export const pullRequestReviewRequested = eventType(PULL_REQUEST_REVIEW_REQUESTED, {
+  schema: staticSchema<PullRequestReviewRequestedData>(),
 });
