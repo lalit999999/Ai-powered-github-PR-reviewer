@@ -65,8 +65,17 @@ function installUrl(): string {
  * link the frontend's empty state and "add another account" affordance both need.
  *
  * Syncs from `GET /user/installations` first, rather than returning only what is
- * already stored: until Phase 06's webhooks exist, a page load *is* the sync (§10). A
- * user who just completed the install flow would otherwise see an empty list and
+ * already stored. **This is no longer a staleness fallback** — Phase 06's webhooks
+ * (`installation.*`/`installation_repositories.*`, `modules/webhooks/installation-sync.ts`)
+ * now keep `GithubInstallation`/`Repository` rows current on their own. What only a page
+ * load can still do is **attribution**: an installation webhook payload carries the
+ * GitHub account the App was installed on, but nothing that names which of this
+ * product's users is signed in — installing the App and signing into this product are
+ * two different acts, possibly by two different people (see `installation-sync.ts`'s own
+ * header comment and `installation.repository.ts`'s `upsertInstallation`). Only this
+ * route, driven by the caller's own OAuth token, can answer "does *this* signed-in user
+ * own this installation" and write a `GithubInstallation` row with a `userId` attached.
+ * A user who just completed the install flow would otherwise see an empty list and
  * conclude it failed.
  */
 export async function listInstallations(req: Request, res: Response): Promise<void> {

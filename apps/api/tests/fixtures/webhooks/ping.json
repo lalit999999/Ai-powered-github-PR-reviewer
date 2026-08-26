@@ -1,0 +1,20 @@
+{
+  "zen": "Non-blocking is better than blocking.",
+  "hook_id": 123456,
+  "hook": {
+    "type": "App",
+    "id": 123456,
+    "active": true,
+    "events": ["pull_request", "installation", "installation_repositories", "repository", "push"]
+  },
+  "repository": {
+    "id": 1296269,
+    "name": "hello-world",
+    "full_name": "octocat/hello-world",
+    "private": false,
+    "owner": { "login": "octocat", "id": 1, "type": "User" },
+    "html_url": "https://github.com/octocat/hello-world"
+  },
+  "installation": { "id": 60123456 },
+  "sender": { "login": "octocat", "id": 1, "type": "User" }
+}

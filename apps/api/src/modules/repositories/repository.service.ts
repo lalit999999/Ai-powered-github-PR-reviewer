@@ -28,12 +28,15 @@ import {
   toIndexJobSummaryDto,
   toRepositoryDto,
   toInstallationDto,
+  toWebhookDeliveryDto,
   type IndexStatusDto,
   type InstallationDto,
   type InstallationRepositoryDto,
   type RepositoryDetail,
   type RepositoryDto,
+  type WebhookDeliveryDto,
 } from "./repository.types.js";
+import * as webhookEventRepository from "../webhooks/webhook-event.repository.js";
 
 /**
  * Business logic for repositories and GitHub installations. Every function takes the
@@ -55,28 +58,27 @@ const logger = createLogger("repository.service");
 const BYTES_PER_KIB = 1024;
 
 // ---------------------------------------------------------------------------
-// Installation sync — the temporary polling fallback (§10)
+// Installation sync — the page-load attribution path (§10, narrowed by Phase 06)
 // ---------------------------------------------------------------------------
 
 /**
  * Refreshes this user's `GithubInstallation` rows from `GET /user/installations`.
  *
- * ## TEMPORARY — replaced by webhooks in Phase 06
+ * ## No longer a staleness fallback — Phase 06 narrowed this to attribution only
  *
- * In production this would be driven by the `installation` and
- * `installation_repositories` webhook events. Those events **are** subscribed on the
- * App as of this phase (App configuration is Phase 02's job), but **nothing receives
- * them**: the webhook endpoint is Phase 06's, and GitHub's deliveries against a URL
- * that does not exist yet will fail and be retried until it does. That is expected and
- * documented in phase-02 §1, not a bug.
+ * `installation`/`installation_repositories` webhooks (`modules/webhooks/
+ * installation-sync.ts`) now keep `GithubInstallation`/`Repository` rows current as
+ * GitHub's own state changes, so this function is no longer standing in for a missing
+ * webhook receiver (that was true through Phase 02–05; see `github.controller.ts`'s
+ * `listInstallations` for the up-to-date framing).
  *
- * So until Phase 06 ships, installations are synced by *polling* this endpoint on
- * settings-page load and on an explicit "Refresh". Deliberate stopgap, not an
- * oversight — §10 specifies exactly this, and says so twice.
- *
- * **Phase 06 needs no data-model change to replace it.** The webhook handler will write
- * the same `GithubInstallation` rows through the same `upsertInstallation`; only the
- * trigger changes. Nothing downstream reads "how this row got here".
+ * What this function alone still does, and permanently: **attribution**. A webhook
+ * payload carries the GitHub account an App was installed on, never which of this
+ * product's users is signed in — see `installation-sync.ts`'s header comment for the
+ * full argument. Only a page load, driven by the caller's own OAuth token, can answer
+ * "does *this* user own this installation" and write a `GithubInstallation` row with a
+ * `userId` attached; `installation.created`'s webhook handler is deliberately
+ * update-only for exactly this reason.
  *
  * The "user just installed, not yet synced" case from §9 is an **empty array**, not an
  * error: a user who has installed nothing and a user whose install has not propagated
@@ -637,6 +639,48 @@ export async function disconnectRepository(tenant: TenantContext): Promise<void>
     projectId: tenant.projectId,
     userId: tenant.userId,
   });
+}
+
+/** `POST /api/repositories/:id/webhook-test`'s (§7) response size — 10 to 20 is what
+ * §7 calls sensible; 15 is chosen as a named constant rather than left as a magic
+ * number at the call site, matching the discipline every other tunable in this module
+ * already uses (`TRIGGER_INDEX_RATE_LIMIT_PER_HOUR` above). */
+const RECENT_WEBHOOK_DELIVERIES_LIMIT = 15;
+
+/**
+ * `POST /api/repositories/:id/webhook-test` (phase-06 §7). **The route name is
+ * misleading, deliberately preserved from the spec anyway** — despite "webhook-test",
+ * this reads recently recorded `WebhookEvent` rows; it sends nothing, synthetic or
+ * otherwise. It exists so a user can confirm GitHub is actually reaching this deployment
+ * after wiring up the App's webhook URL, which is exactly what §14's manual verification
+ * needs the eventual `WebhookStatusPanel` (Prompt 4 sub-task 4.4) for.
+ *
+ * **Not owner-scoped in `webhookEventRepository.listRecentByRepositoryFullName` — by
+ * design, and this looks like a cross-tenant leak until it is explained.** That
+ * function's own doc comment argues it from the data side: `WebhookEvent` carries no
+ * project FK because a single delivery can fan out to repositories under different
+ * projects. The tenancy proof for *this* call is `requireTenantAccess`, one layer up in
+ * the controller, establishing that the caller owns *a* repository with this `fullName`
+ * — that is sufficient, because a second project connected to the same GitHub repository
+ * seeing the same delivery list is correct, not a leak: the delivery genuinely was
+ * addressed to that GitHub repository, and the row carries no project-specific data for
+ * it to leak. This function does not re-derive that proof; it trusts the tenant context
+ * it was handed, exactly as every other function in this file does.
+ */
+export async function listRecentWebhookDeliveries(tenant: TenantContext): Promise<WebhookDeliveryDto[]> {
+  const repositoryId = requireRepositoryId(tenant);
+  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+
+  if (!repository) {
+    throw new NotFoundError("Project not found");
+  }
+
+  const rows = await webhookEventRepository.listRecentByRepositoryFullName(
+    repository.fullName,
+    RECENT_WEBHOOK_DELIVERIES_LIMIT,
+  );
+
+  return rows.map(toWebhookDeliveryDto);
 }
 
 /**

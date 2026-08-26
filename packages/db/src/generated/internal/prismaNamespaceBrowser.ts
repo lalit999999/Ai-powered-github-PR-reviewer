@@ -57,6 +57,8 @@ export const ModelName = {
   Repository: 'Repository',
   RepositoryFile: 'RepositoryFile',
   IndexJob: 'IndexJob',
+  WebhookEvent: 'WebhookEvent',
+  PullRequest: 'PullRequest',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -202,6 +204,39 @@ export const IndexJobScalarFieldEnum = {
 } as const
 
 export type IndexJobScalarFieldEnum = (typeof IndexJobScalarFieldEnum)[keyof typeof IndexJobScalarFieldEnum]
+
+
+export const WebhookEventScalarFieldEnum = {
+  id: 'id',
+  deliveryId: 'deliveryId',
+  eventType: 'eventType',
+  action: 'action',
+  installationId: 'installationId',
+  repositoryFullName: 'repositoryFullName',
+  payloadRef: 'payloadRef',
+  dispatchPayload: 'dispatchPayload',
+  status: 'status',
+  dispatchedAt: 'dispatchedAt',
+  error: 'error',
+  createdAt: 'createdAt'
+} as const
+
+export type WebhookEventScalarFieldEnum = (typeof WebhookEventScalarFieldEnum)[keyof typeof WebhookEventScalarFieldEnum]
+
+
+export const PullRequestScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  number: 'number',
+  githubPrId: 'githubPrId',
+  headSha: 'headSha',
+  state: 'state',
+  isDraft: 'isDraft',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PullRequestScalarFieldEnum = (typeof PullRequestScalarFieldEnum)[keyof typeof PullRequestScalarFieldEnum]
 
 
 export const AccountScalarFieldEnum = {

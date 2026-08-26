@@ -1,0 +1,16 @@
+{
+  "action": "renamed",
+  "changes": { "repository": { "name": { "from": "hello-world" } } },
+  "repository": {
+    "id": 1296269,
+    "node_id": "MDEwOlJlcG9zaXRvcnkxMjk2MjY5",
+    "name": "hello-world-renamed",
+    "full_name": "octocat/hello-world-renamed",
+    "private": false,
+    "owner": { "login": "octocat", "id": 1, "type": "User" },
+    "html_url": "https://github.com/octocat/hello-world-renamed",
+    "default_branch": "main"
+  },
+  "installation": { "id": 60123456, "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNjAxMjM0NTY=" },
+  "sender": { "login": "octocat", "id": 1, "type": "User" }
+}
