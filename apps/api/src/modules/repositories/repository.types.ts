@@ -300,3 +300,57 @@ export interface InstallationRepositoryDto {
   isPrivate: boolean;
   defaultBranch: string;
 }
+
+/**
+ * The shape `webhook-event.repository.ts`'s (webhooks module) `WebhookEventRecord`
+ * carries — declared locally, structurally, rather than imported, so this
+ * "dependency-free" types file (see its own header comment: "the repository layer
+ * imports these, never the reverse") does not take a cross-module dependency in the
+ * wrong direction just to name a parameter type. Any `WebhookEventRecord` already
+ * satisfies this shape.
+ */
+interface WebhookDeliveryRecord {
+  id: string;
+  deliveryId: string;
+  eventType: string;
+  action: string | null;
+  status: string;
+  dispatchedAt: Date | null;
+  error: unknown;
+  createdAt: Date;
+}
+
+/**
+ * `POST /api/repositories/:id/webhook-test`'s (phase-06 §7) response element — despite
+ * the route's name, this reads recorded `WebhookEvent` rows, it does not send anything
+ * (see `repository.service.ts`'s `listRecentWebhookDeliveries` for the fuller argument).
+ *
+ * Hand-written field by field from `WebhookDeliveryRecord` above, never a `...record`
+ * spread — the identical discipline `toRepositoryDto` above uses, for the identical
+ * reason: today's `WEBHOOK_EVENT_SELECT` carries no `bigint` column (`installationId` is
+ * deliberately not selected for this read), but a future column added to that select
+ * list must fail here, not surface as an unserializable field in a JSON response.
+ */
+export interface WebhookDeliveryDto {
+  id: string;
+  deliveryId: string;
+  eventType: string;
+  action: string | null;
+  status: string;
+  dispatchedAt: string | null;
+  error: unknown;
+  createdAt: string;
+}
+
+export function toWebhookDeliveryDto(record: WebhookDeliveryRecord): WebhookDeliveryDto {
+  return {
+    id: record.id,
+    deliveryId: record.deliveryId,
+    eventType: record.eventType,
+    action: record.action,
+    status: record.status,
+    dispatchedAt: record.dispatchedAt?.toISOString() ?? null,
+    error: record.error,
+    createdAt: record.createdAt.toISOString(),
+  };
+}

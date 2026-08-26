@@ -3,6 +3,7 @@ import {
   connectRepository,
   disconnectRepository,
   getIndexStatus,
+  getRecentWebhookDeliveries,
   getRepository,
   triggerIndex,
 } from "../controllers/repositories.controller.js";
@@ -15,6 +16,7 @@ router.get("/:repositoryId", withRoute(getRepository, { component: "api.reposito
 router.delete("/:repositoryId", withRoute(disconnectRepository, { component: "api.repositories" }));
 router.get("/:repositoryId/index-status", withRoute(getIndexStatus, { component: "api.repositories" }));
 router.post("/:repositoryId/index", withRoute(triggerIndex, { component: "api.repositories" }));
+router.post("/:repositoryId/webhook-test", withRoute(getRecentWebhookDeliveries, { component: "api.repositories" }));
 
 export default router;
 
