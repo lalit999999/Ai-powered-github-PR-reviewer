@@ -11,7 +11,7 @@ vi.mock("@repo/observability", async (importOriginal) => {
   return { ...actual, createLogger: () => logSpies };
 });
 
-const { emitProjectDeleted, emitRepositoryIndexRequested } = await import("./emit.js");
+const { emitProjectDeleted, emitRepositoryIndexRequested, emitPullRequestReviewRequested } = await import("./emit.js");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -75,5 +75,56 @@ describe("emitRepositoryIndexRequested (phase-02 §8)", () => {
         repositoryId: "repo-1",
       })
     );
+  });
+});
+
+describe("emitPullRequestReviewRequested (phase-06 §8)", () => {
+  const event = {
+    projectId: "project-1",
+    repositoryId: "repo-1",
+    installationId: "999",
+    pullRequestNumber: 42,
+    headSha: "headsha1",
+    baseSha: "basesha1",
+    trigger: "opened",
+    traceId: "trace-1",
+    prKey: "repo-1:42:headsha1",
+  } as const;
+
+  it("sends the event with its prKey as the Inngest id, and resolves { ok: true }", async () => {
+    send.mockResolvedValueOnce(undefined);
+
+    const result = await emitPullRequestReviewRequested([event]);
+
+    expect(result).toEqual({ ok: true });
+    expect(send).toHaveBeenCalledWith([{ name: "pull-request/review.requested", data: event, id: event.prKey }]);
+  });
+
+  it("returns { ok: false } and does not throw when send() rejects", async () => {
+    send.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:8288"));
+
+    const result = await emitPullRequestReviewRequested([event]);
+
+    expect(result).toEqual({ ok: false, error: "connect ECONNREFUSED 127.0.0.1:8288" });
+    expect(logSpies.error).toHaveBeenCalledWith(
+      "failed to emit pull-request/review.requested",
+      expect.objectContaining({ event: "pull-request/review.requested", prKeys: [event.prKey] })
+    );
+  });
+
+  it("returns { ok: false } within roughly the timeout when send() hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      // Never resolves — simulates a hung connection to Inngest.
+      send.mockImplementationOnce(() => new Promise(() => {}));
+
+      const resultPromise = emitPullRequestReviewRequested([event]);
+      await vi.advanceTimersByTimeAsync(300);
+      const result = await resultPromise;
+
+      expect(result).toEqual({ ok: false, error: "emit timed out after 300ms" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
