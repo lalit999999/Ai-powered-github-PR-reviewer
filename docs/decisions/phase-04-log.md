@@ -299,3 +299,151 @@ reached, since no image was ever produced.
 
 All six of this prompt's own sub-tasks are otherwise complete. See the Prompt 1
 report-back for the full verification-command output.
+
+---
+
+# Phase 04 — Prompt 2 Decision Log
+
+Records the judgment calls made implementing **Prompt 2** (tree-sitter queries and the
+TypeScript/TSX/JavaScript adapter). Same convention as the Prompt 1 section above.
+
+## 1. Sub-task 2.1 — queries already existed; extended, not recreated
+
+Prompt 1's actual sub-task 1.5 (§5 above) already inlined `queries.ts` as composed
+`JAVASCRIPT_QUERY`/`TYPESCRIPT_QUERY`/`TSX_QUERY` string constants covering imports,
+exports, symbols, heritage, and calls — the exact thing this prompt's own §18 file list
+names as three separate `.scm` files at `tree-sitter/queries/*.scm`. Per this prompt's own
+non-negotiable rule 1 ("read Prompt 1's actual output before writing anything"), the
+literal `.scm` path was **not** recreated — doing so would have duplicated an
+already-tested, already-inlined module and reopened the exact `dist/` packaging gap
+Prompt 1 chose inlining specifically to avoid. `queries.ts` was extended in place instead,
+each addition verified against the real grammar via a throwaway probe script (S-expression
+dumps, including one dump with anonymous/unnamed nodes included — `toString()` alone hides
+them, which is how the per-specifier `type` marker's exact position was found):
+
+- `function_expression` bound to a const, alongside the existing `arrow_function` case.
+- `abstract_class_declaration` / `abstract_method_signature` — confirmed empirically as
+  distinct node types from `class_declaration` / `method_definition`.
+- `import_specifier`'s per-specifier `"type"` marker (`import { type Foo, Bar } from "./m"`)
+  — a literal anonymous token that is a *child of the individual specifier*, not a sibling
+  of `import_clause` the way the whole-statement marker is.
+- `export = Foo;` — parses as `export_statement` with the identifier as a positional child
+  (no `declaration:`/`value:` field at all), needing its own pattern.
+
+129 capture-name/grammar assertions now pass in `queries.test.ts` (up from 123).
+
+## 2. Sub-task 2.2–2.5 — one adapter commit, not four
+
+The prompt's sub-task boundaries (imports/exports; symbols; calls/heritage; entry point)
+were used as the design outline, but the four pieces were built and debugged as one
+cohesive module (`typescript.adapter.ts`) and landed in a single commit rather than four
+incremental ones — splitting them would have required stubbing later pieces as no-ops
+purely to make earlier commits "complete," which serves the commit history less well than
+one commit for one real, working, fully-tested module. The golden-file testing pass
+(sub-task 2.6) then surfaced two real bugs in already-committed code, fixed in their own
+separate commit (below) rather than folded silently into either the adapter commit or the
+golden-file commit.
+
+## 3. `Node#startIndex` is not a safe identity key — a real bug this caught
+
+The adapter's call-attribution and heritage-attribution logic both originally built a
+`Map<number, InternalSymbolRecord>` keyed by `declNode.startIndex` (or
+`callableNode.startIndex`), then walked a node's `.parent` chain looking up each ancestor
+by its `startIndex`. This is unsound: a node's `startIndex` frequently *coincides* with an
+ancestor's — a `program` node's own start equals its first statement's start, which equals
+that statement's first token's start, and so on down the left edge of the tree. A test for
+"a call at true module top level is dropped, not attributed to any symbol" failed because
+the call's ancestor walk reached the `program` node (`startIndex === 0`), which collided
+with the first symbol in the file (also `startIndex === 0`), wrongly attributing the
+module-level call to it. Fixed by keying both maps on `Node#id` instead — the property
+`web-tree-sitter`'s own type declarations document as unique per node within a tree.
+
+## 4. `getParseErrorInfo` undercounted the most common real-world failure shape
+
+Discovered building the golden-file `malformed.ts` fixture: `parser-pool.ts`'s
+`getParseErrorInfo` (Prompt 1) counted only true `ERROR` nodes. A truncated file with
+unclosed braces — arguably *the* canonical "malformed file" (`plan.md` §14's own named
+scenario) — produces **zero** `ERROR` nodes and only `MISSING` ones (synthetic tokens the
+parser inserts to recover from a required-but-absent token). `tree.rootNode.hasError`
+correctly reported `true`; `errorNodeCount` reported `0` — silently breaking the invariant
+that `hasError === (errorNodeCount > 0)`, and making Prompt 2's entire tolerance-ratio
+policy blind to exactly the case it exists to catch. Fixed in `parser-pool.ts` (not worked
+around in the adapter) by also counting `TreeCursor#nodeIsMissing`, with a regression test
+added to `parser-pool.test.ts`. See §2 sub-task 2.2–2.5 above for why this shipped as its
+own commit rather than folded into either neighboring one.
+
+## 5. Tree-sitter's error recovery is far more graceful than expected — sizing the tolerance fixture
+
+A secondary, empirical finding while building the FAILED-path golden fixture: a
+"realistic-looking" malformed file (a several-line function body with just one unclosed
+brace/paren, otherwise normal code) reliably produced an error-node ratio **under** this
+adapter's 10% tolerance (`PARSE_ERROR_TOLERANCE_RATIO`), because tree-sitter's recovery is
+good enough that most of the surrounding valid-looking content still parses as ordinary,
+recognizable statements — diluting the ratio. Padding the fixture with realistic merge-
+conflict markers or extra garbage tokens did not reliably push the ratio over 10% either;
+in several probed variants it *lowered* the ratio further (more total nodes, only
+marginally more error nodes). What actually crosses the threshold is a **small** file
+broken very close to its first token, with little surrounding valid content to dilute the
+count (`apps/worker/tests/fixtures/parsing/malformed.ts` — one comment line plus a
+function whose parameter list never closes and has no closing braces at all — ratio
+≈11%, verified against the live grammar, not assumed). This is worth a future prompt's
+attention if the fixed 10% constant ever needs revisiting: it is well-calibrated for "a
+small local mistake in an otherwise-fine file shouldn't fail the whole file," but a
+correspondingly small *fixture* is required to demonstrate the FAILED path at all — a
+large file would need proportionally severe corruption to cross it.
+
+## 6. A doc comment must be immediately adjacent — no blank line — to attach
+
+`collectLeadingTrivia`'s first implementation walked back through preceding
+`comment`/`decorator` siblings with no adjacency check at all, so *any* comment on the
+"other side" of a blank line from a declaration — including an unrelated section-header
+comment several lines above, or (caught directly by the golden-file line-numbering
+fixture) an incidental line comment sharing the same tree-sibling relationship purely by
+proximity — was swept in as if it were that declaration's doc comment. Fixed by requiring
+`current.startPosition.row - prev.endPosition.row <= 1` (at most a line-continuation, no
+genuine blank line) before treating a preceding comment or decorator as attached — the
+same convention JSDoc-aware tooling (TypeDoc, ESLint's `jsdoc` plugin) already uses. Caught
+concretely: `apps/worker/src/indexing/walk-tree.ts`'s own `WalkedFile` interface has a
+`// Result shapes` section-comment two lines above it (separated by a blank line) and
+correctly picks up **no** doc comment in the end-to-end demonstration output, while
+`WalkSummary` three lines later, whose real `/** ... */` doc comment sits with no blank
+line in between, correctly does.
+
+## 7. "Valid JS, not valid TS" has no clean grammar-level example in this scope
+
+Sub-task 2.6 asked for "a file that is valid JS but not valid TS, and vice versa."
+The reverse direction (valid TS, invalid JS) is trivial and pervasive — any type
+annotation, `interface`, or `type` alias is a real, verified example (confirmed
+empirically: feeding `ts-only-syntax.ts`'s content to the *plain javascript* grammar
+produces real `ERROR` nodes, not just a different-looking parse). The forward direction
+has no equally clean example at the tree-sitter grammar level for anything in this phase's
+scope: `tree-sitter-typescript`'s grammar is, for every construct this phase cares about, a
+strict syntactic superset of `tree-sitter-javascript`'s. Probed candidates that are
+often cited as "JS-only" (a legacy `with` statement) parse without error under *both*
+grammars — TypeScript's real compiler rejects `with` as a matter of its own stricter
+semantic/parser rules, not something encoded in this grammar's context-free structure. Not
+fabricated as a fixture; recorded here as a genuine finding instead (see the report-back's
+"Conflicts found" for the summary).
+
+## 8. `SymbolKind.VARIABLE` is declared in `@repo/shared` but not reachable from this adapter
+
+Phase 04 §2's own construct list for this prompt (function, arrow-function, class, method,
+interface, type-alias, enum, react-component, hook) never names a plain variable/constant
+binding whose value is not itself a function/arrow-function/class. `@repo/shared`'s
+`SYMBOL_KINDS` union includes `"VARIABLE"` regardless (Prompt 1's own widening), but no
+query pattern or adapter branch ever produces it — `export const api = { ... }` (an object
+literal, not a function) produces zero symbols today, confirmed by the
+`object-literal-members.ts` golden fixture. Not a bug relative to this prompt's own scope,
+but flagged here and in the report-back as a known gap a future prompt may need to close
+if plain-variable dependency edges turn out to matter for the graph.
+
+## Outstanding — carried forward
+
+- [ ] `SymbolKind.VARIABLE` extraction (§8 above) is not implemented — a deliberate scope
+      match to phase-04 §2's construct list, not an oversight, but worth a future prompt's
+      explicit decision either way.
+- [ ] The parse-error tolerance ratio's practical calibration (§5 above) is worth
+      revisiting once real, large repositories are indexed — this prompt's own fixture
+      testing surfaced that tree-sitter's error recovery is more graceful than a naive
+      mental model predicts, which cuts both ways (fewer false FAILED results on minor
+      real-world mistakes; a large file needs more severe corruption to ever cross 10%).
