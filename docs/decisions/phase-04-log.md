@@ -139,6 +139,25 @@ assertion's expected list — both would have silently drifted stale otherwise. 
 `apps/api` integration tests (its own Testcontainers-backed Postgres, unrelated to the
 manual container above) pass, including the 8 new ones.
 
+**A follow-up finding, surfaced during the §5 verification gate, not sub-task 1.3
+itself**: re-running `pnpm --filter @repo/db db:migrate` (`prisma migrate dev`, no
+`--name`) after everything above was already applied does **not** report "up to date" —
+it prompts interactively for a new migration name, because its drift-detection diffs a
+shadow database (every migration file applied, including the hand-edited
+`NULLS NOT DISTINCT` `ALTER TABLE`) against what `schema.prisma` alone would generate.
+Since that constraint is deliberately absent from `schema.prisma` (Prisma has no syntax
+for it — the model's own comment says so), `migrate dev` sees it as an undeclared
+difference and offers to generate a migration that would **drop** it. This is exactly
+the "next person to run `prisma db push` will silently drop it" risk the schema's own
+comment already warns about, just triggered by `migrate dev`'s drift check rather than
+`db push`. Not answered — the interactive prompt was left uncompleted and the process
+terminated (confirmed no stray migration file was written). `prisma migrate status`
+(read-only, no drift diffing) confirms the real state: "Database schema is up to date!",
+5 migrations found, matching the fresh-database `migrate deploy` proof above. **Anyone
+touching this schema in the future should use `migrate status` to check, and
+`migrate deploy` to apply — never `migrate dev` — for as long as the hand-edited
+constraint exists with no `schema.prisma`-native declaration.**
+
 ## 4. Sub-task 1.4 — parser-pool.ts
 
 **`getParseErrorInfo` walks the tree with a `TreeCursor`, iteratively, never

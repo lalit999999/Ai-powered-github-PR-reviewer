@@ -287,7 +287,11 @@ enum DependencyKind {
 // migration (packages/db/prisma/migrations/*_add_code_symbol_and_code_dependency/
 // migration.sql) — NOT declared as @@unique here. Do not `prisma db push` against this
 // schema without also applying that migration; db push would silently drop the
-// constraint since nothing in this file describes it.
+// constraint since nothing in this file describes it. For the same reason, `prisma
+// migrate dev` (no --name) will prompt to create a NEW migration that DROPS this
+// constraint, because its shadow-database drift check has no schema.prisma declaration
+// to reconcile the constraint against — do not accept that prompt. Use `prisma migrate
+// status` to check and `prisma migrate deploy` to apply (docs/decisions/phase-04-log.md).
 model CodeDependency {
   id              String         @id @default(uuid())
   repositoryId    String
