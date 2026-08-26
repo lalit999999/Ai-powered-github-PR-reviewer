@@ -3,6 +3,7 @@ import githubRoutes from "./github.routes.js";
 import healthRoutes from "./health.routes.js";
 import projectsRoutes from "./projects.routes.js";
 import repositoriesRoutes from "./repositories.routes.js";
+import webhooksRoutes from "./webhooks.routes.js";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router.use("/health", healthRoutes);
 router.use("/projects", projectsRoutes);
 router.use("/github", githubRoutes);
 router.use("/repositories", repositoriesRoutes);
+router.use("/webhooks", webhooksRoutes);
 
 // Note: POST /api/projects/:projectId/repositories is mounted as a nested router from
 // projects.routes.ts, not here — see repositories.routes.ts for why.
