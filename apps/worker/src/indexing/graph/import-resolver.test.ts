@@ -145,6 +145,14 @@ describe("resolveImport — step 2: tsconfig paths alias", () => {
     expect(resolveImport("@/does-not-exist", "src/app.tsx", ctx)).toEqual({ status: "UNRESOLVED", specifier: "@/does-not-exist" });
   });
 
+  it("prefers an exact (non-wildcard) paths key over any wildcard key", () => {
+    const ctx = context({
+      files: ["src/special-case.ts", "src/lib/config.ts", "src/app.ts"],
+      tsconfigs: [tsconfig({ dir: "", paths: { "@/config": ["src/special-case.ts"], "@/*": ["src/lib/*"] } })],
+    });
+    expect(resolveImport("@/config", "src/app.ts", ctx)).toEqual({ status: "RESOLVED", targetFilePath: "src/special-case.ts" });
+  });
+
   it("uses the nearest ancestor tsconfig for a file under a nested package", () => {
     const ctx = context({
       files: ["apps/web/src/app.tsx", "apps/web/src/lib/foo.ts", "packages/shared/src/foo.ts"],
@@ -201,6 +209,21 @@ describe("resolveImport — step 3: workspace package", () => {
     });
   });
 
+  it("resolves via an exports map's single-wildcard subpath pattern", () => {
+    const ctx = context({
+      files: ["packages/ui/dist/button.js", "apps/web/src/app.ts"],
+      packages: [
+        pkg({ dir: "packages/ui", name: "@repo/ui", exports: { "./*": "./dist/*.js" } }),
+        pkg({ dir: "apps/web", name: "web" }),
+      ],
+      workspaceRoots: ["packages/ui", "apps/web"],
+    });
+    expect(resolveImport("@repo/ui/button", "apps/web/src/app.ts", ctx)).toEqual({
+      status: "RESOLVED",
+      targetFilePath: "packages/ui/dist/button.js",
+    });
+  });
+
   it("buckets an unresolvable workspace-package subpath as UNRESOLVED, not a guess", () => {
     expect(resolveImport("@repo/ui/nonexistent", "apps/web/src/app.ts", workspaceContext)).toEqual({
       status: "UNRESOLVED",
@@ -236,6 +259,40 @@ describe("resolveImport — step 4: bare specifiers (node builtins and external 
   it("records EXTERNAL with no version when the package is not in any known manifest", () => {
     const ctx = context({ files: ["src/app.ts"] });
     expect(resolveImport("some-random-package", "src/app.ts", ctx)).toEqual({ status: "EXTERNAL", packageName: "some-random-package" });
+  });
+
+  it("falls back to the root package.json's dependency version when the file's own package doesn't declare it", () => {
+    const ctx = context({
+      files: ["apps/web/src/app.ts", "package.json", "apps/web/package.json"],
+      packages: [
+        pkg({ dir: "", name: "root", dependencies: { lodash: "^4.17.21" } }),
+        pkg({ dir: "apps/web", name: "web", dependencies: {} }),
+      ],
+    });
+    expect(resolveImport("lodash", "apps/web/src/app.ts", ctx)).toEqual({ status: "EXTERNAL", packageName: "lodash", version: "^4.17.21" });
+  });
+});
+
+describe("resolveImport — package.json #imports subpath imports", () => {
+  it("resolves a direct (non-wildcard) #subpath import", () => {
+    const ctx = context({
+      files: ["src/internal/logger.ts", "src/app.ts", "package.json"],
+      packages: [pkg({ dir: "", name: "root", imports: { "#logger": "./src/internal/logger.ts" } })],
+    });
+    expect(resolveImport("#logger", "src/app.ts", ctx)).toEqual({ status: "RESOLVED", targetFilePath: "src/internal/logger.ts" });
+  });
+
+  it("buckets a wildcard #subpath import pattern as UNRESOLVED rather than guessing", () => {
+    const ctx = context({
+      files: ["src/internal/logger.ts", "src/app.ts", "package.json"],
+      packages: [pkg({ dir: "", name: "root", imports: { "#internal/*": "./src/internal/*.ts" } })],
+    });
+    expect(resolveImport("#internal/logger", "src/app.ts", ctx)).toEqual({ status: "UNRESOLVED", specifier: "#internal/logger" });
+  });
+
+  it("is UNRESOLVED for a #subpath import with no matching imports field entry at all", () => {
+    const ctx = context({ files: ["src/app.ts", "package.json"], packages: [pkg({ dir: "", name: "root" })] });
+    expect(resolveImport("#missing", "src/app.ts", ctx)).toEqual({ status: "UNRESOLVED", specifier: "#missing" });
   });
 });
 
