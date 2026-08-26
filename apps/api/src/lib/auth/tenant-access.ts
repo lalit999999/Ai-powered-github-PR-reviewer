@@ -1,8 +1,7 @@
 import * as projectRepository from "../../modules/projects/project.repository.js";
 import * as repositoryRepository from "../../modules/repositories/repository.repository.js";
 import { InternalError, NotFoundError } from "../errors.js";
-import { createLogger } from "../logger.js";
-import { setTraceProjectId, setTraceRepositoryId } from "../tracing.js";
+import { createLogger, setTraceProjectId, setTraceRepositoryId } from "@repo/observability";
 import type { AuthenticatedSession } from "./session.js";
 
 const logger = createLogger("auth.tenant-access");

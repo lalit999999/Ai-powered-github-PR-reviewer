@@ -52,6 +52,10 @@ const REPOSITORY_SELECT = {
   indexedFileCount: true,
   skippedFileCount: true,
   lastIndexedAt: true,
+  // Phase 03: the worker's own repository.repository.ts (apps/worker) is the first
+  // writer of this column. Surfaced here so getIndexStatus can fall back to it when no
+  // IndexJob row exists yet, and so RepositoryDto can show a specific failure reason.
+  indexError: true,
   settings: true,
   createdAt: true,
   updatedAt: true,

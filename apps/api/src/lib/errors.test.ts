@@ -3,26 +3,26 @@ import {
   AppError,
   ConflictError,
   ForbiddenError,
-  GithubAccessRevokedError,
-  GithubRateLimitError,
   InternalError,
   NotFoundError,
   ServiceUnavailableError,
+  TooManyRequestsError,
   UnauthenticatedError,
   ValidationError,
 } from "./errors.js";
 
+// GithubAccessRevokedError / GithubRateLimitError moved to @repo/github in Phase 03 —
+// their own shape/distinguishability tests moved with them
+// (packages/github/src/errors.test.ts). See docs/decisions/phase-03-log.md.
 const cases = [
   { ErrorClass: ValidationError, httpStatus: 400, code: "VALIDATION_ERROR" },
   { ErrorClass: UnauthenticatedError, httpStatus: 401, code: "UNAUTHENTICATED" },
   { ErrorClass: ForbiddenError, httpStatus: 403, code: "FORBIDDEN" },
   { ErrorClass: NotFoundError, httpStatus: 404, code: "NOT_FOUND" },
   { ErrorClass: ConflictError, httpStatus: 409, code: "CONFLICT" },
+  { ErrorClass: TooManyRequestsError, httpStatus: 429, code: "RATE_LIMITED" },
   { ErrorClass: ServiceUnavailableError, httpStatus: 503, code: "SERVICE_UNAVAILABLE" },
   { ErrorClass: InternalError, httpStatus: 500, code: "INTERNAL_ERROR" },
-  // Phase 02 §11/§12
-  { ErrorClass: GithubAccessRevokedError, httpStatus: 403, code: "GITHUB_ACCESS_REVOKED" },
-  { ErrorClass: GithubRateLimitError, httpStatus: 503, code: "GITHUB_RATE_LIMITED" },
 ] as const;
 
 describe.each(cases)("$code", ({ ErrorClass, httpStatus, code }) => {
@@ -46,20 +46,5 @@ describe.each(cases)("$code", ({ ErrorClass, httpStatus, code }) => {
     expect(err).toBeInstanceOf(AppError);
     expect(err.name).toBe(ErrorClass.name);
     expect(typeof err.stack).toBe("string");
-  });
-});
-
-// The distinction these two carry is the whole reason they are separate classes: the
-// service layer maps one to connectionStatus = ACCESS_LOST and must never map the other
-// there (phase-02 §11/§12).
-describe("GitHub client errors stay distinguishable", () => {
-  it("a rate-limit error is not an access-revoked error, and vice versa", () => {
-    expect(new GithubRateLimitError("limited")).not.toBeInstanceOf(GithubAccessRevokedError);
-    expect(new GithubAccessRevokedError("revoked")).not.toBeInstanceOf(GithubRateLimitError);
-  });
-
-  it("neither collapses into the generic ForbiddenError used for tenancy checks", () => {
-    expect(new GithubAccessRevokedError("revoked")).not.toBeInstanceOf(ForbiddenError);
-    expect(new GithubRateLimitError("limited")).not.toBeInstanceOf(ForbiddenError);
   });
 });

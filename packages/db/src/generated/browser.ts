@@ -13,10 +13,10 @@
  * 🟢 You can import this file directly.
  */
 
-import * as Prisma from './internal/prismaNamespaceBrowser'
+import * as Prisma from './internal/prismaNamespaceBrowser.js'
 export { Prisma }
-export * as $Enums from './enums'
-export * from './enums';
+export * as $Enums from './enums.js'
+export * from './enums.js';
 /**
  * Model User
  * 
@@ -37,6 +37,16 @@ export type GithubInstallation = Prisma.GithubInstallationModel
  * 
  */
 export type Repository = Prisma.RepositoryModel
+/**
+ * Model RepositoryFile
+ * 
+ */
+export type RepositoryFile = Prisma.RepositoryFileModel
+/**
+ * Model IndexJob
+ * 
+ */
+export type IndexJob = Prisma.IndexJobModel
 /**
  * Model Account
  * 

@@ -1,10 +1,15 @@
 {
   "name": "@repo/db",
   "private": true,
+  "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -13,6 +18,7 @@
     "db:reset": "prisma migrate reset"
   },
   "dependencies": {
+    "@auth/core": "^0.41.3",
     "@auth/prisma-adapter": "^2.11.3",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
@@ -20,7 +26,9 @@
     "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "@types/pg": "^8.11.10",
-    "prisma": "^7.9.1"
+    "prisma": "^7.9.1",
+    "typescript": "^7.0.2"
   }
 }

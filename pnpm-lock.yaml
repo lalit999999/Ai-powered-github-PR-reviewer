@@ -237,24 +237,15 @@ importers:
       '@auth/express':
         specifier: ^0.12.3
         version: 0.12.3(express@5.2.1)
-      '@octokit/auth-app':
-        specifier: ^8.3.0
-        version: 8.3.0
-      '@octokit/core':
-        specifier: ^7.0.7
-        version: 7.0.7
-      '@octokit/plugin-retry':
-        specifier: ^8.1.1
-        version: 8.1.1(@octokit/core@7.0.7)
-      '@octokit/plugin-throttling':
-        specifier: ^11.0.5
-        version: 11.0.5(@octokit/core@7.0.7)
-      '@octokit/request-error':
-        specifier: ^7.1.1
-        version: 7.1.1
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@repo/github':
+        specifier: workspace:*
+        version: link:../../packages/github
+      '@repo/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -276,16 +267,10 @@ importers:
       pino:
         specifier: ^9.6.0
         version: 9.14.0
-      ulid:
-        specifier: ^2.3.0
-        version: 2.4.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@octokit/types':
-        specifier: ^15.0.2
-        version: 15.0.2
       '@testcontainers/postgresql':
         specifier: ^10.16.0
         version: 10.28.0
@@ -304,9 +289,6 @@ importers:
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
-      nock:
-        specifier: 14.0.17
-        version: 14.0.17
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
@@ -419,6 +401,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@repo/github':
+        specifier: workspace:*
+        version: link:../../packages/github
+      '@repo/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -431,31 +422,52 @@ importers:
       inngest:
         specifier: ^4.18.1
         version: 4.18.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.13.3)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@7.0.2)(zod@4.4.3)
-      pino:
-        specifier: ^9.6.0
-        version: 9.14.0
-      ulid:
-        specifier: ^2.3.0
-        version: 2.4.0
+      micromatch:
+        specifier: ^4.0.8
+        version: 4.0.8
+      tar-stream:
+        specifier: ^3.2.0
+        version: 3.2.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@inngest/test':
+        specifier: ^1.0.0
+        version: 1.0.0(inngest@4.18.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.13.3)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@7.0.2)(zod@4.4.3))
+      '@testcontainers/postgresql':
+        specifier: ^10.16.0
+        version: 10.28.0
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
+      '@types/micromatch':
+        specifier: ^4.0.10
+        version: 4.0.10
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
+      '@types/tar-stream':
+        specifier: ^3.1.4
+        version: 3.1.4
+      testcontainers:
+        specifier: ^10.16.0
+        version: 10.28.0
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/db:
     dependencies:
+      '@auth/core':
+        specifier: ^0.41.3
+        version: 0.41.3
       '@auth/prisma-adapter':
         specifier: ^2.11.3
         version: 2.11.3(@prisma/client@7.9.1(prisma@7.9.1(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2))(typescript@7.0.2))
@@ -472,14 +484,89 @@ importers:
         specifier: ^8.23.0
         version: 8.23.0
     devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
       '@types/pg':
         specifier: ^8.11.10
         version: 8.23.1
       prisma:
         specifier: ^7.9.1
         version: 7.9.1(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2)
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
 
-  packages/shared: {}
+  packages/github:
+    dependencies:
+      '@octokit/auth-app':
+        specifier: ^8.3.0
+        version: 8.3.0
+      '@octokit/core':
+        specifier: ^7.0.7
+        version: 7.0.7
+      '@octokit/plugin-retry':
+        specifier: ^8.1.1
+        version: 8.1.1(@octokit/core@7.0.7)
+      '@octokit/plugin-throttling':
+        specifier: ^11.0.5
+        version: 11.0.5(@octokit/core@7.0.7)
+      '@repo/observability':
+        specifier: workspace:*
+        version: link:../observability
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@octokit/types':
+        specifier: ^15.0.2
+        version: 15.0.2
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      nock:
+        specifier: 14.0.17
+        version: 14.0.17
+      pino:
+        specifier: ^9.6.0
+        version: 9.14.0
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/observability:
+    dependencies:
+      pino:
+        specifier: ^9.6.0
+        version: 9.14.0
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/shared:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
 
 packages:
 
@@ -1135,6 +1222,11 @@ packages:
 
   '@inngest/ai@0.1.7':
     resolution: {integrity: sha512-5xWatW441jacGf9czKEZdgAmkvoy7GS2tp7X8GSbdGeRXzjisHR6vM+q8DQbv6rqRsmQoCQ5iShh34MguELvUQ==}
+
+  '@inngest/test@1.0.0':
+    resolution: {integrity: sha512-T3K6w0o/AHk34zzYhh1lC183ziQUCTEmY+G7ZOFwR5q4vXkbmZpXzbRecuG+Om/mixJnJCjZbt43e6OMR3QAnQ==}
+    peerDependencies:
+      inngest: ^4.0.0
 
   '@ioredis/commands@2.0.0':
     resolution: {integrity: sha512-vrx0AE/T0h7cRZwfo1M39Cr+ZhZrkf0V8mQN75wucKCxCLD9l/VX6no3gFvrLqD1IlG/1LtzWovqEw3t0Vr9zg==}
@@ -2515,6 +2607,9 @@ packages:
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
+  '@types/braces@3.0.5':
+    resolution: {integrity: sha512-SQFof9H+LXeWNz8wDe7oN5zu7ket0qwMu5vZubW4GCJ8Kkeh6nBWUz87+KTz/G3Kqsrp0j/W253XJb3KMEeg3w==}
+
   '@types/bunyan@1.8.11':
     resolution: {integrity: sha512-758fRH7umIMk5qt5ELmRMff4mLDlN+xyYzC+dkPTdKwbSkJFvz6xwyScrytPU0QIBbRRwbiE8/BIg8bpajerNQ==}
 
@@ -2632,6 +2727,9 @@ packages:
   '@types/methods@1.1.4':
     resolution: {integrity: sha512-ymXWVrDiCxTBE3+RIrrP533E70eA+9qu7zdWoHuOmGujkYtzf4HQF96b8nwHLqhuf4ykX61IGRIB38CC6/sImQ==}
 
+  '@types/micromatch@4.0.10':
+    resolution: {integrity: sha512-5jOhFDElqr4DKTrTEbnW8DZ4Hz5LRUEmyrGpCMrD/NphYv3nUnaF08xmSLx1rGGnyEs/kFnhiw6dCgcDqMr5PQ==}
+
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
@@ -2696,6 +2794,9 @@ packages:
 
   '@types/supertest@6.0.3':
     resolution: {integrity: sha512-8WzXq62EXFhJ7QsH3Ocb/iKQ/Ty9ZVWnVzoTKc9tyyFRRF3a74Tk2+TLFgaFFw364Ere+npzHKEJ6ga2LzIL7w==}
+
+  '@types/tar-stream@3.1.4':
+    resolution: {integrity: sha512-921gW0+g29mCJX0fRvqeHzBlE/XclDaAG0Ousy1LCghsOhvaKacDeRGEVzQP9IPfKn8Vysy7FEXAIxycpc/CMg==}
 
   '@types/tedious@4.0.14':
     resolution: {integrity: sha512-KHPsfX/FoVbUGbyYvk1q9MMQHLPeRZhRJZdO45Q4YjvFkv4hMNghCWTvy7rdKessBsmtz4euWCWAB6/tVpI1Iw==}
@@ -6156,6 +6257,10 @@ packages:
     resolution: {integrity: sha512-op4nsTR47R6p0vMUUoYl/a+ljLFVtlfaXkLQmqfLR1qHma1h/ysYk4hEXZ880bf2CYgTskvTa/e196Vd5dDQXw==}
     engines: {node: '>=14.0.0'}
 
+  tinyspy@3.0.2:
+    resolution: {integrity: sha512-n1cw8k1k0x4pgA2+9XrOkFydTerNcJ1zWCO5Nn9scWHTD+5tp8dghT2x1uduQePZTZgd3Tupf+x9BxJjeJi77Q==}
+    engines: {node: '>=14.0.0'}
+
   tinyspy@4.0.4:
     resolution: {integrity: sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==}
     engines: {node: '>=14.0.0'}
@@ -7160,6 +7265,12 @@ snapshots:
     dependencies:
       '@types/node': 22.20.1
       typescript: 5.9.3
+
+  '@inngest/test@1.0.0(inngest@4.18.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.13.3)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@7.0.2)(zod@4.4.3))':
+    dependencies:
+      inngest: 4.18.1(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.13.3)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@7.0.2)(zod@4.4.3)
+      tinyspy: 3.0.2
+      ulid: 2.4.0
 
   '@ioredis/commands@2.0.0': {}
 
@@ -8670,6 +8781,8 @@ snapshots:
       '@types/connect': 3.4.38
       '@types/node': 20.19.43
 
+  '@types/braces@3.0.5': {}
+
   '@types/bunyan@1.8.11':
     dependencies:
       '@types/node': 20.19.43
@@ -8791,6 +8904,10 @@ snapshots:
 
   '@types/methods@1.1.4': {}
 
+  '@types/micromatch@4.0.10':
+    dependencies:
+      '@types/braces': 3.0.5
+
   '@types/ms@2.1.0': {}
 
   '@types/mysql@2.15.27':
@@ -8878,6 +8995,10 @@ snapshots:
     dependencies:
       '@types/methods': 1.1.4
       '@types/superagent': 8.1.11
+
+  '@types/tar-stream@3.1.4':
+    dependencies:
+      '@types/node': 20.19.43
 
   '@types/tedious@4.0.14':
     dependencies:
@@ -12706,6 +12827,8 @@ snapshots:
   tinypool@1.1.1: {}
 
   tinyrainbow@2.0.0: {}
+
+  tinyspy@3.0.2: {}
 
   tinyspy@4.0.4: {}
 

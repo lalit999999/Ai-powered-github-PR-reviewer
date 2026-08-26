@@ -6,6 +6,7 @@ import { projectIdParamSchema } from "../modules/projects/project.schema.js";
 import {
   connectRepositoryBodySchema,
   repositoryIdParamSchema,
+  triggerIndexBodySchema,
 } from "../modules/repositories/repository.schema.js";
 import * as repositoryService from "../modules/repositories/repository.service.js";
 
@@ -76,4 +77,38 @@ export async function disconnectRepository(req: Request, res: Response): Promise
   await repositoryService.disconnectRepository(tenant);
 
   res.status(202).json({ repositoryId: tenant.repositoryId });
+}
+
+/**
+ * GET /api/repositories/:repositoryId/index-status — phase-03 §7.
+ *
+ * Deliberately separate from `getRepository` so the client can poll cheaply (one
+ * `IndexJob` row, not the full repository payload) — see `repositoryService.getIndexStatus`'s
+ * own doc comment for why a repository with no job yet still returns a coherent body
+ * rather than 404/null.
+ */
+export async function getIndexStatus(req: Request, res: Response): Promise<void> {
+  const session = await requireSession(req);
+  const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
+
+  const tenant = await requireTenantAccess(session, { repositoryId });
+  const status = await repositoryService.getIndexStatus(tenant);
+
+  res.status(200).json(status);
+}
+
+/**
+ * POST /api/repositories/:repositoryId/index — phase-03 §7. **202**, matching every
+ * other route in this file that starts background work: the job is requested, not run
+ * inline.
+ */
+export async function triggerIndex(req: Request, res: Response): Promise<void> {
+  const session = await requireSession(req);
+  const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
+  const body = parseOrThrow(triggerIndexBodySchema, req.body);
+
+  const tenant = await requireTenantAccess(session, { repositoryId });
+  const { indexJobId } = await repositoryService.triggerIndex(tenant, body);
+
+  res.status(202).json({ indexJobId });
 }

@@ -1,5 +1,5 @@
-import * as installationGithub from "../../github/services/installation.github.js";
-import * as repositoryGithub from "../../github/services/repository.github.js";
+import { randomUUID } from "node:crypto";
+import { installationGithub, repositoryGithub } from "@repo/github";
 import { emitRepositoryIndexRequested } from "../../inngest/emit.js";
 import type { OwnerContext, TenantContext } from "../../lib/auth/tenant-access.js";
 import {
@@ -8,9 +8,12 @@ import {
   InternalError,
   NotFoundError,
   ServiceUnavailableError,
+  TooManyRequestsError,
   UnauthenticatedError,
 } from "../../lib/errors.js";
-import { createLogger } from "../../lib/logger.js";
+import { checkRateLimit } from "../../lib/rate-limit.js";
+import { createLogger } from "@repo/observability";
+import * as indexJobRepository from "./index-job.repository.js";
 import * as installationRepository from "./installation.repository.js";
 import {
   NO_ACCESS_MESSAGE,
@@ -20,10 +23,12 @@ import {
   resolveRepoRefFromUrl,
 } from "./repository-validation.service.js";
 import * as repositoryRepository from "./repository.repository.js";
-import type { ConnectRepositoryBody, GithubRepoRef, ListInstallationReposQuery } from "./repository.schema.js";
+import type { ConnectRepositoryBody, GithubRepoRef, ListInstallationReposQuery, TriggerIndexBody } from "./repository.schema.js";
 import {
-  toInstallationDto,
+  toIndexJobSummaryDto,
   toRepositoryDto,
+  toInstallationDto,
+  type IndexStatusDto,
   type InstallationDto,
   type InstallationRepositoryDto,
   type RepositoryDetail,
@@ -441,16 +446,147 @@ async function resolveConnectTarget(
  */
 export async function getRepositoryDetail(tenant: TenantContext): Promise<RepositoryDetail> {
   const repositoryId = requireRepositoryId(tenant);
-  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+  const [repository, job] = await Promise.all([
+    repositoryRepository.findByIdForProject(tenant.projectId, repositoryId),
+    indexJobRepository.findLatestForRepository(repositoryId),
+  ]);
 
   if (!repository) {
     throw new NotFoundError("Project not found");
   }
 
-  // `indexJob: null` is typed as literal `null`, not `unknown` — so Phase 03 widening
-  // it is a compile error at every call site rather than a silent no-op. See
-  // RepositoryDetail.
-  return { repository: toRepositoryDto(repository), indexJob: null };
+  // `indexJob` was typed as literal `null` until this phase, specifically so this
+  // widening was a compile error at every call site rather than a silent no-op — see
+  // RepositoryDetail. `null` remains a real value: a freshly-connected repository has no
+  // IndexJob row yet.
+  return { repository: toRepositoryDto(repository), indexJob: job ? toIndexJobSummaryDto(job) : null };
+}
+
+/**
+ * `GET /api/repositories/:id/index-status` (§7) — deliberately separate from
+ * `getRepositoryDetail` so the route can poll cheaply (`plan.md` §28's design notes):
+ * one `IndexJob` row, not the full repository payload plus a join.
+ *
+ * **Falls back to the `Repository` row's own `indexStatus`/`indexError` when no
+ * `IndexJob` exists yet** — a repository between "just connected" and "the worker's step
+ * 1 has run" has no job row at all (the worker is the only writer, and it creates the
+ * row `RUNNING`, never `PENDING` — see `apps/worker`'s `index-job.repository.ts`).
+ * Without this fallback the very first poll after a connect would have nothing
+ * meaningful to show; with it, the client sees `PENDING` immediately, which is honest —
+ * that is genuinely the repository's state at that moment.
+ */
+export async function getIndexStatus(tenant: TenantContext): Promise<IndexStatusDto> {
+  const repositoryId = requireRepositoryId(tenant);
+  const [repository, job] = await Promise.all([
+    repositoryRepository.findByIdForProject(tenant.projectId, repositoryId),
+    indexJobRepository.findLatestForRepository(repositoryId),
+  ]);
+
+  if (!repository) {
+    throw new NotFoundError("Project not found");
+  }
+
+  if (job) {
+    return {
+      status: job.status,
+      currentStep: job.currentStep,
+      progressPercent: job.progressPercent,
+      filesTotal: job.filesTotal,
+      filesProcessed: job.filesProcessed,
+      error: job.error,
+    };
+  }
+
+  return {
+    status: repository.indexStatus,
+    currentStep: null,
+    progressPercent: 0,
+    filesTotal: 0,
+    filesProcessed: 0,
+    error: repository.indexError,
+  };
+}
+
+/** `POST /api/repositories/:id/index`'s 10/hour/repository limit (§7/§28). */
+const TRIGGER_INDEX_RATE_LIMIT_PER_HOUR = 10;
+
+/**
+ * `POST /api/repositories/:id/index` (§7) — a forced re-index, distinct from the
+ * automatic one `connectRepository` triggers. `input.mode` is asserted `"FULL"` here as
+ * well as at the schema boundary (`triggerIndexBodySchema` already rejects
+ * `"INCREMENTAL"` with 400) — defence in depth, the same discipline
+ * `resolveRepoRefFromUrl` uses for a URL the schema already validated once.
+ *
+ * **The `IndexJob` row does not exist yet when this returns.** The worker's
+ * `repository-index.ts` step 1 is the only writer of `IndexJob` (§27.6: "Inngest is the
+ * executor"), but this route must answer `{ indexJobId }` synchronously (§7) — so the id
+ * is generated *here* and carried on the emitted event; the worker's `createIndexJob`
+ * adopts it instead of generating its own (`@repo/shared`'s `RepositoryIndexRequestedData.indexJobId`,
+ * added this phase specifically for this). See docs/decisions/phase-03-log.md for the
+ * narrow, accepted race this leaves open (a lock lost to a concurrent run between this
+ * check and the worker's own means the pre-allocated id is never actually created) — low
+ * consequence, since neither this route nor `/index-status` requires the client to poll
+ * *by* this id.
+ */
+export async function triggerIndex(tenant: TenantContext, input: TriggerIndexBody): Promise<{ indexJobId: string }> {
+  const repositoryId = requireRepositoryId(tenant);
+
+  if (input.mode !== "FULL") {
+    // Unreachable over HTTP — triggerIndexBodySchema already rejects INCREMENTAL with
+    // 400. A 500 rather than a guess, for the same reason connectRepository's own
+    // "neither repoUrl nor githubRepoId" branch is.
+    throw new InternalError("triggerIndex called with a mode other than FULL");
+  }
+
+  const rate = await checkRateLimit(`repo-index:${repositoryId}`, TRIGGER_INDEX_RATE_LIMIT_PER_HOUR);
+  if (!rate.allowed) {
+    logger.warn("repository index trigger rate-limited", {
+      repositoryId,
+      projectId: tenant.projectId,
+      userId: tenant.userId,
+      retryAfterSeconds: rate.retryAfterSeconds,
+    });
+    throw new TooManyRequestsError("Too many index requests for this repository — try again later", {
+      details: { retryAfterSeconds: rate.retryAfterSeconds },
+    });
+  }
+
+  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+  if (!repository) {
+    throw new NotFoundError("Project not found");
+  }
+
+  if (repository.indexStatus === "INDEXING") {
+    logger.info("repository index trigger rejected — already indexing", {
+      repositoryId,
+      projectId: tenant.projectId,
+      userId: tenant.userId,
+    });
+    throw new ConflictError("This repository is already being indexed");
+  }
+
+  const indexJobId = randomUUID();
+
+  logger.info("repository index triggered manually", {
+    repositoryId,
+    projectId: tenant.projectId,
+    userId: tenant.userId,
+    indexJobId,
+  });
+
+  // Fire-and-forget for the same reasons emitRepositoryIndexRequested's own doc comment
+  // argues at length — the durable record here is the pre-allocated id itself, already
+  // returned to the caller; awaiting the send would not make delivery more reliable, only
+  // slower.
+  void emitRepositoryIndexRequested({
+    projectId: tenant.projectId,
+    repositoryId,
+    mode: "FULL",
+    reason: "manual",
+    indexJobId,
+  });
+
+  return { indexJobId };
 }
 
 /** The project's active repositories, for `GET /api/projects/:id`. `DISCONNECTED` rows
@@ -470,9 +606,18 @@ export async function listProjectRepositories(tenant: TenantContext): Promise<Re
  * does not overwrite the original transition (`markDisconnected` reports 0 rows changed
  * because `connectionStatus` is already `DISCONNECTED`).
  *
- * Cascading job cancellation is a no-op today and becomes meaningful in **Phase 03**,
- * when there are index jobs to cancel — §7 says as much, and it is the reason the route
- * answers 202 rather than 204.
+ * **Cascading job cancellation is still a no-op for a plain repository disconnect,
+ * deliberately, not by omission.** Phase 03 makes the *project-deletion* cascade real —
+ * `repository-index.ts` carries `cancelOn: [{ event: projectDeleted, ... }]`, so deleting
+ * a project now genuinely cancels any in-flight index for every repository under it. A
+ * disconnect that leaves the *project* intact has no equivalent: there is no
+ * `repository/disconnected` event, and wiring one up (plus a second `cancelOn` entry) is
+ * a real, if small, design surface this phase's own scope list does not name. Recorded
+ * as an open gap rather than silently left for a future reader to rediscover: an
+ * in-flight index for a repository the user just disconnected currently runs to
+ * completion and still writes its result, which is harmless (the row is soft-disconnected,
+ * not deleted, so a completed index is not wasted if the user reconnects) but is not the
+ * same guarantee project-deletion now has. See docs/decisions/phase-03-log.md.
  */
 export async function disconnectRepository(tenant: TenantContext): Promise<void> {
   const repositoryId = requireRepositoryId(tenant);

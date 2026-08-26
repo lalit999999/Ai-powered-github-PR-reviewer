@@ -99,14 +99,29 @@ export default tseslint.config(
             },
             {
               // Phase 02 put the GitHub App client inside apps/api itself
-              // (apps/api/src/github/**) rather than in the @repo/github package, so a
+              // (apps/api/src/github/**) rather than in a @repo/github package, so a
               // controller reaching it by *relative* path would never have matched the
-              // package-name patterns above — the rule would have silently stopped
-              // covering the thing it was written for. See
-              // docs/decisions/phase-02-log.md §10.
-              group: ["**/src/github/**", "**/github/client/*", "**/github/services/*"],
+              // package-name patterns above (docs/decisions/phase-02-log.md §10). Phase
+              // 03 promoted the client to the real packages/github package the pattern
+              // above already names — closing that original hole — but a route could
+              // still reach *past* the package's public index.ts into its internals via
+              // a long relative path (`../../../../packages/github/src/client/...`),
+              // which is the same class of bypass in a new shape. This pattern group now
+              // exists for that narrower case; see docs/decisions/phase-03-log.md,
+              // sub-task 1.1.
+              group: [
+                "**/src/github/**",
+                "**/github/client/*",
+                "**/github/services/*",
+                // packages/github's own internal layout — added when the client moved
+                // there in Phase 03. The three patterns above are pre-Phase-03 and no
+                // longer match anything real (nothing lives at apps/api/src/github/**
+                // any more), but are kept: a future relative-path GitHub client
+                // re-embedded in an app should still be caught.
+                "**/packages/github/src/**",
+              ],
               message:
-                "API routes/controllers may not import the GitHub client (apps/api/src/github/**) directly — go through a module service instead (Rule A, phase-00 §3, extended in phase-02).",
+                "API routes/controllers may not import the GitHub client directly — go through a module service instead, and never reach past @repo/github's public index into its internals (Rule A, phase-00 §3, extended in phase-02/phase-03).",
             },
           ],
         },

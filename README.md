@@ -65,8 +65,14 @@ Real GitHub sign-in needs a real OAuth App (see the `AUTH_URL` note below); conn
 real repository needs a real GitHub App (see
 [`docs/github-app-setup.md`](docs/github-app-setup.md)).
 
-`apps/worker` needs its own `.env` (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`,
-`WORKER_PORT`) — same dev values as `apps/api`. `apps/web` needs
+`apps/worker` needs its own `.env`. As of Phase 03 it is a real deployable with its own
+database and GitHub App access — not just an Inngest listener — so it needs
+`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `WORKER_PORT`, `DATABASE_URL` (same Postgres
+as `apps/api`, one database, two deployables), `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY`
+(same App as `apps/api`'s, **not** `GITHUB_APP_SLUG`/`GITHUB_APP_WEBHOOK_SECRET`, which
+it never needs), and `REDIS_URL` (same Redis, shared installation-token cache). Same dev
+values as `apps/api` for all of these. `WORKER_TEMP_DIR`/`INDEX_MAX_TOTAL_BYTES`/
+`INDEX_MAX_FILE_COUNT` are optional — see `docs/indexing.md`. `apps/web` needs
 `apps/web/.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:4000`.
 
 Signed-out visits to `/dashboard` or `/projects` redirect to `/signin`; the API answers
@@ -90,9 +96,13 @@ goes to Inngest Cloud instead, comes back `401 Event key not found`, is logged a
 Dev Server UI. Found the hard way during Phase 02's own smoke pass — see
 `docs/decisions/phase-02-log.md` §27.
 
-Then open http://localhost:8288, confirm the app registers with exactly one function
-(`noop-handler`), and send `internal/noop.ping` to see a `traceId`-carrying log line
-from the worker.
+Then open http://localhost:8288 and confirm the app registers `repository-index`
+(triggered by `repository/index.requested`, emitted on repository connect or a manual
+`POST /api/repositories/:id/index`) and `stale-index-sweeper` (a `0 */6 * * *` cron that
+re-requests indexing for a repository stuck `PENDING`). Phase 00's `noop-handler` and
+`internal/noop.ping` — the worker's original diagnostic-only function — were deleted in
+Phase 03 once `repository-index` proved the worker discoverable for real (see
+`docs/decisions/phase-03-log.md`).
 
 ### GitHub OAuth (sign-in)
 
@@ -137,8 +147,10 @@ account:
 2. Click **Connect repository**. Search the installation's repositories, or switch to
    **Paste URL** and give it `https://github.com/{owner}/{repo}` directly.
 3. On success the dialog closes and a repository card appears showing **Waiting to be
-   indexed** — `indexStatus=PENDING` is as far as this phase goes; Phase 03 is what
-   actually indexes it.
+   indexed**, then — once the worker's `repository-index` function picks it up (Phase
+   03) — a live progress bar through to **Indexed** or a specific failure with a retry
+   action. See [`docs/indexing.md`](docs/indexing.md) for what gets indexed, what gets
+   skipped and why, and where the caps are configured.
 4. Each invalid case answers its own way: a malformed URL is a 400 before any GitHub
    call; a repository the installation can't see is a 403 linking to GitHub's
    installation settings; reconnecting the same repository to the same project is a 409
@@ -168,7 +180,7 @@ unless you deliberately mean to target another database.
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm test` | `test:unit` then `test:integration` |
 | `pnpm test:unit` | Fast, no-I/O unit tests (colocated `*.test.ts`) |
-| `pnpm test:integration` | Testcontainers-backed tests against a real, ephemeral Postgres (`apps/api/tests/integration/`) |
+| `pnpm test:integration` | Testcontainers-backed tests against a real, ephemeral Postgres — `apps/api/tests/integration/` and, since Phase 03, `apps/worker/tests/integration/` (each deployable gets its own container, see that directory's `global-setup.ts`) |
 | `pnpm db:generate` / `db:migrate` / `db:deploy` / `db:studio` | Prisma workflow, delegated to `packages/db` |
 
 ## Architecture boundaries (enforced by lint, not just docs)

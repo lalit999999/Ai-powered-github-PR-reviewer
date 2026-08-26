@@ -57,7 +57,7 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     ).rejects.toThrow();
   });
 
-  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository", async () => {
+  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository and phase-03's indexing tables", async () => {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name <> '_prisma_migrations';`,
@@ -65,8 +65,10 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     expect(tables.map((t) => t.table_name).sort()).toEqual([
       "Account",
       "GithubInstallation",
+      "IndexJob",
       "Project",
       "Repository",
+      "RepositoryFile",
       "Session",
       "User",
       "VerificationToken",
@@ -243,6 +245,154 @@ describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
     );
     expect(values.map((v) => v.enumlabel).sort()).toEqual(
       ["FAILED", "INDEXED", "INDEXING", "PARTIAL", "PENDING", "UPDATING"].sort(),
+    );
+  });
+});
+
+// Phase 03 §6/§14 Database Verification. Schema-level facts only — the fetcher,
+// extractor, and persistence code that write these rows are this phase's later
+// sub-tasks and Prompt 2's Inngest function, so rows here are inserted directly through
+// Prisma, the same discipline the Repository block above uses.
+describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
+  async function createRepository(slug: string, githubUserId: bigint, githubRepoId: bigint) {
+    const user = await prisma.user.create({ data: { githubUserId, githubLogin: `user-${slug}` } });
+    const project = await prisma.project.create({ data: { userId: user.id, name: slug, slug } });
+    return prisma.repository.create({
+      data: {
+        projectId: project.id,
+        installationId: 555_000_111n,
+        githubRepoId,
+        owner: "octocat",
+        name: "hello-world",
+        fullName: "octocat/hello-world",
+        defaultBranch: "main",
+        htmlUrl: "https://github.com/octocat/hello-world",
+      },
+    });
+  }
+
+  it("defaults a freshly inserted file to INDEXED/OK/UNKNOWN and nothing further", async () => {
+    const repository = await createRepository("file-a", 3001n, 9_100_000_001n);
+    const file = await prisma.repositoryFile.create({
+      data: { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 },
+    });
+
+    expect(file.indexState).toBe("INDEXED");
+    expect(file.parseState).toBe("OK");
+    expect(file.classification).toBe("UNKNOWN");
+    expect(file.lineCount).toBe(0);
+    expect(file.symbolCount).toBe(0);
+    expect(file.inboundEdgeCount).toBe(0);
+    expect(file.isTest).toBe(false);
+    expect(file.isGenerated).toBe(false);
+    expect(file.skipReason).toBeNull();
+    expect(file.language).toBeNull();
+    expect(file.packageName).toBeNull();
+  });
+
+  it("enforces (repositoryId, path) uniqueness — the interrupted-job idempotency guarantee", async () => {
+    const repository = await createRepository("file-b", 3002n, 9_100_000_002n);
+    const data = { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 };
+    await prisma.repositoryFile.create({ data });
+    await expect(prisma.repositoryFile.create({ data })).rejects.toThrow();
+  });
+
+  it("cascade-deletes files and jobs when their repository is hard-deleted", async () => {
+    const repository = await createRepository("file-c", 3003n, 9_100_000_003n);
+    await prisma.repositoryFile.create({
+      data: { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 },
+    });
+    await prisma.indexJob.create({ data: { repositoryId: repository.id, mode: "FULL", status: "PENDING" } });
+
+    await prisma.project.delete({ where: { id: (await prisma.repository.findUniqueOrThrow({ where: { id: repository.id } })).projectId } });
+
+    expect(await prisma.repositoryFile.count()).toBe(0);
+    expect(await prisma.indexJob.count()).toBe(0);
+  });
+
+  it("carries exactly the §6 columns for RepositoryFile", async () => {
+    const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'RepositoryFile';`,
+    );
+    expect(columns.map((c) => c.column_name).sort()).toEqual(
+      [
+        "classification",
+        "commitSha",
+        "contentHash",
+        "id",
+        "inboundEdgeCount",
+        "indexState",
+        "isGenerated",
+        "isTest",
+        "language",
+        "lineCount",
+        "packageName",
+        "parseState",
+        "path",
+        "repositoryId",
+        "sizeBytes",
+        "skipReason",
+        "symbolCount",
+        "updatedAt",
+      ].sort(),
+    );
+  });
+
+  it("carries exactly the §6 columns for IndexJob", async () => {
+    const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'IndexJob';`,
+    );
+    expect(columns.map((c) => c.column_name).sort()).toEqual(
+      [
+        "attempts",
+        "chunksEmbedded",
+        "completedAt",
+        "createdAt",
+        "currentStep",
+        "edgesCreated",
+        "embeddingCacheHits",
+        "error",
+        "filesProcessed",
+        "filesSkipped",
+        "filesTotal",
+        "id",
+        "inngestRunId",
+        "mode",
+        "previousCommitSha",
+        "progressPercent",
+        "repositoryId",
+        "startedAt",
+        "status",
+        "symbolsCreated",
+        "targetCommitSha",
+      ].sort(),
+    );
+  });
+
+  it("creates the §6 indexes, including the plan.md-only (repositoryId, indexState) addition", async () => {
+    const fileIndexes = (
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'RepositoryFile';`)
+    ).map((i) => i.indexname);
+    expect(fileIndexes).toContain("RepositoryFile_repositoryId_path_key");
+    expect(fileIndexes).toContain("RepositoryFile_repositoryId_contentHash_idx");
+    expect(fileIndexes).toContain("RepositoryFile_repositoryId_packageName_idx");
+    // plan.md §24.2 lists this one; §6's own Prisma block does not. Asserted so the
+    // addition reads as a decision (docs/decisions/phase-03-log.md) rather than a typo.
+    expect(fileIndexes).toContain("RepositoryFile_repositoryId_indexState_idx");
+
+    const jobIndexes = (
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'IndexJob';`)
+    ).map((i) => i.indexname);
+    expect(jobIndexes).toContain("IndexJob_repositoryId_createdAt_idx");
+    expect(jobIndexes).toContain("IndexJob_status_idx");
+  });
+
+  it("declares the full FileClassification enum", async () => {
+    const values = await prisma.$queryRawUnsafe<{ enumlabel: string }[]>(
+      `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'FileClassification';`,
+    );
+    expect(values.map((v) => v.enumlabel).sort()).toEqual(
+      ["ASSET", "CONFIG", "DEPENDENCY_LOCK", "DOCUMENTATION", "GENERATED", "SOURCE", "TEST", "UNKNOWN"].sort(),
     );
   });
 });

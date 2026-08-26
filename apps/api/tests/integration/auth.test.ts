@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import app from "../../src/app.js";
 import { UnauthenticatedError } from "../../src/lib/errors.js";
 import { getCurrentSession, requireSession } from "../../src/lib/auth/session.js";
-import { getTraceContext, runWithTraceContext } from "../../src/lib/tracing.js";
+import { getTraceContext, runWithTraceContext } from "@repo/observability";
 import { resetDatabase } from "./db-helpers.js";
 
 /** Only `req.protocol` and `req.headers.cookie` are read by @auth/express's

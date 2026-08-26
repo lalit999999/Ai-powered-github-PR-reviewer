@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums"
-import type * as Prisma from "../internal/prismaNamespace"
+import type * as $Enums from "../enums.js"
+import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model Repository
@@ -385,6 +385,8 @@ export type RepositoryWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
+  files?: Prisma.RepositoryFileListRelationFilter
+  indexJobs?: Prisma.IndexJobListRelationFilter
 }
 
 export type RepositoryOrderByWithRelationInput = {
@@ -413,6 +415,8 @@ export type RepositoryOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   project?: Prisma.ProjectOrderByWithRelationInput
+  files?: Prisma.RepositoryFileOrderByRelationAggregateInput
+  indexJobs?: Prisma.IndexJobOrderByRelationAggregateInput
 }
 
 export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
@@ -445,6 +449,8 @@ export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
+  files?: Prisma.RepositoryFileListRelationFilter
+  indexJobs?: Prisma.IndexJobListRelationFilter
 }, "id" | "projectId_githubRepoId">
 
 export type RepositoryOrderByWithAggregationInput = {
@@ -534,6 +540,8 @@ export type RepositoryCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
+  files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
+  indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryUncheckedCreateInput = {
@@ -561,6 +569,8 @@ export type RepositoryUncheckedCreateInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
+  indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryUpdateInput = {
@@ -588,6 +598,8 @@ export type RepositoryUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
+  files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
+  indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryUncheckedUpdateInput = {
@@ -615,6 +627,8 @@ export type RepositoryUncheckedUpdateInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
+  indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryCreateManyInput = {
@@ -809,6 +823,11 @@ export type RepositorySumOrderByAggregateInput = {
   skippedFileCount?: Prisma.SortOrder
 }
 
+export type RepositoryScalarRelationFilter = {
+  is?: Prisma.RepositoryWhereInput
+  isNot?: Prisma.RepositoryWhereInput
+}
+
 export type RepositoryCreateNestedManyWithoutProjectInput = {
   create?: Prisma.XOR<Prisma.RepositoryCreateWithoutProjectInput, Prisma.RepositoryUncheckedCreateWithoutProjectInput> | Prisma.RepositoryCreateWithoutProjectInput[] | Prisma.RepositoryUncheckedCreateWithoutProjectInput[]
   connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutProjectInput | Prisma.RepositoryCreateOrConnectWithoutProjectInput[]
@@ -883,6 +902,34 @@ export type IntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type RepositoryCreateNestedOneWithoutFilesInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutFilesInput, Prisma.RepositoryUncheckedCreateWithoutFilesInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutFilesInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+}
+
+export type RepositoryUpdateOneRequiredWithoutFilesNestedInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutFilesInput, Prisma.RepositoryUncheckedCreateWithoutFilesInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutFilesInput
+  upsert?: Prisma.RepositoryUpsertWithoutFilesInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RepositoryUpdateToOneWithWhereWithoutFilesInput, Prisma.RepositoryUpdateWithoutFilesInput>, Prisma.RepositoryUncheckedUpdateWithoutFilesInput>
+}
+
+export type RepositoryCreateNestedOneWithoutIndexJobsInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutIndexJobsInput, Prisma.RepositoryUncheckedCreateWithoutIndexJobsInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutIndexJobsInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+}
+
+export type RepositoryUpdateOneRequiredWithoutIndexJobsNestedInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutIndexJobsInput, Prisma.RepositoryUncheckedCreateWithoutIndexJobsInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutIndexJobsInput
+  upsert?: Prisma.RepositoryUpsertWithoutIndexJobsInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RepositoryUpdateToOneWithWhereWithoutIndexJobsInput, Prisma.RepositoryUpdateWithoutIndexJobsInput>, Prisma.RepositoryUncheckedUpdateWithoutIndexJobsInput>
+}
+
 export type RepositoryCreateWithoutProjectInput = {
   id?: string
   installationId: bigint | number
@@ -907,6 +954,8 @@ export type RepositoryCreateWithoutProjectInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
+  indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryUncheckedCreateWithoutProjectInput = {
@@ -933,6 +982,8 @@ export type RepositoryUncheckedCreateWithoutProjectInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
+  indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryCreateOrConnectWithoutProjectInput = {
@@ -991,6 +1042,262 @@ export type RepositoryScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
 }
 
+export type RepositoryCreateWithoutFilesInput = {
+  id?: string
+  installationId: bigint | number
+  githubRepoId: bigint | number
+  owner: string
+  name: string
+  fullName: string
+  defaultBranch: string
+  isPrivate?: boolean
+  htmlUrl: string
+  sizeBytes?: number | null
+  webhookId?: bigint | number | null
+  connectionStatus?: string
+  indexStatus?: $Enums.IndexStatus
+  indexedCommitSha?: string | null
+  indexVersion?: number
+  indexedFileCount?: number
+  skippedFileCount?: number
+  reviewProfile?: string | null
+  lastIndexedAt?: Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
+  indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryUncheckedCreateWithoutFilesInput = {
+  id?: string
+  projectId: string
+  installationId: bigint | number
+  githubRepoId: bigint | number
+  owner: string
+  name: string
+  fullName: string
+  defaultBranch: string
+  isPrivate?: boolean
+  htmlUrl: string
+  sizeBytes?: number | null
+  webhookId?: bigint | number | null
+  connectionStatus?: string
+  indexStatus?: $Enums.IndexStatus
+  indexedCommitSha?: string | null
+  indexVersion?: number
+  indexedFileCount?: number
+  skippedFileCount?: number
+  reviewProfile?: string | null
+  lastIndexedAt?: Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryCreateOrConnectWithoutFilesInput = {
+  where: Prisma.RepositoryWhereUniqueInput
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutFilesInput, Prisma.RepositoryUncheckedCreateWithoutFilesInput>
+}
+
+export type RepositoryUpsertWithoutFilesInput = {
+  update: Prisma.XOR<Prisma.RepositoryUpdateWithoutFilesInput, Prisma.RepositoryUncheckedUpdateWithoutFilesInput>
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutFilesInput, Prisma.RepositoryUncheckedCreateWithoutFilesInput>
+  where?: Prisma.RepositoryWhereInput
+}
+
+export type RepositoryUpdateToOneWithWhereWithoutFilesInput = {
+  where?: Prisma.RepositoryWhereInput
+  data: Prisma.XOR<Prisma.RepositoryUpdateWithoutFilesInput, Prisma.RepositoryUncheckedUpdateWithoutFilesInput>
+}
+
+export type RepositoryUpdateWithoutFilesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  installationId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  githubRepoId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  owner?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultBranch?: Prisma.StringFieldUpdateOperationsInput | string
+  isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  htmlUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  sizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  webhookId?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  connectionStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  indexStatus?: Prisma.EnumIndexStatusFieldUpdateOperationsInput | $Enums.IndexStatus
+  indexedCommitSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  indexVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  indexedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  skippedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewProfile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastIndexedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
+  indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
+}
+
+export type RepositoryUncheckedUpdateWithoutFilesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  projectId?: Prisma.StringFieldUpdateOperationsInput | string
+  installationId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  githubRepoId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  owner?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultBranch?: Prisma.StringFieldUpdateOperationsInput | string
+  isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  htmlUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  sizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  webhookId?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  connectionStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  indexStatus?: Prisma.EnumIndexStatusFieldUpdateOperationsInput | $Enums.IndexStatus
+  indexedCommitSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  indexVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  indexedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  skippedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewProfile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastIndexedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
+}
+
+export type RepositoryCreateWithoutIndexJobsInput = {
+  id?: string
+  installationId: bigint | number
+  githubRepoId: bigint | number
+  owner: string
+  name: string
+  fullName: string
+  defaultBranch: string
+  isPrivate?: boolean
+  htmlUrl: string
+  sizeBytes?: number | null
+  webhookId?: bigint | number | null
+  connectionStatus?: string
+  indexStatus?: $Enums.IndexStatus
+  indexedCommitSha?: string | null
+  indexVersion?: number
+  indexedFileCount?: number
+  skippedFileCount?: number
+  reviewProfile?: string | null
+  lastIndexedAt?: Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
+  files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryUncheckedCreateWithoutIndexJobsInput = {
+  id?: string
+  projectId: string
+  installationId: bigint | number
+  githubRepoId: bigint | number
+  owner: string
+  name: string
+  fullName: string
+  defaultBranch: string
+  isPrivate?: boolean
+  htmlUrl: string
+  sizeBytes?: number | null
+  webhookId?: bigint | number | null
+  connectionStatus?: string
+  indexStatus?: $Enums.IndexStatus
+  indexedCommitSha?: string | null
+  indexVersion?: number
+  indexedFileCount?: number
+  skippedFileCount?: number
+  reviewProfile?: string | null
+  lastIndexedAt?: Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryCreateOrConnectWithoutIndexJobsInput = {
+  where: Prisma.RepositoryWhereUniqueInput
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutIndexJobsInput, Prisma.RepositoryUncheckedCreateWithoutIndexJobsInput>
+}
+
+export type RepositoryUpsertWithoutIndexJobsInput = {
+  update: Prisma.XOR<Prisma.RepositoryUpdateWithoutIndexJobsInput, Prisma.RepositoryUncheckedUpdateWithoutIndexJobsInput>
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutIndexJobsInput, Prisma.RepositoryUncheckedCreateWithoutIndexJobsInput>
+  where?: Prisma.RepositoryWhereInput
+}
+
+export type RepositoryUpdateToOneWithWhereWithoutIndexJobsInput = {
+  where?: Prisma.RepositoryWhereInput
+  data: Prisma.XOR<Prisma.RepositoryUpdateWithoutIndexJobsInput, Prisma.RepositoryUncheckedUpdateWithoutIndexJobsInput>
+}
+
+export type RepositoryUpdateWithoutIndexJobsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  installationId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  githubRepoId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  owner?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultBranch?: Prisma.StringFieldUpdateOperationsInput | string
+  isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  htmlUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  sizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  webhookId?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  connectionStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  indexStatus?: Prisma.EnumIndexStatusFieldUpdateOperationsInput | $Enums.IndexStatus
+  indexedCommitSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  indexVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  indexedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  skippedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewProfile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastIndexedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
+  files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
+}
+
+export type RepositoryUncheckedUpdateWithoutIndexJobsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  projectId?: Prisma.StringFieldUpdateOperationsInput | string
+  installationId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  githubRepoId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  owner?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultBranch?: Prisma.StringFieldUpdateOperationsInput | string
+  isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  htmlUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  sizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  webhookId?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  connectionStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  indexStatus?: Prisma.EnumIndexStatusFieldUpdateOperationsInput | $Enums.IndexStatus
+  indexedCommitSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  indexVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  indexedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  skippedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewProfile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastIndexedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
+}
+
 export type RepositoryCreateManyProjectInput = {
   id?: string
   installationId: bigint | number
@@ -1041,6 +1348,8 @@ export type RepositoryUpdateWithoutProjectInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
+  indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryUncheckedUpdateWithoutProjectInput = {
@@ -1067,6 +1376,8 @@ export type RepositoryUncheckedUpdateWithoutProjectInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
+  indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryUncheckedUpdateManyWithoutProjectInput = {
@@ -1096,6 +1407,44 @@ export type RepositoryUncheckedUpdateManyWithoutProjectInput = {
 }
 
 
+/**
+ * Count Type RepositoryCountOutputType
+ */
+
+export type RepositoryCountOutputType = {
+  files: number
+  indexJobs: number
+}
+
+export type RepositoryCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  files?: boolean | RepositoryCountOutputTypeCountFilesArgs
+  indexJobs?: boolean | RepositoryCountOutputTypeCountIndexJobsArgs
+}
+
+/**
+ * RepositoryCountOutputType without action
+ */
+export type RepositoryCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RepositoryCountOutputType
+   */
+  select?: Prisma.RepositoryCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * RepositoryCountOutputType without action
+ */
+export type RepositoryCountOutputTypeCountFilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RepositoryFileWhereInput
+}
+
+/**
+ * RepositoryCountOutputType without action
+ */
+export type RepositoryCountOutputTypeCountIndexJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IndexJobWhereInput
+}
+
 
 export type RepositorySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1123,6 +1472,9 @@ export type RepositorySelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  files?: boolean | Prisma.Repository$filesArgs<ExtArgs>
+  indexJobs?: boolean | Prisma.Repository$indexJobsArgs<ExtArgs>
+  _count?: boolean | Prisma.RepositoryCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["repository"]>
 
 export type RepositorySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1211,6 +1563,9 @@ export type RepositorySelectScalar = {
 export type RepositoryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "installationId" | "githubRepoId" | "owner" | "name" | "fullName" | "defaultBranch" | "isPrivate" | "htmlUrl" | "sizeBytes" | "webhookId" | "connectionStatus" | "indexStatus" | "indexedCommitSha" | "indexVersion" | "indexedFileCount" | "skippedFileCount" | "reviewProfile" | "lastIndexedAt" | "indexError" | "settings" | "createdAt" | "updatedAt", ExtArgs["result"]["repository"]>
 export type RepositoryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  files?: boolean | Prisma.Repository$filesArgs<ExtArgs>
+  indexJobs?: boolean | Prisma.Repository$indexJobsArgs<ExtArgs>
+  _count?: boolean | Prisma.RepositoryCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RepositoryIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
@@ -1223,6 +1578,8 @@ export type $RepositoryPayload<ExtArgs extends runtime.Types.Extensions.Internal
   name: "Repository"
   objects: {
     project: Prisma.$ProjectPayload<ExtArgs>
+    files: Prisma.$RepositoryFilePayload<ExtArgs>[]
+    indexJobs: Prisma.$IndexJobPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1644,6 +2001,8 @@ readonly fields: RepositoryFieldRefs;
 export interface Prisma__RepositoryClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   project<T extends Prisma.ProjectDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProjectDefaultArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  files<T extends Prisma.Repository$filesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$filesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepositoryFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  indexJobs<T extends Prisma.Repository$indexJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$indexJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IndexJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2095,6 +2454,54 @@ export type RepositoryDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * Limit how many Repositories to delete.
    */
   limit?: number
+}
+
+/**
+ * Repository.files
+ */
+export type Repository$filesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RepositoryFile
+   */
+  select?: Prisma.RepositoryFileSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RepositoryFile
+   */
+  omit?: Prisma.RepositoryFileOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RepositoryFileInclude<ExtArgs> | null
+  where?: Prisma.RepositoryFileWhereInput
+  orderBy?: Prisma.RepositoryFileOrderByWithRelationInput | Prisma.RepositoryFileOrderByWithRelationInput[]
+  cursor?: Prisma.RepositoryFileWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RepositoryFileScalarFieldEnum | Prisma.RepositoryFileScalarFieldEnum[]
+}
+
+/**
+ * Repository.indexJobs
+ */
+export type Repository$indexJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IndexJob
+   */
+  select?: Prisma.IndexJobSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IndexJob
+   */
+  omit?: Prisma.IndexJobOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IndexJobInclude<ExtArgs> | null
+  where?: Prisma.IndexJobWhereInput
+  orderBy?: Prisma.IndexJobOrderByWithRelationInput | Prisma.IndexJobOrderByWithRelationInput[]
+  cursor?: Prisma.IndexJobWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IndexJobScalarFieldEnum | Prisma.IndexJobScalarFieldEnum[]
 }
 
 /**

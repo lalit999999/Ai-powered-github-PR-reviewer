@@ -6,7 +6,10 @@ const send = vi.fn();
 vi.mock("./client.js", () => ({ inngest: { send } }));
 
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-vi.mock("../lib/logger.js", () => ({ createLogger: () => logSpies }));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => logSpies };
+});
 
 const { emitProjectDeleted, emitRepositoryIndexRequested } = await import("./emit.js");
 

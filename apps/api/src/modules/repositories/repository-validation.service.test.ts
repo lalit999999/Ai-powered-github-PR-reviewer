@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GithubRepositoryMetadata } from "../../github/services/repository.github.js";
+import type { GithubRepositoryMetadata } from "@repo/github";
 import type { RepositoryRecord } from "./repository.types.js";
 
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-vi.mock("../../lib/logger.js", () => ({ createLogger: () => logSpies }));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => logSpies };
+});
 
 const {
   ConflictError,
@@ -151,6 +154,7 @@ describe("step 3 — already connected to THIS project (409)", () => {
       indexedFileCount: 0,
       skippedFileCount: 0,
       lastIndexedAt: null,
+      indexError: null,
       settings: {},
       createdAt: new Date(),
       updatedAt: new Date(),

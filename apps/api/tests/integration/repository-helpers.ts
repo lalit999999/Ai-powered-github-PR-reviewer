@@ -1,6 +1,6 @@
 import { prisma } from "@repo/db";
 import { expect } from "vitest";
-import type { GithubRepositoryMetadata } from "../../src/github/services/repository.github.js";
+import type { GithubRepositoryMetadata } from "@repo/github";
 
 /**
  * Shared setup for the repository-connect integration suite (`repositories.test.ts`)
@@ -63,7 +63,7 @@ export function githubRepoMetadata(overrides: Partial<GithubRepositoryMetadata> 
   };
 }
 
-/** Real GitHub token prefixes — see tests/fixtures/github/README.md for why a fixture
+/** Real GitHub token prefixes — see packages/github/tests/fixtures/github/README.md for why a fixture
  * would never legitimately match this. Used to prove no table holds a minted token. */
 const TOKEN_SHAPE = /gh[aoprsu]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{80,}/;
 

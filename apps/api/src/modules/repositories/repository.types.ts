@@ -63,6 +63,9 @@ export interface RepositoryRecord {
   indexedFileCount: number;
   skippedFileCount: number;
   lastIndexedAt: Date | null;
+  /** Phase 03: `{ code, message }`, or `null` when the last run (if any) did not fail.
+   * See index-job.repository.ts's IndexJobRecord.error for the identical shape. */
+  indexError: unknown;
   settings: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -121,22 +124,94 @@ export interface RepositoryDto {
   indexedCommitSha: string | null;
   indexedFileCount: number;
   lastIndexedAt: string | null;
+  /** Phase 03: see `RepositoryRecord.indexError`'s doc comment. */
+  indexError: unknown;
   createdAt: string;
   updatedAt: string;
 }
 
 /**
- * `GET /api/repositories/:id` response body (phase-02 §7).
+ * An `IndexJob` row as `index-job.repository.ts` returns it — same discipline as
+ * `RepositoryRecord` above: the repository layer imports this shape, never the other
+ * way round.
+ */
+export interface IndexJobRecord {
+  id: string;
+  repositoryId: string;
+  mode: string;
+  status: string;
+  currentStep: string | null;
+  progressPercent: number;
+  filesTotal: number;
+  filesProcessed: number;
+  filesSkipped: number;
+  error: unknown;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+}
+
+/**
+ * `GET /api/repositories/:id`'s `indexJob` field. `status`/`error` are left as the raw
+ * `string`/`unknown` shapes the row carries (`IndexJobStatus`/the `{code,message,step}`
+ * JSON) rather than narrowed here; the client already has `@repo/shared`'s
+ * `IndexJobStatus` union if it wants to narrow client-side, and re-deriving that
+ * narrowing on the API's read path buys nothing a hand-edited row wouldn't just make lie
+ * anyway (same reasoning `toRepositoryDto`'s own `indexStatus: string` field uses).
+ */
+export interface IndexJobSummaryDto {
+  id: string;
+  status: string;
+  currentStep: string | null;
+  progressPercent: number;
+  filesTotal: number;
+  filesProcessed: number;
+  filesSkipped: number;
+  error: unknown;
+}
+
+export function toIndexJobSummaryDto(record: IndexJobRecord): IndexJobSummaryDto {
+  return {
+    id: record.id,
+    status: record.status,
+    currentStep: record.currentStep,
+    progressPercent: record.progressPercent,
+    filesTotal: record.filesTotal,
+    filesProcessed: record.filesProcessed,
+    filesSkipped: record.filesSkipped,
+    error: record.error,
+  };
+}
+
+/**
+ * `GET /api/repositories/:id/index-status` (§7)'s response — deliberately its own,
+ * lighter type rather than reusing `IndexJobSummaryDto`: §7 names exactly these six
+ * fields (no `id`, no `filesSkipped` — both are derivable or unneeded for a cheap poll),
+ * and a repository with no `IndexJob` row yet (see `getIndexStatus`'s own doc comment)
+ * has no real job `id` to report at all — better to not have the field than to fake one.
+ */
+export interface IndexStatusDto {
+  status: string;
+  currentStep: string | null;
+  progressPercent: number;
+  filesTotal: number;
+  filesProcessed: number;
+  error: unknown;
+}
+
+/**
+ * `GET /api/repositories/:id` response body (phase-02 §7, widened in Phase 03).
  *
- * `indexJob` is **always** `null` in this phase — Phase 03 introduces the job model
- * that populates it. The `null` type (rather than `unknown` or an optional field) is
- * deliberate and is the same trick `ProjectDetail.repositories: never[]` used to force
- * this phase's hand: widening it in Phase 03 is a **compile error** at every call
- * site, not a silent no-op that ships an always-null field forever.
+ * `indexJob` was **always** `null` before this phase — the literal `null` type (rather
+ * than `unknown` or an optional field) was deliberate, forcing this exact widening to be
+ * a **compile error** at every call site rather than a silent no-op
+ * (`docs/decisions/phase-02-log.md` §26). `null` remains a real value here: a repository
+ * that has never had an index run (freshly connected, before `repository/index.requested`
+ * is even processed) has no `IndexJob` row to summarize yet.
  */
 export interface RepositoryDetail {
   repository: RepositoryDto;
-  indexJob: null;
+  indexJob: IndexJobSummaryDto | null;
 }
 
 /** Narrows a `connectionStatus` column value read back from Postgres, falling back to
@@ -164,6 +239,7 @@ export function toRepositoryDto(record: RepositoryRecord): RepositoryDto {
     indexedCommitSha: record.indexedCommitSha,
     indexedFileCount: record.indexedFileCount,
     lastIndexedAt: record.lastIndexedAt?.toISOString() ?? null,
+    indexError: record.indexError,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };

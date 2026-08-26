@@ -292,7 +292,29 @@ export const listInstallationReposQuerySchema = z.object({
     .transform((value) => (value !== undefined && value.length > 0 ? value : undefined)),
 });
 
+/**
+ * `POST /api/repositories/:id/index` body (phase-03 §7).
+ *
+ * `"INCREMENTAL"` is accepted by the schema — the client can send it and get a real,
+ * field-level validation error back, rather than the request never having named it as a
+ * legal value at all — but is rejected with 400 until Phase 14 implements it (`plan.md`
+ * §2.1/§47). This is an explicit, tested branch (`repository.schema.test.ts`), not an
+ * accident of `z.literal("FULL")` happening to reject everything else.
+ */
+export const INCREMENTAL_NOT_SUPPORTED_MESSAGE = 'Incremental indexing is not yet supported — use mode: "FULL"';
+
+export const triggerIndexBodySchema = z
+  .object({
+    mode: z.enum(["FULL", "INCREMENTAL"], 'mode must be "FULL" or "INCREMENTAL"'),
+  })
+  .superRefine((value, ctx) => {
+    if (value.mode === "INCREMENTAL") {
+      ctx.addIssue({ code: "custom", message: INCREMENTAL_NOT_SUPPORTED_MESSAGE, path: ["mode"] });
+    }
+  });
+
 export type ConnectRepositoryBody = z.infer<typeof connectRepositoryBodySchema>;
 export type RepositoryIdParam = z.infer<typeof repositoryIdParamSchema>;
 export type InstallationIdParam = z.infer<typeof installationIdParamSchema>;
 export type ListInstallationReposQuery = z.infer<typeof listInstallationReposQuerySchema>;
+export type TriggerIndexBody = z.infer<typeof triggerIndexBodySchema>;

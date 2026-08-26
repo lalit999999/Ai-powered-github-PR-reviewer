@@ -1,6 +1,7 @@
 import "dotenv/config";
+import { initGithubClient } from "@repo/github";
+import { createLogger } from "@repo/observability";
 import { ConfigError, loadConfig, type Config } from "../lib/config.js";
-import { createLogger } from "../lib/logger.js";
 
 function loadConfigOrExit(): Config {
   try {
@@ -15,3 +16,7 @@ function loadConfigOrExit(): Config {
 }
 
 export const env = loadConfigOrExit();
+
+// See apps/api/src/config/env.ts's identical call — @repo/github never reads
+// process.env itself (docs/decisions/phase-03-log.md, sub-task 1.1).
+initGithubClient({ appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY, redisUrl: env.REDIS_URL });

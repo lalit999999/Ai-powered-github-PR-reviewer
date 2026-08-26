@@ -1,5 +1,5 @@
 import { Middleware } from "inngest";
-import { generateTraceId, runWithTraceContext } from "../../lib/tracing.js";
+import { createLogger, generateTraceId, runWithTraceContext } from "@repo/observability";
 
 /**
  * Attaches a traceId to each function run via AsyncLocalStorage, exactly like
@@ -20,6 +20,8 @@ import { generateTraceId, runWithTraceContext } from "../../lib/tracing.js";
  * code outside any step gets it from `wrapFunctionHandler`, and step callback bodies
  * get it re-established by `wrapStepHandler`, with the exact same value either way.
  */
+const logger = createLogger("inngest.step");
+
 export class LoggingMiddleware extends Middleware.BaseMiddleware {
   readonly id = "logging";
   private readonly traceId = generateTraceId();
@@ -28,7 +30,34 @@ export class LoggingMiddleware extends Middleware.BaseMiddleware {
     return runWithTraceContext({ traceId: this.traceId }, () => next());
   }
 
-  override async wrapStepHandler({ next }: Middleware.WrapStepHandlerArgs): Promise<unknown> {
-    return runWithTraceContext({ traceId: this.traceId }, () => next());
+  /**
+   * phase-03 §20: "every step of repository-index logs ... step duration." Timed here,
+   * once, for every step of every Inngest function — not duplicated inside
+   * `repository-index.ts` itself — since this hook already wraps every `step.run` call
+   * server-wide (see this class's own header comment on why two hooks exist at all).
+   *
+   * **Only a genuinely-executed step logs a duration; a memoized replay does not.**
+   * `stepInfo.memoized` distinguishes "this step's result came from cached state" from
+   * "this step's callback actually ran just now" — logging `durationMs: 0` (or a
+   * meaningless number) for every replayed step on every retry would be misleading, and
+   * would multiply log volume by however many times a function has been retried so far
+   * for no informational gain.
+   */
+  override async wrapStepHandler({ next, stepInfo }: Middleware.WrapStepHandlerArgs): Promise<unknown> {
+    return runWithTraceContext({ traceId: this.traceId }, async () => {
+      if (stepInfo.memoized) {
+        return next();
+      }
+      const startedAt = Date.now();
+      try {
+        return await next();
+      } finally {
+        logger.info("step completed", {
+          stepId: stepInfo.options.id,
+          stepType: stepInfo.stepType,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    });
   }
 }

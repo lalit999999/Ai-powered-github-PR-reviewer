@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { DbUnavailableError } from "../lib/errors.js";
-import { getTraceId } from "../lib/tracing.js";
+import { getTraceId } from "@repo/observability";
 import { pingDatabase } from "../modules/health/health.repository.js";
 
 /**

@@ -98,7 +98,7 @@ export async function listByUser(userId: string, options: ListByUserOptions): Pr
  * probe that ignored deleted rows would propose a slug the database then rejects.
  */
 export async function findSlugsForUserByPrefix(userId: string, prefix: string): Promise<string[]> {
-  const rows = await prisma.project.findMany({
+  const rows: { slug: string }[] = await prisma.project.findMany({
     where: { userId, slug: { startsWith: prefix } },
     select: { slug: true },
   });

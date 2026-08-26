@@ -59,7 +59,53 @@ export type RepositoryIndexRequestedData = {
   projectId: string;
   repositoryId: string;
   mode: "FULL";
-  reason: "connected";
+  /** `"connected"` — `repositoryService.connectRepository` (Phase 02). `"manual"` —
+   * `POST /api/repositories/:id/index` (Phase 03 §7, `repositoryService.triggerIndex`).
+   * `"sweep"` — `stale-index-sweeper` (Phase 03, `apps/worker`'s own cron function,
+   * `plan.md` §27.2), re-requesting an index for a repository stuck `PENDING` because
+   * its original `"connected"` event was dropped — the resolution to `emit.ts`'s
+   * `TODO(phase-03)`; see that file and docs/decisions/phase-03-log.md. Phase 06 adds
+   * `"webhook"`, per this field's original forward-declared comment. */
+  reason: "connected" | "manual" | "sweep";
+  /**
+   * Phase 03 addition. `POST /api/repositories/:id/index` must return `{ indexJobId }`
+   * synchronously (§7) — before the worker's own step 1 has run and created the row —
+   * so the API pre-generates the id and the worker's `createIndexJob` adopts it instead
+   * of generating its own. Absent on the `"connected"` path: `connectRepository` has no
+   * synchronous caller waiting on a job id (§7's connect response is just
+   * `{ repository }`), so there is nothing to pre-allocate for. See
+   * docs/decisions/phase-03-log.md for the full argument, including the narrow,
+   * accepted race this creates (the pre-allocated id can go unused if this run loses
+   * the lock to a concurrent one — cosmetic, since neither route requires the client to
+   * poll *by* this id; both poll `/index-status`, which is scoped to the repository).
+   */
+  indexJobId?: string;
+};
+
+/**
+ * Phase 03 §8/§10 ("Emit repository.indexed — no consumer until Phase 04/07"). The
+ * terminal step of `repository-index` emits this once `Repository.indexStatus` has
+ * moved to `INDEXED` (this phase's limited sense — see phase-03-repository-indexing.md
+ * §1) and the row is committed. As with the two forward-declared events above, no
+ * function in this phase consumes it — Phase 04 (knowledge graph) and Phase 07
+ * (PR ingestion, "waiting reviews" in `plan.md` §27.1's own table) are its real
+ * consumers, and the payload is settled now specifically so neither has to renegotiate
+ * it later.
+ *
+ * `projectId` rides along for the same reason `RepositoryIndexRequestedData`'s own
+ * payload does (see its doc comment) — a consumer scoping work to a tenant should not
+ * need a database round trip just to learn which one. `fileCount`/`durationMs` are
+ * `plan.md` §27.1's own named fields for this event: cheap summary stats a
+ * UI-invalidation consumer wants without re-querying `IndexJob`.
+ */
+export const REPOSITORY_INDEXED = "repository/indexed";
+
+export type RepositoryIndexedData = {
+  projectId: string;
+  repositoryId: string;
+  commitSha: string;
+  fileCount: number;
+  durationMs: number;
 };
 
 /**
@@ -73,6 +119,7 @@ export type RepositoryIndexRequestedData = {
 export type EventRegistry = {
   "project/deleted": { data: ProjectDeletedData };
   "repository/index.requested": { data: RepositoryIndexRequestedData };
+  "repository/indexed": { data: RepositoryIndexedData };
 };
 
 /** Event names as a union — useful anywhere a name must be one of the declared events. */

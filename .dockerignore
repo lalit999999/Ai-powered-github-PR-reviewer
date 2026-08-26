@@ -1,0 +1,30 @@
+# Dockerfile.worker uses `turbo prune --docker` (stage 1) to compute exactly which
+# files matter, so this list is a coarse first pass — excluding the obviously-irrelevant
+# bulk (node_modules, build output, git history) before that stage even runs, so the
+# initial `COPY . .` into the pruner stage is fast and the build context isn't enormous.
+
+node_modules
+**/node_modules
+
+.git
+.gitignore
+
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/generated
+
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+
+.claude
+.agents
+.windsurf
+plan/
+docs/
+README.md

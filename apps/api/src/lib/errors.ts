@@ -89,6 +89,17 @@ export class ServiceUnavailableError extends AppError {
   readonly httpStatus = 503;
 }
 
+/**
+ * Phase 03 §7/§28: `POST /api/repositories/:id/index`'s 10/hour/repository limit. The
+ * first 429 this codebase throws — every prior route's failures were genuinely
+ * 400/403/404/409/422/503. `details.retryAfterSeconds`, when known, lets a client show
+ * "try again in N minutes" instead of a bare rejection.
+ */
+export class TooManyRequestsError extends AppError {
+  readonly code = "RATE_LIMITED";
+  readonly httpStatus = 429;
+}
+
 /** Distinct from ServiceUnavailableError so /api/health (and any future dependency
  * check) can report the specific cause per phase-00 §7/§12: `{"code": "DB_UNAVAILABLE"}`. */
 export class DbUnavailableError extends AppError {
@@ -97,35 +108,16 @@ export class DbUnavailableError extends AppError {
 }
 
 /**
- * Phase 02 §11/§12. A GitHub App installation token mint came back **401**: the
- * installation was revoked, deleted, or suspended. Deliberately its own class rather
- * than a plain ForbiddenError, because the service layer keys the
- * `connectionStatus → ACCESS_LOST` transition off exactly this case and must not
- * confuse it with "this user may not touch this project" (a tenancy 403) or with
- * "the App is rate limited" (GithubRateLimitError below).
- *
- * Never retried — a revoked installation does not become un-revoked by trying again.
- * The transition itself belongs to the service layer (Prompt 2 of this phase) and is
- * only fully exercised once Phase 03 has background work that can fail.
+ * `GithubAccessRevokedError` and `GithubRateLimitError` moved to `@repo/github` in
+ * Phase 03 (sub-task 1.1) when the GitHub client became a shared package — they are
+ * constructed only inside that package's `app-auth.ts` and were never caught by name
+ * anywhere in apps/api (every call site classifies the failure via `github-result.ts`'s
+ * duck-typed `classifyGithubError` first). `@repo/github` defines its own minimal error
+ * base rather than extending this file's `AppError`, since a package cannot depend on
+ * the app that consumes it — see docs/decisions/phase-03-log.md for the full argument,
+ * including why `@repo/github`'s own `ServiceUnavailableError` deliberately shares a
+ * name with the class below without being related to it.
  */
-export class GithubAccessRevokedError extends AppError {
-  readonly code = "GITHUB_ACCESS_REVOKED";
-  readonly httpStatus = 403;
-}
-
-/**
- * Phase 02 §12/§14. GitHub answered 403/429 with rate-limit headers. Distinct from
- * GithubAccessRevokedError above — §14 requires that a rate-limited response is
- * "a scheduled retry, not an immediate failure", and never mistaken for revocation.
- *
- * 503 rather than 429: the exhausted budget is *ours* against GitHub, not the calling
- * user's against this API, so telling the client "you are sending too many requests"
- * would be wrong. `details.retryAfterSeconds` carries the wait when GitHub stated one.
- */
-export class GithubRateLimitError extends AppError {
-  readonly code = "GITHUB_RATE_LIMITED";
-  readonly httpStatus = 503;
-}
 
 export class InternalError extends AppError {
   readonly code = "INTERNAL_ERROR";

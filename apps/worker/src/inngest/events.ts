@@ -1,8 +1,10 @@
 import {
   PROJECT_DELETED,
+  REPOSITORY_INDEXED,
   REPOSITORY_INDEX_REQUESTED,
   type EventRegistry,
   type ProjectDeletedData,
+  type RepositoryIndexedData,
   type RepositoryIndexRequestedData,
 } from "@repo/shared";
 import { eventType, staticSchema } from "inngest";
@@ -13,11 +15,11 @@ import { eventType, staticSchema } from "inngest";
  * `apps/api`, which *sends* these events, and this worker, which *consumes* them,
  * cannot drift apart. Extended per phase, never redesigned.
  *
- * `internal/noop.ping` (Phase 00's diagnostic-only trigger) is deliberately not part
- * of this registry: it's test-only and never sent in production. Phase 00 said to
- * delete it "once Phase 02 introduces the first real event" — Phase 02 introduces the
- * event but no function that *consumes* one, so the deletion moves to Phase 03. See
- * functions/noop.ts for the reasoning.
+ * `internal/noop.ping` (Phase 00's diagnostic-only trigger) no longer has any
+ * representation here or anywhere else in the worker — `functions/noop.ts` and its
+ * registration in `app.ts` are deleted in Phase 03, now that `repository-index`
+ * (registered below) proves the worker is discoverable better than the noop ever could
+ * (see functions/repository-index.ts and docs/decisions/phase-03-log.md).
  */
 export type Events = EventRegistry;
 
@@ -40,17 +42,23 @@ export const projectDeleted = eventType(PROJECT_DELETED, {
 });
 
 /**
- * Phase 02 §8: `repository/index.requested`, defined with **no function consuming it**.
- *
- * Same forward-declaration pattern as `projectDeleted` above, and for the same reason:
- * the payload shape is settled here so Phase 03's `repository-index` function can be
- * written against a contract that already exists rather than negotiating one at that
- * point. Registering the *type* costs nothing and drifts nowhere; registering a
- * function would be Phase 03's work done early and badly.
- *
- * The acceptance signal for this phase is the event appearing in the Inngest Dev Server
- * UI with the right payload after a connect — precisely because nothing consumes it.
+ * Phase 02 §8: `repository/index.requested`. **Phase 03 is the first function to
+ * consume it** — `functions/repository-index.ts` triggers on this exact `eventType`,
+ * which is why the forward declaration existed at all: the payload shape was settled
+ * two phases before anything read it, so nothing had to renegotiate it now.
  */
 export const repositoryIndexRequested = eventType(REPOSITORY_INDEX_REQUESTED, {
   schema: staticSchema<RepositoryIndexRequestedData>(),
+});
+
+/**
+ * Phase 03 §8/§10: `repository/indexed`, defined with **no function consuming it** —
+ * the same forward-declaration pattern as `projectDeleted` above. `repository-index.ts`
+ * emits it as its final step; Phase 04 (knowledge graph) and Phase 07 (PR ingestion)
+ * are its real consumers. The acceptance signal for this phase is the same as it was
+ * for `repository/index.requested` two phases ago: the event appearing in the Inngest
+ * Dev Server UI with the right payload, because nothing consumes it yet.
+ */
+export const repositoryIndexed = eventType(REPOSITORY_INDEXED, {
+  schema: staticSchema<RepositoryIndexedData>(),
 });

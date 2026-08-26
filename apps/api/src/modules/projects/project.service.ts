@@ -1,6 +1,6 @@
 import type { OwnerContext, TenantContext } from "../../lib/auth/tenant-access.js";
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
-import { createLogger } from "../../lib/logger.js";
+import { createLogger } from "@repo/observability";
 import { emitProjectDeleted } from "../../inngest/emit.js";
 import * as repositoryService from "../repositories/repository.service.js";
 import * as projectRepository from "./project.repository.js";

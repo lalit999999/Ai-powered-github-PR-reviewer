@@ -9,6 +9,20 @@
 * 🟢 You can import this file directly.
 */
 
+export const FileClassification = {
+  SOURCE: 'SOURCE',
+  TEST: 'TEST',
+  CONFIG: 'CONFIG',
+  GENERATED: 'GENERATED',
+  DEPENDENCY_LOCK: 'DEPENDENCY_LOCK',
+  DOCUMENTATION: 'DOCUMENTATION',
+  ASSET: 'ASSET',
+  UNKNOWN: 'UNKNOWN'
+} as const
+
+export type FileClassification = (typeof FileClassification)[keyof typeof FileClassification]
+
+
 export const IndexStatus = {
   PENDING: 'PENDING',
   INDEXING: 'INDEXING',

@@ -14,7 +14,14 @@
       "dependsOn": ["^check-types"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      // Phase 03: @repo/db, @repo/github, @repo/observability, and @repo/shared now
+      // ship compiled dist/ output (gitignored, not committed — see
+      // docs/decisions/phase-03-log.md) rather than raw .ts source, so apps/api and
+      // apps/worker's own typecheck needs that output to exist first. `^build` (not
+      // `^typecheck`, which none of those packages define) is what actually produces it;
+      // turbo caches the result, so this only costs real time after a genuine source
+      // change, not on every invocation.
+      "dependsOn": ["^build", "^typecheck"]
     },
     "dev": {
       "cache": false,
@@ -28,9 +35,15 @@
     "test": {
       "dependsOn": ["^build"]
     },
-    "test:unit": {},
+    "test:unit": {
+      // Same reasoning as typecheck above — vitest's resolver reads package.json
+      // `exports` too, so a package's tests importing @repo/db/github/observability/
+      // shared need those packages' dist/ output to exist.
+      "dependsOn": ["^build"]
+    },
     "test:integration": {
-      "cache": false
+      "cache": false,
+      "dependsOn": ["^build"]
     },
     "db:generate": {
       "cache": false

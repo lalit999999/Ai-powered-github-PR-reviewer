@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GithubRepositoryMetadata } from "../../github/services/repository.github.js";
+import type { GithubRepositoryMetadata } from "@repo/github";
 import type { InstallationRecord, RepositoryRecord } from "./repository.types.js";
 
 /**
  * The seams: the two repository files (they own the Prisma import), the two GitHub
- * service wrappers, and emit.ts. All hoisted above the imports below, so neither
- * @repo/db, the config module, nor a socket is ever touched.
+ * service wrappers, emit.ts, and — Phase 03 — index-job.repository.ts (Prisma) and
+ * rate-limit.ts (Redis, via lib/redis.ts's own real `config/env.js` import — mocked
+ * directly here rather than letting the test reach `lib/redis.ts` for real, matching
+ * emit.js's own treatment). All hoisted above the imports below, so neither @repo/db,
+ * the config module, nor a socket is ever touched.
+ *
+ * `@repo/github` is mocked with `importOriginal` — a narrow replacement broke the moment
+ * this file started transitively reaching `lib/config.ts` (via `lib/rate-limit.js` in a
+ * naive first draft), which imports `githubAppPrivateKeySchema` from this same package;
+ * see docs/decisions/phase-03-log.md, and phase-03-log.md's Prompt 1 section for the
+ * identical `@repo/observability` lesson this repeats.
  */
 vi.mock("./repository.repository.js", () => ({
   findByIdForProject: vi.fn(),
@@ -21,32 +30,43 @@ vi.mock("./installation.repository.js", () => ({
   findInstallationForUser: vi.fn(),
   findGithubAccessToken: vi.fn(),
 }));
-vi.mock("../../github/services/installation.github.js", () => ({
-  listUserInstallations: vi.fn(),
-  listInstallationRepositories: vi.fn(),
-}));
-vi.mock("../../github/services/repository.github.js", () => ({
-  getRepository: vi.fn(),
-  probeBranch: vi.fn(),
+vi.mock("./index-job.repository.js", () => ({ findLatestForRepository: vi.fn() }));
+vi.mock("../../lib/rate-limit.js", () => ({ checkRateLimit: vi.fn() }));
+vi.mock("@repo/github", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@repo/github")>()),
+  installationGithub: {
+    listUserInstallations: vi.fn(),
+    listInstallationRepositories: vi.fn(),
+  },
+  repositoryGithub: {
+    getRepository: vi.fn(),
+    probeBranch: vi.fn(),
+  },
 }));
 vi.mock("../../inngest/emit.js", () => ({ emitRepositoryIndexRequested: vi.fn() }));
 
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-vi.mock("../../lib/logger.js", () => ({ createLogger: () => logSpies }));
+vi.mock("@repo/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/observability")>();
+  return { ...actual, createLogger: () => logSpies };
+});
 
 const repositoryRepository = await import("./repository.repository.js");
 const installationRepository = await import("./installation.repository.js");
-const installationGithub = await import("../../github/services/installation.github.js");
-const repositoryGithub = await import("../../github/services/repository.github.js");
+const indexJobRepository = await import("./index-job.repository.js");
+const { checkRateLimit } = await import("../../lib/rate-limit.js");
+const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { emitRepositoryIndexRequested } = await import("../../inngest/emit.js");
-const { ConflictError, ForbiddenError, ServiceUnavailableError, UnauthenticatedError, UnprocessableEntityError } =
+const { ConflictError, ForbiddenError, InternalError, ServiceUnavailableError, TooManyRequestsError, UnauthenticatedError, UnprocessableEntityError } =
   await import("../../lib/errors.js");
 const {
   connectRepository,
   disconnectRepository,
+  getIndexStatus,
   getRepositoryDetail,
   listInstallationRepositories,
   syncInstallations,
+  triggerIndex,
 } = await import("./repository.service.js");
 
 const USER_ID = "user-a";
@@ -68,6 +88,8 @@ const mockedFindByPair = vi.mocked(repositoryRepository.findByProjectAndGithubRe
 const mockedCreate = vi.mocked(repositoryRepository.create);
 const mockedMarkDisconnected = vi.mocked(repositoryRepository.markDisconnected);
 const mockedFindByIdForProject = vi.mocked(repositoryRepository.findByIdForProject);
+const mockedFindLatestIndexJob = vi.mocked(indexJobRepository.findLatestForRepository);
+const mockedCheckRateLimit = vi.mocked(checkRateLimit);
 
 function installationRow(overrides: Partial<InstallationRecord> = {}): InstallationRecord {
   return {
@@ -119,6 +141,7 @@ function repositoryRow(overrides: Partial<RepositoryRecord> = {}): RepositoryRec
     indexedFileCount: 0,
     skippedFileCount: 0,
     lastIndexedAt: null,
+    indexError: null,
     settings: {},
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -394,14 +417,52 @@ describe("connectRepository — the same repository under a DIFFERENT project (�
   });
 });
 
+function indexJobRow(overrides: Partial<Awaited<ReturnType<typeof indexJobRepository.findLatestForRepository>>> = {}) {
+  return {
+    id: "job-1",
+    repositoryId: "repo-1",
+    mode: "FULL",
+    status: "RUNNING",
+    currentStep: "extract-filter-hash",
+    progressPercent: 35,
+    filesTotal: 0,
+    filesProcessed: 0,
+    filesSkipped: 0,
+    error: null,
+    startedAt: new Date("2026-01-01T00:00:00.000Z"),
+    completedAt: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
 describe("getRepositoryDetail", () => {
-  it("returns the DTO with indexJob null until Phase 03", async () => {
+  it("returns indexJob null when the repository has never had an index job", async () => {
     mockedFindByIdForProject.mockResolvedValue(repositoryRow());
+    mockedFindLatestIndexJob.mockResolvedValue(null);
 
     const detail = await getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" });
 
     expect(detail.indexJob).toBeNull();
     expect(detail.repository.id).toBe("repo-1");
+  });
+
+  it("returns the latest IndexJob summarized as indexJob", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow());
+    mockedFindLatestIndexJob.mockResolvedValue(indexJobRow());
+
+    const detail = await getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(detail.indexJob).toEqual({
+      id: "job-1",
+      status: "RUNNING",
+      currentStep: "extract-filter-hash",
+      progressPercent: 35,
+      filesTotal: 0,
+      filesProcessed: 0,
+      filesSkipped: 0,
+      error: null,
+    });
   });
 
   it("re-reads through the project-scoped query rather than trusting the tenancy proof", async () => {
@@ -418,6 +479,103 @@ describe("getRepositoryDetail", () => {
     await expect(getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({
       httpStatus: 404,
     });
+  });
+});
+
+describe("getIndexStatus (§7 — the cheap polling endpoint)", () => {
+  it("falls back to the Repository row's own indexStatus/indexError when no IndexJob exists yet", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "PENDING", indexError: null }));
+    mockedFindLatestIndexJob.mockResolvedValue(null);
+
+    const status = await getIndexStatus({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(status).toEqual({
+      status: "PENDING",
+      currentStep: null,
+      progressPercent: 0,
+      filesTotal: 0,
+      filesProcessed: 0,
+      error: null,
+    });
+  });
+
+  it("returns the latest IndexJob's fields, and only the six §7 names (no id, no filesSkipped)", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow());
+    mockedFindLatestIndexJob.mockResolvedValue(indexJobRow({ filesTotal: 100, filesProcessed: 60, filesSkipped: 10 }));
+
+    const status = await getIndexStatus({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(status).toEqual({
+      status: "RUNNING",
+      currentStep: "extract-filter-hash",
+      progressPercent: 35,
+      filesTotal: 100,
+      filesProcessed: 60,
+      error: null,
+    });
+    expect(status).not.toHaveProperty("id");
+    expect(status).not.toHaveProperty("filesSkipped");
+  });
+
+  it("404s if the repository vanished", async () => {
+    mockedFindByIdForProject.mockResolvedValue(null);
+
+    await expect(getIndexStatus({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({ httpStatus: 404 });
+  });
+});
+
+describe("triggerIndex (§7 — POST /index)", () => {
+  beforeEach(() => {
+    mockedCheckRateLimit.mockResolvedValue({ allowed: true });
+  });
+
+  it("emits repository/index.requested with a pre-allocated indexJobId and returns it", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "PENDING" }));
+
+    const result = await triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" });
+
+    expect(result.indexJobId).toEqual(expect.any(String));
+    expect(emitRepositoryIndexRequested).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      repositoryId: "repo-1",
+      mode: "FULL",
+      reason: "manual",
+      indexJobId: result.indexJobId,
+    });
+  });
+
+  it("409s when the repository is already indexing", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "INDEXING" }));
+
+    await expect(triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" })).rejects.toMatchObject({
+      httpStatus: 409,
+    });
+    expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
+  });
+
+  it("429s when the rate limit rejects, carrying retryAfterSeconds in details", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "PENDING" }));
+    mockedCheckRateLimit.mockResolvedValue({ allowed: false, retryAfterSeconds: 1800 });
+
+    await expect(triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" })).rejects.toBeInstanceOf(TooManyRequestsError);
+    expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
+    // Repository lookup must not even run once the rate limit has already rejected.
+    expect(mockedFindByIdForProject).not.toHaveBeenCalled();
+  });
+
+  it("404s if the repository vanished", async () => {
+    mockedFindByIdForProject.mockResolvedValue(null);
+
+    await expect(triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" })).rejects.toMatchObject({
+      httpStatus: 404,
+    });
+  });
+
+  it("rejects a non-FULL mode defensively, even though the schema layer already rejects it", async () => {
+    await expect(
+      triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "INCREMENTAL" as "FULL" }),
+    ).rejects.toBeInstanceOf(InternalError);
+    expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
   });
 });
 
