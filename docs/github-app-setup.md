@@ -27,7 +27,7 @@ account for a personal test App, or under the organization that should own it).
 | **Homepage URL** | The deployed `apps/web` origin (locally: `http://localhost:3000`). |
 | **Callback URL** | `$AUTH_URL/api/auth/callback/github` — the *same* value the OAuth App uses. Only needed if "Request user authorization (OAuth) during installation" is ticked; leave that **unticked**, since sign-in already goes through the Phase 01 OAuth App. |
 | **Setup URL** (optional) | Where GitHub sends the user after they install. Point it at the projects page, e.g. `$FRONTEND_URL/projects`. |
-| **Webhook → Active** | ✅ **Yes.** Configure it now even though nothing receives it yet — see [The webhook 404s until Phase 06](#the-webhook-404s-until-phase-06). |
+| **Webhook → Active** | ✅ **Yes.** Phase 06 built the receiving endpoint — see [Webhook delivery](#webhook-delivery). |
 | **Webhook URL** | `$API_ORIGIN/api/webhooks/github` (locally, a tunnel URL — see below). |
 | **Webhook secret** | Generate with `openssl rand -hex 32`. This becomes `GITHUB_APP_WEBHOOK_SECRET`. |
 | **Where can this App be installed?** | "Any account" if it will serve other users; "Only on this account" for a personal test App. |
@@ -55,13 +55,13 @@ Under **Subscribe to events**, tick:
 
 | Event | Needed by | Notes |
 |---|---|---|
-| `Installation` | Phase 06 | App installed, uninstalled, suspended, unsuspended. |
-| `Installation repositories` | Phase 06 | Repositories added to / removed from an existing installation. |
-| `Pull request` | Phase 06/07 | Opened, synchronize, reopened, closed — the trigger for a review. |
-| `Pull request review comment` | Phase 13 | Needed once the bot participates in review threads. |
+| `Installation` | Phase 06 | App installed, uninstalled, suspended, unsuspended — handled live. |
+| `Installation repositories` | Phase 06 | Repositories added to / removed from an existing installation — handled live. |
+| `Pull request` | Phase 06/07 | Opened, synchronize, reopened, closed — Phase 06 dispatches the event, Phase 07 reviews. |
+| `Pull request review comment` | Phase 13 | Subscribed now; not yet handled — see `docs/webhooks.md`'s "deliberately out of scope" section. |
 
-Nothing consumes any of these until Phase 06. Subscribing now means the App's
-configuration does not have to be revisited then.
+Every event above except `Pull request review comment` has a live handler as of Phase 06
+— see [`docs/webhooks.md`](./webhooks.md) for the full event/action matrix.
 
 ## 4. Download the private key
 
@@ -112,19 +112,24 @@ nothing to authenticate as.
 
 ---
 
-## The webhook 404s until Phase 06
+## Webhook delivery
 
-The webhook is configured in Phase 02 but the receiving endpoint
-(`/api/webhooks/github`) is not built until **Phase 06**. Between those two phases,
-GitHub will attempt deliveries to a URL that returns 404, and the App's **Advanced →
-Recent Deliveries** tab will show a column of red failures.
+The webhook is configured in Phase 02, and the receiving endpoint
+(`POST /api/webhooks/github`) was built in Phase 06 — point the **Webhook URL** at
+`$API_ORIGIN/api/webhooks/github` and deliveries are received, verified, and either
+dispatched or synced. See [`docs/webhooks.md`](./webhooks.md) for the full event/action
+matrix, the `WebhookEvent` audit ledger, and what a spike in signature-rejection logs
+means operationally.
 
-**This is expected and documented** (phase-02 §1), not a bug to debug. GitHub retries
-failed deliveries, nothing in Phases 02–05 depends on delivery succeeding, and Phase 06
-turns the same configuration live without any change here.
+Historical note, for anyone reading an old deployment's **Advanced → Recent Deliveries**
+tab: between Phase 02 (webhook configured) and Phase 06 (endpoint built), deliveries
+against this URL 404'd. That was expected and documented at the time (phase-02 §1), not a
+bug — GitHub retries, and nothing in Phases 02–05 depended on delivery succeeding.
 
-Until Phase 06 ships, installations are synced by an explicit `GET /user/installations`
-call on page load rather than by webhook (phase-02 §10).
+`GET /api/github/installations`'s page-load sync (phase-02 §10) is no longer standing in
+for the missing webhook receiver — it is now the **attribution** path only (which signed-in
+user owns an installation); see `docs/webhooks.md` and `installation-sync.ts`'s own header
+comment for why a webhook payload alone can never answer that question.
 
 ## One App per environment
 
@@ -138,11 +143,13 @@ secret.
 
 ## Local development and webhooks
 
-`localhost` is not reachable from GitHub. Until Phase 06 there is nothing to receive
-deliveries anyway, so the simplest local setup is to point the webhook URL at a
-placeholder (`http://localhost:4000/api/webhooks/github`) and ignore the failures. When
-Phase 06 arrives, front it with a tunnel (`cloudflared`, `ngrok`, or similar) and update
-the App's webhook URL to the tunnel's hostname.
+`localhost` is not reachable from GitHub, so real deliveries need a tunnel
+(`cloudflared`, `ngrok`, or similar) in front of `apps/api`, with the App's webhook URL
+pointed at the tunnel's hostname plus `/api/webhooks/github`. Without a tunnel, the
+simplest local setup is to leave the webhook URL at a placeholder
+(`http://localhost:4000/api/webhooks/github`) and ignore the resulting delivery failures
+— `docs/webhooks.md`'s §14 verification steps show what to insert directly via Prisma to
+exercise the sweeper and the panel without a real delivery at all.
 
 ## A note on CI
 
