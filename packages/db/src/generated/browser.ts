@@ -48,6 +48,16 @@ export type RepositoryFile = Prisma.RepositoryFileModel
  */
 export type IndexJob = Prisma.IndexJobModel
 /**
+ * Model WebhookEvent
+ * 
+ */
+export type WebhookEvent = Prisma.WebhookEventModel
+/**
+ * Model PullRequest
+ * 
+ */
+export type PullRequest = Prisma.PullRequestModel
+/**
  * Model Account
  * 
  */

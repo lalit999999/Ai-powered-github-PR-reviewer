@@ -139,6 +139,7 @@ model Repository {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   files   RepositoryFile[]
   indexJobs IndexJob[]
+  pullRequests PullRequest[]
 
   @@unique([projectId, githubRepoId])
   @@index([githubRepoId])
@@ -240,6 +241,109 @@ enum IndexStatus {
   UPDATING
   FAILED
   PARTIAL
+}
+
+// Phase 06 (phase-06-webhook-ingestion.md §6). One row per GitHub webhook delivery this
+// endpoint has verified and accepted — the audit ledger for `POST /api/webhooks/github`
+// and the record the sweeper (Prompt 4) re-drives on a stuck dispatch. Rows are written
+// for every allow-listed event/action (apps/api/src/modules/webhooks/event-allowlist.ts);
+// an unknown `X-GitHub-Event` gets a 200 and a warn log, never a row — see that file's
+// own comment for why "rejected" in §4 Security means "no row, no dispatch", not a
+// non-2xx status.
+//
+// `status` is a plain `String`, not a Postgres enum — the same asymmetry
+// `Repository.connectionStatus` already has next to the real `IndexStatus` enum
+// (docs/decisions/phase-02-log.md §5), and `IndexJob.status` repeats it (phase-03 §6).
+// Introducing a fourth, enum-backed style for this table's status column would be a
+// second convention to reconcile against the two the codebase already settled on for
+// exactly this shape of field; the legal values are pinned instead as
+// `WebhookEventStatus` in `@repo/shared`'s `webhooks.ts`.
+//
+// `@@index([repositoryFullName, createdAt(sort: Desc)])` is **not** in phase-06 §6's own
+// Prisma block. It is added because the recent-deliveries endpoint (Prompt 4) queries
+// exactly `WHERE repositoryFullName = ? ORDER BY createdAt DESC`, and this table is an
+// append-only audit ledger that only grows — an unindexed `ORDER BY ... DESC` over that
+// shape is a latency regression waiting to happen in production, not a hypothetical.
+//
+// **Deliberately has no `repositoryId` and no relation to `Repository`.** A single
+// webhook delivery (say, an `installation_repositories` event) can fan out to several
+// repositories, and those repositories can belong to different projects — a `Repository`
+// row is a (project, githubRepo) pair, so a single FK on this table would be a lie the
+// moment more than one repository is affected. `repositoryFullName` (nullable — some
+// event types, like `installation`, have none) is the routing key the fan-out is keyed
+// on instead; the standalone `@@index([githubRepoId])` on `Repository` (added in Phase
+// 02 specifically for this) is what the router uses to resolve it to every matching row.
+//
+// `payloadRef String?` is declared exactly as phase-06 §6 has it — "a blob storage
+// pointer, 30-day TTL" — and left **always null** in this phase. No blob/object storage
+// exists anywhere in this system yet, and building one is out of scope for webhook
+// ingestion; this follows the same "declare a later-phase field now, populate it later"
+// pattern `Repository.indexedCommitSha`/`reviewProfile`/etc. already use
+// (docs/decisions/phase-02-log.md §4).
+//
+// `dispatchPayload Json?` is the one column phase-06 §6 does **not** list. It holds the
+// *resolved* `PullRequestReviewRequestedData` payload(s) this delivery produced — written
+// just before the Inngest send, read by the sweeper (Prompt 4) to re-send a dispatch that
+// never completed. Storing the resolved payload rather than the raw GitHub delivery body
+// is deliberate, not an oversight: it is a few hundred bytes rather than the tens of
+// kilobytes a full `pull_request` payload can run to, and — more importantly — re-running
+// tenant resolution at sweep time could legitimately produce a *different* fan-out than
+// the one this delivery actually resolved to at ingestion time (a repository connected or
+// disconnected in between). Replaying the payload that was actually resolved is the only
+// way the sweep re-sends what this delivery was supposed to trigger, not whatever the
+// world looks like now.
+model WebhookEvent {
+  id                  String    @id @default(uuid())
+  deliveryId          String    @unique
+  eventType           String
+  action              String?
+  installationId      BigInt?
+  repositoryFullName  String?
+  payloadRef          String?
+  dispatchPayload     Json?
+  status              String    @default("PENDING")
+  dispatchedAt        DateTime?
+  error               Json?
+  createdAt           DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([repositoryFullName, createdAt(sort: Desc)])
+}
+
+// Phase 06 (phase-06-webhook-ingestion.md §6). The **minimal** row a `pull_request`
+// webhook can populate on its own, with no GitHub API call to enrich it — every column
+// below comes straight out of the webhook payload the router already has in hand.
+//
+// Phase 07 extends this model additively with `title`, `body`, `authorLogin`, `baseRef`,
+// `baseSha`, `additions`, `deletions`, `changedFileCount`, `htmlUrl`, and GitHub's own
+// timestamps, once that phase actually needs them for review. Nothing in this phase
+// reads any of those; they are not declared early here because — unlike
+// `Repository.indexedCommitSha` et al. — phase-06 §6 does not ask for them and this
+// phase has no read path that would exercise a null default correctly.
+//
+// `@@unique([repositoryId, number])`, not a unique constraint on `githubPrId` alone: the
+// same GitHub pull request can legitimately produce two rows here, exactly as the same
+// GitHub repository can produce two `Repository` rows — one PR, two projects, two
+// independent connections (`repository.repository.ts`'s own header comment makes the
+// identical argument for `githubRepoId`). Keying the constraint on `(repositoryId,
+// number)` keeps each project's copy independent; `githubPrId` is retained as a plain
+// column so a consumer that already has the GitHub-global id (a future GraphQL lookup,
+// say) does not have to resolve it back through `(repositoryId, number)` first.
+model PullRequest {
+  id             String    @id @default(uuid())
+  repositoryId   String
+  number         Int
+  githubPrId     BigInt
+  headSha        String
+  state          String
+  isDraft        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId, state])
 }
 
 // --- Auth.js adapter tables (@auth/prisma-adapter) ---
