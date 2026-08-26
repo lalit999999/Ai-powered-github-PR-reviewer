@@ -55,28 +55,27 @@ const logger = createLogger("repository.service");
 const BYTES_PER_KIB = 1024;
 
 // ---------------------------------------------------------------------------
-// Installation sync — the temporary polling fallback (§10)
+// Installation sync — the page-load attribution path (§10, narrowed by Phase 06)
 // ---------------------------------------------------------------------------
 
 /**
  * Refreshes this user's `GithubInstallation` rows from `GET /user/installations`.
  *
- * ## TEMPORARY — replaced by webhooks in Phase 06
+ * ## No longer a staleness fallback — Phase 06 narrowed this to attribution only
  *
- * In production this would be driven by the `installation` and
- * `installation_repositories` webhook events. Those events **are** subscribed on the
- * App as of this phase (App configuration is Phase 02's job), but **nothing receives
- * them**: the webhook endpoint is Phase 06's, and GitHub's deliveries against a URL
- * that does not exist yet will fail and be retried until it does. That is expected and
- * documented in phase-02 §1, not a bug.
+ * `installation`/`installation_repositories` webhooks (`modules/webhooks/
+ * installation-sync.ts`) now keep `GithubInstallation`/`Repository` rows current as
+ * GitHub's own state changes, so this function is no longer standing in for a missing
+ * webhook receiver (that was true through Phase 02–05; see `github.controller.ts`'s
+ * `listInstallations` for the up-to-date framing).
  *
- * So until Phase 06 ships, installations are synced by *polling* this endpoint on
- * settings-page load and on an explicit "Refresh". Deliberate stopgap, not an
- * oversight — §10 specifies exactly this, and says so twice.
- *
- * **Phase 06 needs no data-model change to replace it.** The webhook handler will write
- * the same `GithubInstallation` rows through the same `upsertInstallation`; only the
- * trigger changes. Nothing downstream reads "how this row got here".
+ * What this function alone still does, and permanently: **attribution**. A webhook
+ * payload carries the GitHub account an App was installed on, never which of this
+ * product's users is signed in — see `installation-sync.ts`'s header comment for the
+ * full argument. Only a page load, driven by the caller's own OAuth token, can answer
+ * "does *this* user own this installation" and write a `GithubInstallation` row with a
+ * `userId` attached; `installation.created`'s webhook handler is deliberately
+ * update-only for exactly this reason.
  *
  * The "user just installed, not yet synced" case from §9 is an **empty array**, not an
  * error: a user who has installed nothing and a user whose install has not propagated

@@ -83,24 +83,8 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
     return;
   }
 
-  if (eventType === "installation" || eventType === "installation_repositories" || eventType === "repository") {
-    // Allow-listed (event-allowlist.ts's matrix), but their sync handling is Prompt 4's:
-    // webhook.service.ingestDelivery only accepts pull_request/ping/push today and
-    // throws for anything else, on the assumption that the controller routes these
-    // elsewhere. There is nowhere else yet. Acknowledging honestly — rather than 500ing
-    // on a path that isn't built, or pretending to process something that isn't — is the
-    // correct interim behaviour until Prompt 4 lands the sync service.
-    logger.info("webhook acknowledged: sync handling not yet implemented", {
-      outcome: "SYNC_NOT_IMPLEMENTED",
-      deliveryId,
-      eventType,
-    });
-    res.status(200).json({ received: true });
-    return;
-  }
-
-  // From here on eventType is narrowed to "pull_request" | "push" — the two types
-  // webhook.service.ingestDelivery actually handles.
+  // From here on eventType is narrowed to every allow-listed type except "ping" —
+  // "installation" | "installation_repositories" | "repository" | "pull_request" | "push".
 
   let payload: unknown;
   try {
@@ -121,7 +105,9 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
   // webhook.service.ts uses for audit metadata, reused here for a second legitimate
   // purpose. A payload with no extractable installation id shares one fallback bucket
   // rather than skipping the limit entirely, so a flood of installation-less garbage
-  // stays bounded too.
+  // stays bounded too. Applies uniformly to every event type reaching this point,
+  // including the three sync types below — a compromised secret replaying installation
+  // sync deliveries is exactly the flood this guard exists to bound.
   const installationId = extractInstallationId(payload);
   const rateLimitKey = `webhook:installation:${installationId?.toString() ?? "unknown"}`;
   const rate = await checkRateLimit(rateLimitKey, WEBHOOK_RATE_LIMIT_PER_INSTALLATION, WEBHOOK_RATE_LIMIT_WINDOW_SECONDS);
@@ -129,7 +115,7 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
   if (!rate.allowed) {
     // 200, not 429: a 429 to GitHub triggers redelivery, which is precisely the flood
     // this guard exists to stop (§4/§13). Nothing is persisted — this request never
-    // reaches ingestDelivery, so no WebhookEvent row is written for it.
+    // reaches ingestDelivery/ingestSyncDelivery, so no WebhookEvent row is written for it.
     logger.warn("webhook rate-limited", {
       outcome: "RATE_LIMITED",
       deliveryId,
@@ -140,6 +126,21 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
     res.status(200).json({ received: true });
     return;
   }
+
+  if (eventType === "installation" || eventType === "installation_repositories" || eventType === "repository") {
+    // Prompt 4's sync orchestration — a separate path from ingestDelivery below, which
+    // only ever handles pull_request/push. installation-sync.ts's own header comment has
+    // the full event/action table this delegates to.
+    //
+    // ingestSyncDelivery logs its own outcome (IGNORED/DUPLICATE/FAILED) at the level
+    // appropriate to that outcome — nothing further to log here.
+    await webhookService.ingestSyncDelivery({ deliveryId, eventType, rawPayload: payload });
+    res.status(200).json({ received: true });
+    return;
+  }
+
+  // From here on eventType is narrowed to "pull_request" | "push" — the two types
+  // webhook.service.ingestDelivery actually handles.
 
   // Adapts emitPullRequestReviewRequested's EmitResult (inspected, never thrown) onto
   // WebhookDispatcher's throw-on-failure contract, which webhook.service.ts's own

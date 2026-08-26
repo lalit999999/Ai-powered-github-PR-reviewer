@@ -92,10 +92,17 @@ export const installationEventSchema = z
       .object({
         id: githubBigIntId(),
         account: z.object({ login: z.string(), type: z.string() }).passthrough(),
+        // GitHub sends this on every `installation.*` action, not only `suspend`/
+        // `unsuspend` — carried here so `installation.created`'s update-only sync
+        // (Prompt 4 §2) can refresh it along with accountLogin/accountType, rather than
+        // only ever setting it from the dedicated suspend/unsuspend actions.
+        suspended_at: z.string().nullable().optional(),
       })
       .passthrough(),
   })
   .passthrough();
+
+export type ParsedInstallationEvent = z.infer<typeof installationEventSchema>;
 
 export const installationRepositoriesEventSchema = z
   .object({
@@ -106,6 +113,8 @@ export const installationRepositoriesEventSchema = z
   })
   .passthrough();
 
+export type ParsedInstallationRepositoriesEvent = z.infer<typeof installationRepositoriesEventSchema>;
+
 export const repositoryEventSchema = z
   .object({
     action: z.string(),
@@ -113,6 +122,8 @@ export const repositoryEventSchema = z
     installation: installationRefSchema.optional(),
   })
   .passthrough();
+
+export type ParsedRepositoryEvent = z.infer<typeof repositoryEventSchema>;
 
 export const pingEventSchema = z
   .object({

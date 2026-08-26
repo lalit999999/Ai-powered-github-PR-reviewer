@@ -3,8 +3,17 @@ import type { PullRequestReviewRequestedData } from "@repo/shared";
 import { InternalError } from "../../lib/errors.js";
 import * as repositoryRepository from "../repositories/repository.repository.js";
 import { routePullRequestEvent, type IgnoreReason } from "./event-router.js";
+import { syncInstallationEvent, syncInstallationRepositoriesEvent, syncRepositoryEvent } from "./installation-sync.js";
 import * as pullRequestRepository from "./pull-request.repository.js";
-import { extractAction, extractInstallationId, extractRepositoryFullName, pullRequestEventSchema } from "./webhook.schema.js";
+import {
+  extractAction,
+  extractInstallationId,
+  extractRepositoryFullName,
+  installationEventSchema,
+  installationRepositoriesEventSchema,
+  pullRequestEventSchema,
+  repositoryEventSchema,
+} from "./webhook.schema.js";
 import * as webhookEventRepository from "./webhook-event.repository.js";
 
 /**
@@ -280,6 +289,124 @@ async function ingestMalformedPullRequestEvent(params: {
     deliveryId,
     eventType,
     installationId: installationId?.toString() ?? null,
+    status: "FAILED",
+    latencyMs: Date.now() - startedAt,
+    error: parseErrorMessage,
+  });
+
+  return { status: "FAILED", code };
+}
+
+// ---------------------------------------------------------------------------
+// Prompt 4 — installation / installation_repositories / repository sync.
+// installation-sync.ts owns the decision table; this is only the same dedup →
+// parse → route → terminal-status sequencing ingestDelivery already uses above,
+// applied to the three sync event types the controller routes here instead.
+// ---------------------------------------------------------------------------
+
+export type SyncEventType = "installation" | "installation_repositories" | "repository";
+
+export type SyncIngestOutcome =
+  | { status: "IGNORED"; reason: string }
+  | { status: "DUPLICATE" }
+  | { status: "FAILED"; code: string };
+
+/**
+ * `installation`/`installation_repositories`/`repository` deliveries never dispatch an
+ * Inngest event — `installation-sync.ts`'s own header comment argues why they resolve to
+ * `IGNORED`, not a fifth `WebhookEventStatus`. Still recorded in the `WebhookEvent` audit
+ * ledger and covered by the same `deliveryId` dedup gate `ingestDelivery` uses above, for
+ * the identical reason: a GitHub redelivery of a sync event must not be applied twice.
+ */
+export async function ingestSyncDelivery(args: {
+  deliveryId: string;
+  eventType: SyncEventType;
+  /** Already `JSON.parse`'d by the controller — see `ingestDelivery`'s identical note. */
+  rawPayload: unknown;
+}): Promise<SyncIngestOutcome> {
+  const { deliveryId, eventType, rawPayload } = args;
+  const startedAt = Date.now();
+
+  const installationId = extractInstallationId(rawPayload);
+  const repositoryFullName = extractRepositoryFullName(rawPayload);
+  const action = extractAction(rawPayload);
+
+  const inserted = await webhookEventRepository.insertPending({
+    deliveryId,
+    eventType,
+    action,
+    installationId,
+    repositoryFullName,
+  });
+
+  if (!inserted.ok) {
+    logger.info("webhook delivery ignored: duplicate delivery", {
+      deliveryId,
+      eventType,
+      status: "DUPLICATE",
+      latencyMs: Date.now() - startedAt,
+    });
+    return { status: "DUPLICATE" };
+  }
+
+  let outcome: { reason: string };
+
+  switch (eventType) {
+    case "installation": {
+      const parsed = installationEventSchema.safeParse(rawPayload);
+      if (!parsed.success) {
+        return failSyncDelivery(inserted.id, deliveryId, eventType, parsed.error.message, startedAt);
+      }
+      outcome = await syncInstallationEvent(parsed.data);
+      break;
+    }
+    case "installation_repositories": {
+      const parsed = installationRepositoriesEventSchema.safeParse(rawPayload);
+      if (!parsed.success) {
+        return failSyncDelivery(inserted.id, deliveryId, eventType, parsed.error.message, startedAt);
+      }
+      outcome = await syncInstallationRepositoriesEvent(parsed.data);
+      break;
+    }
+    case "repository": {
+      const parsed = repositoryEventSchema.safeParse(rawPayload);
+      if (!parsed.success) {
+        return failSyncDelivery(inserted.id, deliveryId, eventType, parsed.error.message, startedAt);
+      }
+      outcome = await syncRepositoryEvent(parsed.data);
+      break;
+    }
+  }
+
+  await webhookEventRepository.markIgnored(inserted.id, outcome.reason);
+  logger.info("webhook delivery ignored: sync applied, no dispatch", {
+    deliveryId,
+    eventType,
+    action,
+    status: "IGNORED",
+    reason: outcome.reason,
+    latencyMs: Date.now() - startedAt,
+  });
+  return { status: "IGNORED", reason: outcome.reason };
+}
+
+/** Step 1's failure branch for the sync path — a second, independent `insertPending`
+ * call site from `ingestMalformedPullRequestEvent`'s, mirroring its own reasoning: a
+ * malformed-but-authentically-signed sync delivery is still auditable, and terminal
+ * (`FAILED`, never retried) for the same reason a malformed `pull_request` payload is. */
+async function failSyncDelivery(
+  id: string,
+  deliveryId: string,
+  eventType: SyncEventType,
+  parseErrorMessage: string,
+  startedAt: number,
+): Promise<SyncIngestOutcome> {
+  const code = "MALFORMED_PAYLOAD";
+  await webhookEventRepository.markFailed(id, { code, message: parseErrorMessage });
+
+  logger.error("webhook delivery failed: malformed payload after a valid signature", {
+    deliveryId,
+    eventType,
     status: "FAILED",
     latencyMs: Date.now() - startedAt,
     error: parseErrorMessage,

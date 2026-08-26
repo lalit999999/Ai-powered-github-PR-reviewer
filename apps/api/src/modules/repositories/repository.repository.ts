@@ -24,16 +24,17 @@ import type { RepositoryOwnership, RepositoryRecord } from "./repository.types.j
  * Phase 06's webhook fan-out, which must find **all** matching repositories across
  * projects to route one incoming event.
  *
- * That fan-out is now three functions, all deliberately `githubRepoId`-only and all
+ * That fan-out is now four functions, all deliberately `githubRepoId`-only and all
  * living at the bottom of this file, grouped under their own header:
  * `findConnectedByGithubRepoId` (the read that resolves one delivery to every tenant it
- * affects), `markAccessLostByGithubRepoId`, and `renameByGithubRepoId` (the two writes a
- * `repository` webhook event drives — GitHub's own copy of a repository is one thing
- * shared by every project connected to it, so an "archived"/"deleted" or "renamed"
- * notification about it is correctly applied to all of them at once). **Every other
- * lookup or mutation in this file keys on `(projectId, githubRepoId)` or on the primary
- * key `id`.** The rule is not weakened by Phase 06; it is given its three documented
- * exceptions, and a fourth should not be added without adding a fourth line here.
+ * affects), `markAccessLostByGithubRepoId`, `renameByGithubRepoId`, and
+ * `restoreActiveByGithubRepoId` (the three writes a `repository` webhook event drives —
+ * GitHub's own copy of a repository is one thing shared by every project connected to
+ * it, so an "archived"/"deleted", "renamed", or "unarchived" notification about it is
+ * correctly applied to all of them at once). **Every other lookup or mutation in this
+ * file keys on `(projectId, githubRepoId)` or on the primary key `id`.** The rule is not
+ * weakened by Phase 06; it is given its four documented exceptions, and a fifth should
+ * not be added without adding a fifth line here.
  *
  * The other invariant, matching `project.repository.ts`: **every query is scoped by
  * its owner in the `where`**, never filtered afterwards in the service. The one
@@ -422,6 +423,24 @@ export async function renameByGithubRepoId(
   const result = await prisma.repository.updateMany({
     where: { githubRepoId },
     data: { owner: next.owner, name: next.name, fullName: next.fullName, htmlUrl: next.htmlUrl },
+  });
+  return result.count;
+}
+
+/**
+ * `ACCESS_LOST → ACTIVE` for every repository row sharing this `githubRepoId` — a
+ * `repository` webhook's `unarchived` action (Prompt 4). The fourth of this file's
+ * `githubRepoId`-only exceptions (see the header comment).
+ *
+ * **Only `ACCESS_LOST` rows transition**, mirroring `restoreActiveByInstallation`'s own
+ * guard for the identical reason: a `DISCONNECTED` repository the user already
+ * disconnected must never be resurrected into `ACTIVE` just because GitHub's own copy
+ * came back out of the archive.
+ */
+export async function restoreActiveByGithubRepoId(githubRepoId: bigint): Promise<number> {
+  const result = await prisma.repository.updateMany({
+    where: { githubRepoId, connectionStatus: ACCESS_LOST },
+    data: { connectionStatus: ACTIVE },
   });
   return result.count;
 }

@@ -18,7 +18,25 @@ vi.mock("./webhook-event.repository.js", () => ({
   savePendingDispatchPayload: vi.fn(),
 }));
 vi.mock("./pull-request.repository.js", () => ({ upsertMinimal: vi.fn() }));
-vi.mock("../repositories/repository.repository.js", () => ({ findConnectedByGithubRepoId: vi.fn() }));
+// findConnectedByGithubRepoId is what ingestDelivery (this file's own subject) calls;
+// the rest are installation-sync.ts's (imported transitively by webhook.service.ts for
+// ingestSyncDelivery, exercised by installation-sync.test.ts instead) — stubbed here
+// only so the module graph resolves without a real @repo/db import, never invoked by
+// any test in this file.
+vi.mock("../repositories/repository.repository.js", () => ({
+  findConnectedByGithubRepoId: vi.fn(),
+  markAccessLostByInstallation: vi.fn(),
+  restoreActiveByInstallation: vi.fn(),
+  markAccessLostByGithubRepoId: vi.fn(),
+  renameByGithubRepoId: vi.fn(),
+  restoreActiveByGithubRepoId: vi.fn(),
+}));
+// installation.repository.js — same reasoning: only installation-sync.ts (imported
+// transitively) touches it; no test here exercises ingestSyncDelivery.
+vi.mock("../repositories/installation.repository.js", () => ({
+  updateInstallationMetadataIfExists: vi.fn(),
+  setInstallationSuspendedAt: vi.fn(),
+}));
 
 const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 vi.mock("@repo/observability", async (importOriginal) => {
