@@ -542,20 +542,31 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
  * relative-only resolution. */
 export function findTsconfigForFile(context: RepoContext, filePath: string): TsconfigEntry | null {
   const dir = dirOf(filePath);
+  let best: TsconfigEntry | null = null;
   for (const entry of context.tsconfigs) {
-    if (entry.dir === "" || dir === entry.dir || dir.startsWith(`${entry.dir}/`)) return entry;
+    if (entry.dir !== "" && dir !== entry.dir && !dir.startsWith(`${entry.dir}/`)) continue;
+    // Longest matching directory wins regardless of the array's own order — correctness
+    // here must not depend on `buildRepoContext` having sorted `tsconfigs` first (it
+    // does, for its own O(n) construction reasons, but a public lookup function should
+    // not silently break if a caller ever hands it an unsorted list, e.g. a hand-built
+    // test fixture).
+    if (best === null || entry.dir.length > best.dir.length) best = entry;
   }
-  return null;
+  return best;
 }
 
 /** Nearest-ancestor `package.json` for `filePath`, or `null` when none exists at all
- * (a repository with no `package.json` anywhere above this file). */
+ * (a repository with no `package.json` anywhere above this file). Longest-matching-
+ * directory wins regardless of `context.packages`'s own order — see
+ * {@link findTsconfigForFile}'s own comment on why this does not rely on caller sorting. */
 export function findPackageForFile(context: RepoContext, filePath: string): PackageManifest | null {
   const dir = dirOf(filePath);
+  let best: PackageManifest | null = null;
   for (const pkg of context.packages) {
-    if (pkg.dir === "" || dir === pkg.dir || dir.startsWith(`${pkg.dir}/`)) return pkg;
+    if (pkg.dir !== "" && dir !== pkg.dir && !dir.startsWith(`${pkg.dir}/`)) continue;
+    if (best === null || pkg.dir.length > best.dir.length) best = pkg;
   }
-  return null;
+  return best;
 }
 
 /**
