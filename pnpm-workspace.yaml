@@ -9,3 +9,9 @@ allowBuilds:
   protobufjs: true
   ssh2: true
   unrs-resolver: true
+  # WASM-only binding (docs/decisions/phase-04-log.md) — the native `.node` binding
+  # these packages' `install: node-gyp-build` scripts would produce is never loaded;
+  # only their bundled .wasm files are used. Explicitly false, not merely unset, so
+  # pnpm install completes with no dangling "ignored build scripts" warning.
+  tree-sitter-javascript: false
+  tree-sitter-typescript: false
