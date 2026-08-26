@@ -57,13 +57,15 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     ).rejects.toThrow();
   });
 
-  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository and phase-03's indexing tables", async () => {
+  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository, phase-03's indexing tables, and phase-04's knowledge-graph tables", async () => {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name <> '_prisma_migrations';`,
     );
     expect(tables.map((t) => t.table_name).sort()).toEqual([
       "Account",
+      "CodeDependency",
+      "CodeSymbol",
       "GithubInstallation",
       "IndexJob",
       "Project",
@@ -393,6 +395,158 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
     );
     expect(values.map((v) => v.enumlabel).sort()).toEqual(
       ["ASSET", "CONFIG", "DEPENDENCY_LOCK", "DOCUMENTATION", "GENERATED", "SOURCE", "TEST", "UNKNOWN"].sort(),
+    );
+  });
+});
+
+// Phase 04 §6 / prompt-1 sub-task 1.3 Database Verification. Schema-level facts only —
+// the parser/graph-builder that write real rows are later prompts' work; these rows are
+// inserted directly through Prisma, matching the phase-02/phase-03 describe blocks above.
+describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
+  async function createRepositoryWithFile(slug: string, githubUserId: bigint, githubRepoId: bigint) {
+    const user = await prisma.user.create({ data: { githubUserId, githubLogin: `user-${slug}` } });
+    const project = await prisma.project.create({ data: { userId: user.id, name: slug, slug } });
+    const repository = await prisma.repository.create({
+      data: {
+        projectId: project.id,
+        installationId: 555_000_222n,
+        githubRepoId,
+        owner: "octocat",
+        name: "hello-world",
+        fullName: "octocat/hello-world",
+        defaultBranch: "main",
+        htmlUrl: "https://github.com/octocat/hello-world",
+      },
+    });
+    const file = await prisma.repositoryFile.create({
+      data: { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 },
+    });
+    return { repository, file };
+  }
+
+  it("round-trips a CodeSymbol and enforces the (repositoryId, fileId, name, kind, startLine) identity constraint", async () => {
+    const { repository, file } = await createRepositoryWithFile("sym-a", 4001n, 9_200_000_001n);
+    const data = {
+      repositoryId: repository.id,
+      fileId: file.id,
+      name: "login",
+      kind: "FUNCTION",
+      startLine: 1,
+      endLine: 5,
+      commitSha: "a".repeat(40),
+    };
+    const symbol = await prisma.codeSymbol.create({ data });
+    expect(symbol.isExported).toBe(false);
+    expect(symbol.isDefault).toBe(false);
+    expect(symbol.complexity).toBe(0);
+    expect(symbol.parentSymbolId).toBeNull();
+
+    await expect(prisma.codeSymbol.create({ data })).rejects.toThrow();
+  });
+
+  it("cascade-deletes symbols when their repository is hard-deleted", async () => {
+    const { repository, file } = await createRepositoryWithFile("sym-b", 4002n, 9_200_000_002n);
+    await prisma.codeSymbol.create({
+      data: { repositoryId: repository.id, fileId: file.id, name: "login", kind: "FUNCTION", startLine: 1, endLine: 5, commitSha: "a".repeat(40) },
+    });
+
+    await prisma.project.delete({ where: { id: (await prisma.repository.findUniqueOrThrow({ where: { id: repository.id } })).projectId } });
+
+    expect(await prisma.codeSymbol.count()).toBe(0);
+  });
+
+  it("round-trips a file-level CodeDependency edge with default resolution/confidence", async () => {
+    const { repository, file } = await createRepositoryWithFile("dep-a", 4003n, 9_200_000_003n);
+    const edge = await prisma.codeDependency.create({
+      data: { repositoryId: repository.id, kind: "IMPORTS", fromFileId: file.id, toFileId: file.id, commitSha: "a".repeat(40) },
+    });
+    expect(edge.resolution).toBe("RESOLVED");
+    expect(edge.confidence).toBe(1.0);
+    expect(edge.fromSymbolId).toBeNull();
+    expect(edge.toSymbolId).toBeNull();
+  });
+
+  it("enforces the NULLS NOT DISTINCT edge-identity constraint on repeated file-level edges", async () => {
+    const { repository, file } = await createRepositoryWithFile("dep-b", 4004n, 9_200_000_004n);
+    const data = { repositoryId: repository.id, kind: "IMPORTS" as const, fromFileId: file.id, toFileId: file.id, commitSha: "a".repeat(40) };
+    // Two file-level edges of the same kind/endpoints — both fromSymbolId/toSymbolId are
+    // NULL on both rows. Without NULLS NOT DISTINCT, Postgres would treat these as
+    // non-conflicting (NULL <> NULL) and allow the duplicate — phase-04 prompt-1 §2.7/§3.
+    await prisma.codeDependency.create({ data });
+    await expect(prisma.codeDependency.create({ data })).rejects.toThrow();
+  });
+
+  it("carries exactly the §6 columns for CodeSymbol and CodeDependency, plus the §2.6 parentSymbolId addition", async () => {
+    const symbolColumns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'CodeSymbol';`,
+    );
+    expect(symbolColumns.map((c) => c.column_name).sort()).toEqual(
+      [
+        "commitSha",
+        "complexity",
+        "docComment",
+        "endLine",
+        "fileId",
+        "id",
+        "isDefault",
+        "isExported",
+        "kind",
+        "name",
+        "parentSymbolId",
+        "repositoryId",
+        "signature",
+        "startLine",
+      ].sort(),
+    );
+
+    const dependencyColumns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'CodeDependency';`,
+    );
+    expect(dependencyColumns.map((c) => c.column_name).sort()).toEqual(
+      [
+        "commitSha",
+        "confidence",
+        "externalPackage",
+        "fromFileId",
+        "fromSymbolId",
+        "id",
+        "kind",
+        "rawSpecifier",
+        "repositoryId",
+        "resolution",
+        "toFileId",
+        "toSymbolId",
+      ].sort(),
+    );
+  });
+
+  it("creates the §6 indexes, including the §2.7 outbound-traversal addition", async () => {
+    const symbolIndexes = (
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'CodeSymbol';`)
+    ).map((i) => i.indexname);
+    expect(symbolIndexes).toContain("CodeSymbol_fileId_idx");
+    expect(symbolIndexes).toContain("CodeSymbol_repositoryId_name_idx");
+    expect(symbolIndexes).toContain("CodeSymbol_repositoryId_isExported_idx");
+    expect(symbolIndexes).toContain("CodeSymbol_repositoryId_fileId_name_kind_startLine_key");
+
+    const dependencyIndexes = (
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'CodeDependency';`)
+    ).map((i) => i.indexname);
+    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_toSymbolId_kind_idx");
+    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_fromFileId_kind_idx");
+    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_toFileId_kind_idx");
+    // §2.7 — the fourth index, not in phase-04 §6's own list, added for outbound
+    // traversal (plan.md §9).
+    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_fromSymbolId_kind_idx");
+    expect(dependencyIndexes).toContain("CodeDependency_edge_identity_key");
+  });
+
+  it("declares the full DependencyKind enum", async () => {
+    const values = await prisma.$queryRawUnsafe<{ enumlabel: string }[]>(
+      `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'DependencyKind';`,
+    );
+    expect(values.map((v) => v.enumlabel).sort()).toEqual(
+      ["CALLS", "CONTAINS", "EXPORTS", "EXTENDS", "IMPLEMENTS", "IMPORTS", "REFERENCES", "TESTS"].sort(),
     );
   });
 });
