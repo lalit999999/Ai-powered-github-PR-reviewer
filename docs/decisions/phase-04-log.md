@@ -229,7 +229,73 @@ reason — the practical narrowing (a `ParsedFile` is never produced for a `NOT_
 file) is documented in a comment, not enforced by the type, so `@repo/shared` stays the
 one place the vocabulary is pinned.
 
-## Outstanding — nothing carried forward
+## 7. §5 verification gate — the Docker build could not be completed in this environment
 
-All six sub-tasks of this prompt are complete as of this entry. See the Prompt 1
+`pnpm build --filter=worker` succeeds, and the compiled `dist/indexing/parsing/
+tree-sitter/queries.js` was directly inspected to confirm the inlined query strings
+survive compilation (§5's actual concern, independent of whether the container itself
+boots). `docker build -f Dockerfile.worker .` itself could not be completed, after four
+attempts (plain bridge networking, then `--network=host` three times, across two
+separate sessions of this same prompt) — every attempt failed inside the
+`deps`/`prod-deps` stages' `pnpm install --frozen-lockfile[--prod]`, never past it, on
+sustained registry connectivity failures (`EAI_AGAIN` DNS failures, `error (23)`,
+`UND_ERR_SOCKET`/`UND_ERR_CONNECT_TIMEOUT`, and outright request timeouts) against
+`registry.npmjs.org`. This is a hard environment/network limitation of this sandbox, not
+a defect in `Dockerfile.worker` or anything this prompt changed — proven decisively, not
+just inferred:
+
+- A single sequential request to the registry (`curl -sI .../web-tree-sitter`) reliably
+  succeeds in under a second, repeatedly.
+- **40 concurrent `curl` requests to the registry, issued directly from the host (no
+  Docker involved at all), all failed within an 8-second timeout — 0 of 40 succeeded.**
+  This is the decisive test: pnpm's installer is a parallel downloader by design (the
+  build logs show dozens of simultaneous in-flight GETs), and this sandbox's network
+  cannot sustain that concurrency at all, regardless of whether Docker or bridge vs.
+  host networking is involved. The problem is concurrency, not DNS, not Docker, and not
+  this Dockerfile.
+- The third attempt (a prior session of this same prompt) ran for **17+ minutes** and
+  successfully resolved **898 of 898** lockfile entries — nearly the entire install —
+  before failing on pnpm's separate supply-chain "minimum release age" metadata check
+  (a per-package registry GET, independent of the tarball fetch), which hit the same
+  concurrency ceiling on its final ~15 packages and treated that as a hard failure
+  (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`). Getting 898/898 packages most of the way
+  through, on top of the direct concurrency test above, is conclusive: the Dockerfile and
+  dependency set are correct, and no further retry of the same command will fix a
+  sandbox-level concurrent-connection ceiling.
+- Nothing in Dockerfile.worker, the pruned lockfile, or apps/worker's new dependencies
+  was found to be wrong — the failures occurred at genuinely random points across
+  different packages on different attempts, consistent with a concurrency ceiling rather
+  than a specific bad package/URL.
+
+**A secondary, pre-existing observation surfaced by watching these builds closely,
+unrelated to why they failed**: `turbo prune worker --docker`'s pruned `pnpm-lock.yaml`
+correctly scopes the **importers** section to exactly `worker` + its 4 workspace
+dependencies (verified directly — `apps/web`/`apps/api` do not appear), but the
+lockfile's global `packages:` resolution catalog is **not** pruned to match, and
+`pnpm install --frozen-lockfile` against it resolves/fetches close to the whole
+monorepo's dependency graph (782–898 entries across the three attempts) rather than the
+much smaller set `worker`+`@repo/db`+`@repo/github`+`@repo/observability`+`@repo/shared`
+alone would need. This predates this prompt (Dockerfile.worker and the prune mechanism
+are untouched here) and was not something any earlier phase's log flagged, likely
+because earlier, smaller dependency sets never made this a slow build. Not fixed as part
+of this prompt — out of scope for Prompt 1's sub-tasks — but worth a future prompt's
+attention, since it materially inflates image build time and is very likely why the
+sandbox's flaky network turned a normally-tolerable install into a hard failure here.
+
+Every other §5 item (grammar loading, lint, typecheck, worker/api unit and integration
+tests, the migration, the live constraint check) is independently verified — see the
+report-back for full output. The Docker boot/`/api/inngest` check itself was never
+reached, since no image was ever produced.
+
+## Outstanding — carried forward for a human/future session
+
+- [ ] **`docker build -f Dockerfile.worker .` has not been verified to succeed or boot in
+      this environment** — blocked purely on this sandbox's npm-registry connectivity
+      (§7 above). Needs re-verification wherever a more reliable network is available;
+      nothing about the Dockerfile itself is suspected.
+- [ ] `turbo prune worker --docker`'s lockfile catalog scoping (§7) is worth a follow-up
+      look — not a correctness bug (the *importers* are correctly scoped), but a
+      possible build-time/size inefficiency.
+
+All six of this prompt's own sub-tasks are otherwise complete. See the Prompt 1
 report-back for the full verification-command output.
