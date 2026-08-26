@@ -192,13 +192,25 @@ interface LeadingTrivia {
  * docs/decisions/phase-04-log.md) — this function is what makes both cases behave the
  * same from the adapter's point of view.
  */
+/** A blank source line between a comment and what follows is the conventional signal
+ * (JSDoc tooling, ESLint's `jsdoc` rules) that the comment is a standalone remark, not
+ * documentation for the next declaration — `current` starting more than one row after
+ * `prev` ends means at least one fully blank line separates them. Without this check, an
+ * unrelated comment several lines above a declaration (with ordinary code, or nothing at
+ * all, in between) would still be swallowed into that declaration's range as if it were
+ * its doc comment — caught by this prompt's own golden-file test (a fixture with an
+ * incidental `// line N` comment separated from the next declaration by a blank line). */
+function isImmediatelyAdjacent(prev: Node, current: Node): boolean {
+  return current.startPosition.row - prev.endPosition.row <= 1;
+}
+
 function collectLeadingTrivia(anchor: Node): LeadingTrivia {
   let startNode = anchor;
   let docComment: string | undefined;
   let current = anchor;
   for (;;) {
     const prev = current.previousSibling;
-    if (!prev) break;
+    if (!prev || !isImmediatelyAdjacent(prev, current)) break;
     if (prev.type === "decorator") {
       startNode = prev;
       current = prev;

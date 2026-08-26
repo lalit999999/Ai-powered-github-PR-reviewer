@@ -85,6 +85,13 @@ describe("withParsedTree", () => {
     expect(info.errorNodeCount).toBeGreaterThan(0);
   });
 
+  it("getParseErrorInfo also counts MISSING nodes (an unbalanced/truncated closing brace produces no ERROR node at all, only MISSING ones)", async () => {
+    const truncated = "function foo() {\n  if (true) {\n    return 1;\n";
+    const info = await withParsedTree("typescript", truncated, (tree) => getParseErrorInfo(tree));
+    expect(info.hasError).toBe(true);
+    expect(info.errorNodeCount).toBeGreaterThan(0);
+  });
+
   it("throws ContentTooLargeError for content over the guard, without parsing it", async () => {
     const huge = "a".repeat(MAX_PARSE_CONTENT_BYTES + 1);
     await expect(withParsedTree("javascript", huge, () => "unreachable")).rejects.toBeInstanceOf(ContentTooLargeError);

@@ -216,9 +216,26 @@ export interface ParseErrorInfo {
   /** `tree.rootNode.hasError` — true if the tree contains an ERROR or MISSING node
    * anywhere, even a single one deep in an otherwise-fine file. */
   hasError: boolean;
-  /** Count of actual synthetic `ERROR` nodes tree-sitter inserted to recover from
-   * unparseable input — a coarser, more actionable signal than `hasError` alone for
-   * Prompt 2's tolerance-threshold decision (deliberately not made here). */
+  /**
+   * Count of synthetic recovery nodes tree-sitter inserted to cope with unparseable
+   * input — both genuine `ERROR` nodes (content that fit no rule at all) **and**
+   * `MISSING` nodes (a required token the parser inserted a placeholder for, most
+   * commonly an unbalanced/truncated closing brace) — a coarser, more actionable signal
+   * than `hasError` alone for Prompt 2's tolerance-threshold decision (deliberately not
+   * made here).
+   *
+   * **Prompt 2 finding, fixed here rather than worked around in the adapter**: this
+   * count originally tracked `ERROR` nodes only. A truncated file with two missing
+   * closing braces — arguably the single most common real-world "malformed file" shape
+   * (`plan.md` §14's own "Failure Verification" scenario) — produces **zero** `ERROR`
+   * nodes and two `MISSING` ones; `hasError` correctly reports `true` for it, but the
+   * old `errorNodeCount` reported `0`, silently breaking the invariant that
+   * `hasError === (errorNodeCount > 0)` and making Prompt 2's whole tolerance-ratio
+   * policy blind to exactly the failure case it exists to catch (caught by this
+   * prompt's own golden-file test against a deliberately truncated fixture — see
+   * docs/decisions/phase-04-log.md). Counting both restores that invariant and makes
+   * the signal match what `hasError` already promised.
+   */
   errorNodeCount: number;
 }
 
@@ -237,7 +254,7 @@ export function getParseErrorInfo(tree: Tree): ParseErrorInfo {
     let visitedChildren = false;
     for (;;) {
       if (!visitedChildren) {
-        if (cursor.nodeType === "ERROR") errorNodeCount += 1;
+        if (cursor.nodeType === "ERROR" || cursor.nodeIsMissing) errorNodeCount += 1;
         if (cursor.gotoFirstChild()) continue;
       }
       if (cursor.gotoNextSibling()) {
