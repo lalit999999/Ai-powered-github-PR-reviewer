@@ -252,12 +252,14 @@ describe("resolveImport — step 5: genuinely unresolvable specifiers", () => {
 });
 
 describe("resolveImport — pathological input bounds", () => {
-  it("completes quickly for an oversized specifier without throwing", () => {
+  it("completes quickly for an oversized (100 KB) specifier without throwing", () => {
     const ctx = context({ files: ["src/app.ts"] });
     const huge = `./${"a".repeat(100_000)}`;
     const start = Date.now();
     const result = resolveImport(huge, "src/app.ts", ctx);
-    expect(Date.now() - start).toBeLessThan(200);
+    const elapsedMs = Date.now() - start;
+    console.log(`resolveImport with a 100KB specifier completed in ${elapsedMs.toString()}ms`);
+    expect(elapsedMs).toBeLessThan(200);
     expect(result.status).toBe("UNRESOLVED");
   });
 
@@ -266,7 +268,9 @@ describe("resolveImport — pathological input bounds", () => {
     const deep = `${"../".repeat(50_000)}etc/passwd`;
     const start = Date.now();
     const result = resolveImport(deep, "src/app.ts", ctx);
-    expect(Date.now() - start).toBeLessThan(200);
+    const elapsedMs = Date.now() - start;
+    console.log(`resolveImport with a 50,000-deep ../ chain completed in ${elapsedMs.toString()}ms`);
+    expect(elapsedMs).toBeLessThan(200);
     expect(result.status).toBe("UNRESOLVED");
   });
 });

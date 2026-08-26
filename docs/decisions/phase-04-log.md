@@ -447,3 +447,177 @@ if plain-variable dependency edges turn out to matter for the graph.
       testing surfaced that tree-sitter's error recovery is more graceful than a naive
       mental model predicts, which cuts both ways (fewer false FAILED results on minor
       real-world mistakes; a large file needs more severe corruption to ever cross 10%).
+
+---
+
+# Phase 04 — Prompt 3 Decision Log
+
+Records the judgment calls made implementing **Prompt 3** (repository context, import
+resolver, call resolver, test detection). Same convention as the sections above.
+
+## 1. Sub-task 3.1 — repo-context.ts
+
+`buildRepoContext(rootDir, indexedFilePaths)` takes the already hard-ignore-filtered path
+list Phase 03's `walkTree` produces rather than re-walking the extracted tree a second
+time — cheaper, and it cannot disagree with what Phase 03 already decided to index. Every
+manifest hit is still cross-checked against `isHardIgnored` directly (§2's vendored-
+`package.json` guard), not trusted from the input list blindly — tested explicitly
+(`repo-context.test.ts`, "excludes a vendored package.json that escaped hard-ignore
+filtering").
+
+**`pnpm-workspace.yaml` parsing is a bounded, line-oriented scanner, not a YAML
+dependency.** `js-yaml` (or similar) is not in `apps/worker`'s dependency tree anywhere in
+the monorepo (checked before deciding) — pnpm-workspace.yaml's `packages:` list is one
+narrow, well-known shape (`- "glob"` list items under a top-level key), and a ~20-line
+scanner for exactly that shape is less risk than adding a new parsing dependency for one
+file format this phase touches nowhere else.
+
+**tsconfig `extends` merge: the closest declaration's own `baseUrl`/`paths` replaces the
+parent's wholesale**, not a key-by-key merge — matches real `tsc` behavior (a child's own
+`paths` fully replaces an inherited one). A cycle guard (`visited` set) stops a tsconfig
+that extends itself, directly or transitively, without hanging; verified with a real
+two-file mutual-extends cycle fixture completing in well under a second.
+
+**JSONC tolerance is a single-pass linear scanner, not a regex-based strip**, per §0 rule
+4's own preference for string operations — comment-stripping and trailing-comma removal
+happen in one forward pass tracking a single `inString` flag, with no backtracking to
+reason about at all.
+
+**`findTsconfigForFile`/`findPackageForFile` scan for the longest-matching directory
+directly, rather than relying on `context.tsconfigs`/`context.packages` being pre-sorted
+longest-first.** `buildRepoContext` does sort both that way for its own construction
+reasons, but a public lookup function's correctness should not depend on a caller (a
+hand-built test fixture, a future caller) preserving that invariant — found directly by
+this prompt's own import-resolver test suite (a nested-tsconfig test failed until this was
+fixed, because the hand-built fixture array was not pre-sorted).
+
+## 2. Sub-task 3.2 — import-resolver.ts
+
+The five-step ladder is a shape dispatch (relative vs. alias vs. workspace vs. bare), not
+a blind "try step 1, then step 2, then step 3" retry cascade — `plan.md` §11.2's own
+prose reads that way once each step's own terminal/non-terminal behavior is worked out
+carefully: a relative specifier that fails its extension ladder is terminal `UNRESOLVED`
+(never re-tried as an alias); a `paths`/`baseUrl` match that finds no file is also
+terminal `UNRESOLVED` (never re-tried as a workspace package); a workspace package name
+match with an unresolvable subpath is terminal `UNRESOLVED`. Only "this specifier didn't
+match this step's own shape at all" falls through to the next step.
+
+**`exports` map resolution**: the common shapes only — a bare string, a top-level
+conditions object, an exact subpath key, and a single-wildcard subpath pattern
+(`"./*": "./dist/*.js"`). Nested condition+subpath combinations, multiple wildcards, and
+condition arrays are not attempted — bucketed `UNRESOLVED` per §0 rule 3 (a wrong file
+edge costs more than a missing one). When a package has no `exports` field at all, a
+subpath import falls back to a direct relative-path attempt from the package root (the
+common shape for workspace packages with no `exports` map); when `exports` *is* present
+but does not cover the requested subpath, no further fallback is attempted for that
+subpath specifically — an `exports` map is usually intentionally restrictive.
+
+**Subpath imports (`#internal/...`)**: only the direct, non-wildcard key case is handled,
+exactly as the prompt names as acceptable; a wildcard `imports` pattern buckets
+`UNRESOLVED`.
+
+**Node builtins** are matched against `node:module`'s own `builtinModules` array, not a
+hand-maintained list — always correct for whatever Node version the worker runs on, zero
+maintenance burden, and it was already available with no new dependency.
+
+## 3. Sub-task 3.3 — test-detection.ts
+
+**Import-based detection widens `isTest`, and prompt 4 should write `isTest = pathBased
+|| frameworkImport`** to `RepositoryFile.isTest` rather than leaving Phase 03's path-only
+value alone. Reasoning: the false-positive cost (a slightly-wrong flag on one row) is
+strictly cheaper than the false-negative cost (an invisible `TESTS`-edge coverage gap for
+Phase 08) — the same asymmetry `file-classifier.ts`'s own header already documents for
+`detectIsTest`. Widening only, never narrowing, is the direction that can't make things
+worse.
+
+## 4. Sub-task 3.4 — call-resolver.ts
+
+**"Instantiated" (rule 5) has no observable signal.** Verified directly against
+`queries.ts`: the only call-related query pattern is `call_expression` (bare and
+member-expression forms); there is no `new_expression` pattern at all. A `new Foo()`
+constructor call is therefore never a `ParsedCall`, and rule 5's "imported **or**
+instantiated" receiver check can only ever check the "imported" half. This is a real,
+documented recall gap (not a precision one — the missing signal makes the check *more*
+conservative, not less), stated loudly per this prompt's own instruction: it does not
+lower the precision number prompt 5 measures, but it does mean a class instantiated only
+through a local factory/variable with no direct import of the class name will fail rule
+5's check and fall through to rule 4's ambiguity handling, costing recall.
+
+**The receiver-in-scope check does not try to match the receiver's own identifier text
+against the imported class name.** The overwhelmingly common shape is
+`import { Foo } from "./foo"; const f = new Foo(); f.method()` — the receiver (`f`) is an
+instance variable, not the class name (`Foo`) itself. Requiring identifier equality would
+reject nearly every real instance-method call and pass only the rare static-call shape
+(`Foo.method()`), defeating the point of the check. "Is the class imported into this file
+at all" is used instead — the actual checkable proxy for "in scope."
+
+**Ambiguity narrowing (rule 4), read literally**: narrow the raw candidate set to
+same-package members; if that narrows to nothing at all, try same-top-level-directory
+instead; apply the `0.4/N` spread (or the `N > 3` skip) to whichever set survives —
+*including* the case where narrowing already reduced the set to exactly one (still scored
+`0.4/1 = 0.4`, deliberately below rule 3's `0.7`, since the call started genuinely
+ambiguous rather than repo-wide-unique). "Top-level directory" is read as the first
+path segment (`apps`, `packages`, …) — a judgment call, since `plan.md` does not define
+it precisely; tested against realistic monorepo paths
+(`apps/admin/src/handler.ts` vs `apps/web/src/routes/index.ts`).
+
+**Namespace-import member calls (`ns.foo()` where `ns` is bound by
+`import * as ns from "./m"`) are folded into rule 2, at the same 0.9 confidence**, not
+given a new tier — `plan.md`'s own rule 2 ("a named import resolved to its target file's
+export") describes the identical shape once a namespace import's member access is viewed
+as "a name resolved through a known, resolved import to a specific target file's export."
+No sixth rule, no new confidence constant, per §0's own instruction against inventing one.
+
+**Self-recursion emits an edge** (`factorial` calling itself resolves to itself under
+rule 1) — the harmless, honest choice named as acceptable in §0's own framing.
+
+**Per-package vs. global name index**: per-package when `context.workspaceRoots.length >
+0`, global otherwise — the caller's own decision, passed as `resolveCalls`'s second
+argument rather than decided inside the module, so callers (prompt 4, and this prompt's
+own tests) can compare both modes against the identical fixture directly. Verified this is
+a genuine precision lever, not just a memory bound: the same two-file, same-named-function
+fixture is a unique match (`confidence 0.7`) in per-package mode and an ambiguous
+same-repo match (`confidence 0.4`) in global mode — see
+`call-resolver.test.ts`'s "per-package name index" describe block.
+
+## 5. Sub-task 3.5 — regex safety audit
+
+Every regular expression literal added by prompts 2 and 3, across
+`apps/worker/src/indexing/parsing/` and `apps/worker/src/indexing/graph/` (grepped
+directly, not assumed complete from memory):
+
+| File | Pattern | Safety justification |
+|---|---|---|
+| `parsing/adapters/typescript.adapter.ts:145` | `/^\/\*+/`, `/\*+\/$/` | Anchored at one end each; a single quantified literal-character class (`\/*+` is "one or more `*` chars", not nested); no alternation. Linear. |
+| `parsing/adapters/typescript.adapter.ts:148` | `/^\*/` | Anchored, no quantifier at all — matches exactly one optional leading `*`. O(1) per line. |
+| `parsing/adapters/typescript.adapter.ts:152` | `/^\/\/\s?/` | Anchored, `?` (zero-or-one) on a single character class — no repetition that can backtrack. |
+| `parsing/adapters/typescript.adapter.ts:608` | `HOOK_NAME_PATTERN = /^use[A-Z0-9]/` | Anchored, fixed-width (no quantifier at all). O(1). |
+| `parsing/adapters/typescript.adapter.ts:609` | `PASCAL_CASE_PATTERN = /^[A-Z][A-Za-z0-9]*$/` | Anchored both ends, exactly one quantified group (`[A-Za-z0-9]*`) with no alternation and no nested quantifier — the classic *safe* shape (a single `(charclass)*`), not the `(a+)+` shape §0 rule 4 warns against. Linear in input length. |
+| `graph/repo-context.ts:371` | `rawLine.replace(/\r$/, "")` | Anchored, no quantifier. O(1) per line, and each line is already bounded by `MAX_MANIFEST_BYTES` (256 KB) before this ever runs. |
+| `graph/import-resolver.ts:427` | `/^[a-zA-Z]:[\\/]/` | Fully fixed-width — every atom matches exactly one character, no quantifier anywhere. Runs only against `bounded`, already capped to `MAX_SPECIFIER_LENGTH` (2000 chars) before this line. |
+
+**No pattern above has a nested quantifier or an alternation-inside-repetition shape**
+(the `(a+)+`/`(a|aa)+` family this audit was specifically checking for), and every one
+that runs against genuinely unbounded input (a doc comment's raw text, a symbol name) is
+still a single linear pass regardless — the length bound at the resolver boundary
+(`MAX_SPECIFIER_LENGTH` in `import-resolver.ts`) is a defense-in-depth measure on top of
+that, not the only thing standing between this code and a slow match. No pattern needed to
+be rewritten as a result of this audit; the existing set (mostly inherited from prompt 2,
+already written with this constraint in mind per that prompt's own header) was already
+safe.
+
+**Pathological-input tests, with pasted timing output** (see the Prompt 3 report-back's
+§4 for the full command output): a 100 KB relative-import specifier, a 50,000-segment-deep
+`../` traversal chain, and a 50,000-character call-site name all complete in `0ms` against
+each resolver, asserted under a 200ms bound in CI.
+
+## Outstanding — carried forward
+
+- [ ] Rule 5's "instantiated" half (§4 above) has no observable signal given prompt 2's
+      query scope (no `new_expression` pattern) — a real, accepted recall gap, not fixed
+      here. Adding a `new_expression` capture to `queries.ts` would close it, but that is
+      prompt 2's module and out of this prompt's own scope to reopen.
+- [ ] "Top-level directory" (rule 4's tie-break) is read as the first path segment — not
+      explicitly defined by `plan.md`; worth revisiting if prompt 5's precision
+      measurement shows this tie-break behaving oddly on a real repository's directory
+      shape.

@@ -376,3 +376,23 @@ describe("resolveCalls — per-package name index", () => {
     expect(edges).toEqual([{ fromSymbolId: caller.id, toSymbolId: target.id, rule: "AMBIGUOUS_TIEBREAK", confidence: 0.4 }]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Pathological input bounds (sub-task 3.5 — the whole resolution path must stay linear
+// against attacker-controllable repository content, §0 rule 4)
+// ---------------------------------------------------------------------------
+
+describe("resolveCalls — pathological input bounds", () => {
+  it("completes quickly for a call site whose name is 50,000 repeated characters", () => {
+    const hugeName = "a".repeat(50_000);
+    const caller = sym("run", "FUNCTION", { calls: [call(hugeName)] });
+    const callerFile = buildFile({ filePath: "apps/web/src/app.ts", packageName: "web", entries: [caller] });
+
+    const start = Date.now();
+    const result = resolveCalls([callerFile], false);
+    const elapsedMs = Date.now() - start;
+    console.log(`resolveCalls with a 50,000-char call name completed in ${elapsedMs.toString()}ms`);
+    expect(elapsedMs).toBeLessThan(200);
+    expect(edgesFor(result, caller.id)).toEqual([]);
+  });
+});
