@@ -92,6 +92,42 @@ const ORDINARY_FIXTURE: FixtureEntry[] = [
   file("src/utils.ts", "export const util = () => 2;\n"),
 ];
 
+/**
+ * Sub-task 4.7's own Definition of Done: a synthetic fixture covering every edge/symbol
+ * shape the phase document names — an exported function, an importer that calls it, a
+ * test file, a class extension, an external import, an unresolvable import, a malformed
+ * file, and a circular import pair — driven through the **real** Inngest function against
+ * **real** Postgres, exactly like `ORDINARY_FIXTURE`'s own describe block above.
+ *
+ * Function names deliberately avoid tree-sitter's own `^use[A-Z0-9]` HOOK heuristic
+ * (`typescript.adapter.ts`'s `HOOK_NAME_PATTERN`) — a name like `useHelper` would be
+ * captured as `kind: "HOOK"`, not `"FUNCTION"`, which is irrelevant to what this fixture
+ * is testing and would just be a confusing surprise in the symbol-kind assertions below.
+ *
+ * The exact `src/broken.ts` content is the same one `graph-builder.test.ts` already
+ * verified crosses the 10% error-node tolerance ratio (docs/decisions/phase-04-log.md,
+ * Prompt 2 §5) — reused rather than re-derived.
+ */
+const KNOWLEDGE_GRAPH_FIXTURE: FixtureEntry[] = [
+  file("package.json", '{"name":"fixture"}\n'),
+  file("src/util.ts", "export function helper(): number {\n  return 1;\n}\n"),
+  file("src/caller.ts", 'import { helper } from "./util.js";\n\nexport function callHelper(): number {\n  return helper();\n}\n'),
+  file("src/base.ts", "export class Base {\n  greet(): string {\n    return \"hi\";\n  }\n}\n"),
+  file("src/derived.ts", 'import { Base } from "./base.js";\n\nexport class Derived extends Base {}\n'),
+  file("src/external-consumer.ts", 'import { z } from "zod";\n\nexport function wrapZod() {\n  return z;\n}\n'),
+  file("src/unresolved-consumer.ts", 'import { thing } from "./does-not-exist.js";\n\nexport function readThing() {\n  return thing;\n}\n'),
+  file("src/caller.test.ts", 'import { callHelper } from "./caller.js";\n\nexport function runTest() {\n  return callHelper();\n}\n'),
+  file("src/broken.ts", "// deliberately broken (§14)\nexport function calculateTotal(items {\n  return items"),
+  file(
+    "src/circular-a.ts",
+    'import { getB } from "./circular-b.js";\n\nexport function getA(): number {\n  return 1;\n}\n\nexport function readB(): number {\n  return getB();\n}\n',
+  ),
+  file(
+    "src/circular-b.ts",
+    'import { getA } from "./circular-a.js";\n\nexport function getB(): number {\n  return 2;\n}\n\nexport function readA(): number {\n  return getA();\n}\n',
+  ),
+];
+
 async function makeTempDir(): Promise<string> {
   const os = await import("node:os");
   const path = await import("node:path");
@@ -382,5 +418,133 @@ describe("repository-index — §12's failure modes, coded correctly and persist
     ).rejects.toThrow();
 
     expect(await prisma.repositoryFile.count({ where: { repositoryId: repo.id } })).toBe(0);
+  });
+});
+
+describe("repository-index — knowledge graph, driven through the real Inngest function (Phase 04, sub-task 4.7)", () => {
+  it("parses every file, resolves every edge/symbol kind the fixture exercises, survives a malformed file, and marks the run INDEXED/SUCCEEDED", async () => {
+    const repo = await seedRepository();
+    mockHeadCommit("graphsha1");
+    mockTarball(await buildTarballGzip(KNOWLEDGE_GRAPH_FIXTURE));
+
+    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const { result, error } = await t.execute();
+
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ skipped: false, commitSha: "graphsha1" });
+
+    const finalRepo = await prisma.repository.findUnique({ where: { id: repo.id } });
+    // §4/§15: a single malformed file (src/broken.ts) never fails the overall job.
+    expect(finalRepo?.indexStatus).toBe("INDEXED");
+
+    const finalJob = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
+    expect(finalJob?.status).toBe("SUCCEEDED");
+    expect(finalJob?.symbolsCreated).toBe(12);
+    expect(finalJob?.edgesCreated).toBe(36);
+
+    const symbols = await prisma.codeSymbol.findMany({ where: { repositoryId: repo.id } });
+    expect(symbols).toHaveLength(12);
+    expect(symbols.map((s) => s.name).sort()).toEqual(
+      ["Base", "Derived", "callHelper", "getA", "getB", "greet", "helper", "readA", "readB", "readThing", "runTest", "wrapZod"].sort(),
+    );
+    // src/broken.ts's own symbol never made it in — the malformed file contributed nothing.
+    expect(symbols.some((s) => s.name === "calculateTotal")).toBe(false);
+
+    const edges = await prisma.codeDependency.findMany({ where: { repositoryId: repo.id } });
+    const byKind = (kind: string) => edges.filter((e) => e.kind === kind);
+
+    // CALLS: callHelper -> helper, runTest -> callHelper, readB -> getB, readA -> getA
+    // (the last two crossing the circular-a.ts <-> circular-b.ts import pair).
+    expect(byKind("CALLS")).toHaveLength(4);
+    // EXTENDS: Derived -> Base.
+    expect(byKind("EXTENDS")).toHaveLength(1);
+    // TESTS: caller.test.ts -> caller.ts (its own import target, not a test file).
+    expect(byKind("TESTS")).toHaveLength(1);
+    // CONTAINS/EXPORTS: one per symbol / one per locally-declared exported symbol
+    // (`greet` is a class method, not independently exported, so EXPORTS is 12 - 1).
+    expect(byKind("CONTAINS")).toHaveLength(12);
+    expect(byKind("EXPORTS")).toHaveLength(11);
+
+    const imports = byKind("IMPORTS");
+    expect(imports).toHaveLength(7);
+    expect(imports.filter((e) => e.resolution === "RESOLVED")).toHaveLength(5);
+    expect(imports.some((e) => e.resolution === "EXTERNAL" && e.externalPackage === "zod")).toBe(true);
+    expect(imports.some((e) => e.resolution === "UNRESOLVED" && e.rawSpecifier === "./does-not-exist.js")).toBe(true);
+
+    const files = await prisma.repositoryFile.findMany({ where: { repositoryId: repo.id } });
+    expect(files).toHaveLength(11); // 10 source files + package.json
+    const byPath = new Map(files.map((f) => [f.path, f]));
+
+    const broken = byPath.get("src/broken.ts");
+    expect(broken?.indexState).toBe("INDEXED"); // still text-indexed (§4: never dropped)
+    expect(broken?.parseState).toBe("FAILED");
+    expect(broken?.symbolCount).toBe(0);
+
+    // A well-connected file (imported from and called into) scores a materially higher
+    // inboundEdgeCount than a leaf file nothing imports or calls.
+    expect(byPath.get("src/util.ts")!.inboundEdgeCount).toBeGreaterThan(byPath.get("src/external-consumer.ts")!.inboundEdgeCount);
+
+    expect(byPath.get("src/caller.test.ts")?.isTest).toBe(true);
+    expect(byPath.get("src/derived.ts")?.isTest).toBe(false);
+
+    // The circular import pair: both directions resolve, and both files still get their
+    // own symbols/edges rather than one starving the other.
+    expect(byPath.get("src/circular-a.ts")?.parseState).toBe("OK");
+    expect(byPath.get("src/circular-b.ts")?.parseState).toBe("OK");
+    expect(byPath.get("src/circular-a.ts")?.symbolCount).toBe(2);
+    expect(byPath.get("src/circular-b.ts")?.symbolCount).toBe(2);
+  });
+});
+
+describe("repository-index — the knowledge graph is idempotent across a full re-run (Phase 04, sub-task 4.7)", () => {
+  it("running the whole index twice at the same commit produces identical symbol/edge counts, with no duplicate edges", async () => {
+    const repo = await seedRepository();
+    const buffer = await buildTarballGzip(KNOWLEDGE_GRAPH_FIXTURE);
+
+    const runOnce = async () =>
+      indexRepository({
+        installationId: repo.installationId,
+        owner: repo.owner,
+        repo: repo.name,
+        sha: "graphrerunsha1",
+        repositoryId: repo.id,
+        jobId: "job-graph-rerun-test",
+        tempRootDir: await makeTempDir(),
+        maxTotalBytes: 50 * 1024 * 1024,
+        maxFileCount: 10_000,
+        attempt: 0,
+        fetchTarball: async () => ({ ok: true, stream: toWebStream(buffer) }),
+      });
+
+    const first = await runOnce();
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error("expected ok result");
+
+    const symbolsAfterFirst = await prisma.codeSymbol.findMany({ where: { repositoryId: repo.id } });
+    const edgesAfterFirst = await prisma.codeDependency.findMany({ where: { repositoryId: repo.id } });
+
+    // The "restart": the same unit runs again from scratch against the identical target —
+    // exactly what a real Inngest retry of a not-yet-memoized step does (matching the
+    // RepositoryFile-only version of this test above).
+    const second = await runOnce();
+    expect(second.ok).toBe(true);
+    if (!second.ok) throw new Error("expected ok result");
+
+    const symbolsAfterSecond = await prisma.codeSymbol.findMany({ where: { repositoryId: repo.id } });
+    const edgesAfterSecond = await prisma.codeDependency.findMany({ where: { repositoryId: repo.id } });
+
+    expect(second.symbolsCreated).toBe(first.symbolsCreated);
+    expect(second.edgesCreated).toBe(first.edgesCreated);
+    expect(symbolsAfterSecond).toHaveLength(symbolsAfterFirst.length);
+    expect(edgesAfterSecond).toHaveLength(edgesAfterFirst.length);
+
+    // Full-replace, not append: the edge-identity tuple never repeats within the surviving
+    // set (no duplicate edges), and the row counts read straight from Postgres agree with
+    // what the second run itself reported creating.
+    const edgeIdentity = (e: (typeof edgesAfterSecond)[number]) =>
+      `${e.kind}:${e.fromFileId ?? ""}:${e.toFileId ?? ""}:${e.fromSymbolId ?? ""}:${e.toSymbolId ?? ""}`;
+    expect(new Set(edgesAfterSecond.map(edgeIdentity)).size).toBe(edgesAfterSecond.length);
+    expect(await prisma.codeSymbol.count({ where: { repositoryId: repo.id } })).toBe(symbolsAfterFirst.length);
+    expect(await prisma.codeDependency.count({ where: { repositoryId: repo.id } })).toBe(edgesAfterFirst.length);
   });
 });
