@@ -1,0 +1,1009 @@
+{
+  "labeledAt": "2026-08-27",
+  "labeledBy": "manual inspection of tests/fixtures/graph-repo/ source, cross-checked against the real pipeline output",
+  "methodology": "Each entry names a real call site (fromFile/fromSymbol/callName/callLine), found by reading tests/fixtures/graph-repo/ directly. expected is {toFile,toSymbol} for a call whose correct target a human can determine unambiguously, or null when the correct behavior is no edge at all (a built-in method/global, or a call so genuinely ambiguous from the source alone that no single candidate is more correct than the others). A small number of entries carry expectedAmbiguousSet instead: these are call sites where genuine ambiguity exists but the *correct* resolution is not silence \u2014 it is an edge to every plausible candidate, each at reduced confidence (plan.md 11.4 rule 4). For these, expected is null and expectedAmbiguousSet is authoritative; call-precision.test.ts scores a match only when the resolver produces an edge to every entry in the set and no edge to any other same-named candidate.",
+  "edges": [
+    {
+      "fromFile": "apps/web/src/components/user-card.tsx",
+      "fromSymbol": "UserCard",
+      "callName": "useUser",
+      "callLine": 11,
+      "expected": {
+        "toFile": "apps/web/src/hooks/use-user.ts",
+        "toSymbol": "useUser"
+      },
+      "note": "named import, unambiguous (rule 2)"
+    },
+    {
+      "fromFile": "apps/web/src/components/user-card.tsx",
+      "fromSymbol": "UserCardGreeting",
+      "callName": "useUserGreeting",
+      "callLine": 20,
+      "expected": {
+        "toFile": "apps/web/src/hooks/use-user.ts",
+        "toSymbol": "useUserGreeting"
+      },
+      "note": "named import, unambiguous (rule 2)"
+    },
+    {
+      "fromFile": "apps/web/src/hooks/use-user.ts",
+      "fromSymbol": "useUser",
+      "callName": "formatUserName",
+      "callLine": 9,
+      "expected": {
+        "toFile": "apps/web/src/hooks/use-user.ts",
+        "toSymbol": "formatUserName"
+      },
+      "note": "same-file call, HOOK to FUNCTION (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/hooks/use-user.ts",
+      "fromSymbol": "useUserGreeting",
+      "callName": "useUser",
+      "callLine": 19,
+      "expected": {
+        "toFile": "apps/web/src/hooks/use-user.ts",
+        "toSymbol": "useUser"
+      },
+      "note": "same-file call, HOOK to HOOK (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/hooks/use-user.ts",
+      "fromSymbol": "useUserGreeting",
+      "callName": "greet",
+      "callLine": 20,
+      "expected": {
+        "toFile": "apps/web/src/hooks/use-user.ts",
+        "toSymbol": "greet"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/hooks/use-user.ts",
+      "fromSymbol": "greet",
+      "callName": "toUpperCase",
+      "callLine": 24,
+      "expected": null,
+      "note": "built-in String.prototype.toUpperCase on a local identifier; no repo symbol named toUpperCase"
+    },
+    {
+      "fromFile": "apps/web/src/legacy/esm-interop.ts",
+      "fromSymbol": "legacyEntry",
+      "callName": "siblingValue",
+      "callLine": 10,
+      "expected": {
+        "toFile": "apps/web/src/legacy/sibling.ts",
+        "toSymbol": "siblingValue"
+      },
+      "note": "named import through a .js-specifier resolving to a .ts file (ESM interop, rule 2)"
+    },
+    {
+      "fromFile": "apps/web/src/legacy/esm-interop.ts",
+      "fromSymbol": "legacyEntryDoubled",
+      "callName": "legacyEntry",
+      "callLine": 15,
+      "expected": {
+        "toFile": "apps/web/src/legacy/esm-interop.ts",
+        "toSymbol": "legacyEntry"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/legacy/sibling.ts",
+      "fromSymbol": "doubledSiblingValue",
+      "callName": "siblingValue",
+      "callLine": 7,
+      "expected": {
+        "toFile": "apps/web/src/legacy/sibling.ts",
+        "toSymbol": "siblingValue"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/main.ts",
+      "fromSymbol": "bootstrap",
+      "callName": "login",
+      "callLine": 18,
+      "expected": {
+        "toFile": "packages/core/src/auth/login.ts",
+        "toSymbol": "login"
+      },
+      "note": "GENUINE RESOLVER MISS: login is imported from the bare \"@fixture/core\" specifier, which resolves to the barrel (packages/core/src/index.ts). The barrel only re-exports login (export * from \"./auth/login\"); it declares no login symbol of its own, so rule 2's target-file symbol lookup finds nothing at that one hop, and re-exports are not chased further. A human reading the source can see exactly which function this calls; the resolver cannot, by design (single-hop only). Documented in docs/parsing.md as an accepted limitation."
+    },
+    {
+      "fromFile": "apps/web/src/main.ts",
+      "fromSymbol": "bootstrap",
+      "callName": "appName",
+      "callLine": 19,
+      "expected": {
+        "toFile": "apps/web/src/shared-special/constants.ts",
+        "toSymbol": "appName"
+      },
+      "note": "named import via the @app/shared/* tsconfig alias, which must win over the shorter @app/* prefix (rule 2)"
+    },
+    {
+      "fromFile": "apps/web/src/main.ts",
+      "fromSymbol": "bootstrapAndList",
+      "callName": "bootstrap",
+      "callLine": 25,
+      "expected": {
+        "toFile": "apps/web/src/main.ts",
+        "toSymbol": "bootstrap"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/main.ts",
+      "fromSymbol": "bootstrapAndList",
+      "callName": "index",
+      "callLine": 26,
+      "expected": {
+        "toFile": "apps/web/src/pages/list-index.ts",
+        "toSymbol": "index"
+      },
+      "note": "named import, unambiguous despite \"index\" being a repo-wide collision name (rule 2)"
+    },
+    {
+      "fromFile": "apps/web/src/pages/list-index.ts",
+      "fromSymbol": "index",
+      "callName": "join",
+      "callLine": 4,
+      "expected": null,
+      "note": "built-in Array.prototype.join; no repo symbol named join"
+    },
+    {
+      "fromFile": "apps/web/src/shared-special/constants.ts",
+      "fromSymbol": "appNameUpper",
+      "callName": "appName",
+      "callLine": 13,
+      "expected": {
+        "toFile": "apps/web/src/shared-special/constants.ts",
+        "toSymbol": "appName"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "apps/web/src/shared-special/constants.ts",
+      "fromSymbol": "appNameUpper",
+      "callName": "toUpperCase",
+      "callLine": 13,
+      "expected": null,
+      "note": "built-in String.prototype.toUpperCase; no repo symbol named toUpperCase"
+    },
+    {
+      "fromFile": "packages/core/src/auth/login.ts",
+      "fromSymbol": "login",
+      "callName": "hashPassword",
+      "callLine": 14,
+      "expected": {
+        "toFile": "packages/utils/src/hash.ts",
+        "toSymbol": "hashPassword"
+      },
+      "note": "named import via a deep workspace-package subpath, no exports map (rule 2)"
+    },
+    {
+      "fromFile": "packages/core/src/auth/login.ts",
+      "fromSymbol": "login",
+      "callName": "createSession",
+      "callLine": 15,
+      "expected": {
+        "toFile": "packages/core/src/auth/session.ts",
+        "toSymbol": "createSession"
+      },
+      "note": "named import, same package (rule 2)"
+    },
+    {
+      "fromFile": "packages/core/src/auth/login.ts",
+      "fromSymbol": "login",
+      "callName": "verifySession",
+      "callLine": 16,
+      "expected": {
+        "toFile": "packages/core/src/auth/session.ts",
+        "toSymbol": "verifySession"
+      },
+      "note": "named import, same package (rule 2)"
+    },
+    {
+      "fromFile": "packages/core/src/auth/login.ts",
+      "fromSymbol": "logLoginAttempt",
+      "callName": "logLine",
+      "callLine": 22,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "logLine"
+      },
+      "note": "named import, cross-package deep subpath (rule 2)"
+    },
+    {
+      "fromFile": "packages/core/src/auth/session.ts",
+      "fromSymbol": "createSession",
+      "callName": "now",
+      "callLine": 10,
+      "expected": null,
+      "note": "built-in Date.now(); \"Date\" is not imported, and no repo symbol named now exists"
+    },
+    {
+      "fromFile": "packages/core/src/auth/session.ts",
+      "fromSymbol": "verifySession",
+      "callName": "now",
+      "callLine": 14,
+      "expected": null,
+      "note": "built-in Date.now()"
+    },
+    {
+      "fromFile": "packages/core/src/auth/session.ts",
+      "fromSymbol": "refreshSession",
+      "callName": "verifySession",
+      "callLine": 20,
+      "expected": {
+        "toFile": "packages/core/src/auth/session.ts",
+        "toSymbol": "verifySession"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/auth/session.ts",
+      "fromSymbol": "refreshSession",
+      "callName": "createSession",
+      "callLine": 21,
+      "expected": {
+        "toFile": "packages/core/src/auth/session.ts",
+        "toSymbol": "createSession"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/auth/validate.ts",
+      "fromSymbol": "validateAll",
+      "callName": "every",
+      "callLine": 10,
+      "expected": null,
+      "note": "built-in Array.prototype.every"
+    },
+    {
+      "fromFile": "packages/core/src/auth/validate.ts",
+      "fromSymbol": "validateAll",
+      "callName": "validate",
+      "callLine": 10,
+      "expected": {
+        "toFile": "packages/core/src/auth/validate.ts",
+        "toSymbol": "validate"
+      },
+      "note": "same-file call (rule 1) \u2014 resolves to this file's own validate, not the http/validate.ts collision, because it is a bare call from within the same file"
+    },
+    {
+      "fromFile": "packages/core/src/http/handler.ts",
+      "fromSymbol": "handler",
+      "callName": "capitalize",
+      "callLine": 14,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "capitalize"
+      },
+      "note": "named import via the @utils/* tsconfig alias (inherited from the repo-root tsconfig), not the @fixture/utils package name (rule 2)"
+    },
+    {
+      "fromFile": "packages/core/src/http/handler.ts",
+      "fromSymbol": "handler",
+      "callName": "sanitize",
+      "callLine": 14,
+      "expected": {
+        "toFile": "packages/core/src/http/handler.ts",
+        "toSymbol": "sanitize"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/http/handler.ts",
+      "fromSymbol": "sanitize",
+      "callName": "replace",
+      "callLine": 20,
+      "expected": null,
+      "note": "built-in String.prototype.replace on a parameter"
+    },
+    {
+      "fromFile": "packages/core/src/http/handler.ts",
+      "fromSymbol": "sanitize",
+      "callName": "trim",
+      "callLine": 20,
+      "expected": null,
+      "note": "built-in String.prototype.trim, chained off .replace(...); the adapter captures an EMPTY receiver for this shape (a call_expression as the receiver object, not an identifier/new-expression) rather than the full chain text \u2014 a real, minor receiver-capture gap noted in docs/parsing.md, but the outcome is unaffected: no METHOD named trim exists anywhere in the repo (only a FUNCTION of that name in a different package), so no edge either way"
+    },
+    {
+      "fromFile": "packages/core/src/http/middleware.ts",
+      "fromSymbol": "checkAuth",
+      "callName": "hasToken",
+      "callLine": 13,
+      "expected": {
+        "toFile": "packages/core/src/http/middleware.ts",
+        "toSymbol": "hasToken"
+      },
+      "note": "same-file method call via this (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/http/middleware.ts",
+      "fromSymbol": "checkAuth",
+      "callName": "hasValidHeader",
+      "callLine": 13,
+      "expected": {
+        "toFile": "packages/core/src/http/middleware.ts",
+        "toSymbol": "hasValidHeader"
+      },
+      "note": "same-file method call via this (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/http/middleware.ts",
+      "fromSymbol": "run",
+      "callName": "recordAttempt",
+      "callLine": 17,
+      "expected": {
+        "toFile": "packages/core/src/http/middleware.ts",
+        "toSymbol": "recordAttempt"
+      },
+      "note": "same-file method call via this (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/http/middleware.ts",
+      "fromSymbol": "run",
+      "callName": "checkAuth",
+      "callLine": 18,
+      "expected": {
+        "toFile": "packages/core/src/http/middleware.ts",
+        "toSymbol": "checkAuth"
+      },
+      "note": "same-file method call via this (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/http/middleware.ts",
+      "fromSymbol": "recordAttempt",
+      "callName": "trim",
+      "callLine": 30,
+      "expected": null,
+      "note": "built-in String.prototype.trim on a parameter; no METHOD named trim exists anywhere in the repo"
+    },
+    {
+      "fromFile": "packages/core/src/http/router.ts",
+      "fromSymbol": "route",
+      "callName": "handler",
+      "callLine": 8,
+      "expected": {
+        "toFile": "packages/core/src/http/handler.ts",
+        "toSymbol": "handler"
+      },
+      "note": "named import naming the file directly, unambiguous despite the repo-wide handler collision (rule 2)"
+    },
+    {
+      "fromFile": "packages/core/src/http/router.ts",
+      "fromSymbol": "routeWebhook",
+      "callName": "webhookHandler",
+      "callLine": 16,
+      "expected": {
+        "toFile": "packages/core/src/webhooks/handler.ts",
+        "toSymbol": "handler"
+      },
+      "note": "GENUINE RESOLVER MISS: the import is aliased (`import { handler as webhookHandler }`), so the call site's name (webhookHandler) matches the import's local binding, but rule 2 then searches the TARGET file for a symbol literally named \"webhookHandler\" \u2014 which does not exist there; the target's own declared name is \"handler\". The adapter's ParsedImport.named only carries the local (possibly aliased) name, not the original exported name, so rule 2 has no way to recover it. A real, newly-discovered gap \u2014 documented in docs/parsing.md."
+    },
+    {
+      "fromFile": "packages/core/src/http/validate.ts",
+      "fromSymbol": "validateRequests",
+      "callName": "some",
+      "callLine": 9,
+      "expected": null,
+      "note": "built-in Array.prototype.some"
+    },
+    {
+      "fromFile": "packages/core/src/http/validate.ts",
+      "fromSymbol": "validateRequests",
+      "callName": "validate",
+      "callLine": 9,
+      "expected": {
+        "toFile": "packages/core/src/http/validate.ts",
+        "toSymbol": "validate"
+      },
+      "note": "same-file call (rule 1) \u2014 resolves to this file's own validate, not the auth/validate.ts collision"
+    },
+    {
+      "fromFile": "packages/core/src/jobs/dispatch.ts",
+      "fromSymbol": "dispatch",
+      "callName": "handler",
+      "callLine": 10,
+      "expected": null,
+      "expectedAmbiguousSet": [
+        {
+          "toFile": "packages/core/src/http/handler.ts",
+          "toSymbol": "handler"
+        },
+        {
+          "toFile": "packages/core/src/webhooks/handler.ts",
+          "toSymbol": "handler"
+        }
+      ],
+      "note": "genuine N=2 ambiguity, no import at all; two same-package handler candidates, no way to tell which is meant from the source alone \u2014 correct behavior is an edge to EACH at confidence 0.4/2=0.2, not a guess at one (rule 4)"
+    },
+    {
+      "fromFile": "packages/core/src/jobs/dispatch.ts",
+      "fromSymbol": "dispatchAll",
+      "callName": "dispatch",
+      "callLine": 16,
+      "expected": {
+        "toFile": "packages/core/src/jobs/dispatch.ts",
+        "toSymbol": "dispatch"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/jobs/run-job.ts",
+      "fromSymbol": "runJob",
+      "callName": "validate",
+      "callLine": 8,
+      "expected": null,
+      "expectedAmbiguousSet": [
+        {
+          "toFile": "packages/core/src/auth/validate.ts",
+          "toSymbol": "validate"
+        },
+        {
+          "toFile": "packages/core/src/http/validate.ts",
+          "toSymbol": "validate"
+        }
+      ],
+      "note": "genuine N=2 ambiguity, no import \u2014 same shape as dispatch.ts's handler() call, different collision name (rule 4)"
+    },
+    {
+      "fromFile": "packages/core/src/jobs/run-job.ts",
+      "fromSymbol": "runJobs",
+      "callName": "every",
+      "callLine": 13,
+      "expected": null,
+      "note": "built-in Array.prototype.every"
+    },
+    {
+      "fromFile": "packages/core/src/jobs/run-job.ts",
+      "fromSymbol": "runJobs",
+      "callName": "runJob",
+      "callLine": 13,
+      "expected": {
+        "toFile": "packages/core/src/jobs/run-job.ts",
+        "toSymbol": "runJob"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/models/base-entity.ts",
+      "fromSymbol": "constructor",
+      "callName": "now",
+      "callLine": 8,
+      "expected": null,
+      "note": "built-in Date.now()"
+    },
+    {
+      "fromFile": "packages/core/src/models/base-entity.ts",
+      "fromSymbol": "touch",
+      "callName": "now",
+      "callLine": 12,
+      "expected": null,
+      "note": "built-in Date.now()"
+    },
+    {
+      "fromFile": "packages/core/src/models/base-entity.ts",
+      "fromSymbol": "ageMs",
+      "callName": "touch",
+      "callLine": 16,
+      "expected": {
+        "toFile": "packages/core/src/models/base-entity.ts",
+        "toSymbol": "touch"
+      },
+      "note": "same-file method call via this (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/models/base-entity.ts",
+      "fromSymbol": "ageMs",
+      "callName": "now",
+      "callLine": 17,
+      "expected": null,
+      "note": "built-in Date.now()"
+    },
+    {
+      "fromFile": "packages/core/src/models/entity.ts",
+      "fromSymbol": "bump",
+      "callName": "touch",
+      "callLine": 15,
+      "expected": {
+        "toFile": "packages/core/src/models/base-entity.ts",
+        "toSymbol": "touch"
+      },
+      "note": "inherited method call via this \u2014 touch is declared in the parent class (BaseEntity), not imported by name, so rule 1/2 both miss and it falls to rule 3's unique per-package match (rule 3)"
+    },
+    {
+      "fromFile": "packages/core/src/models/entity.ts",
+      "fromSymbol": "bumpTwice",
+      "callName": "bump",
+      "callLine": 19,
+      "expected": {
+        "toFile": "packages/core/src/models/entity.ts",
+        "toSymbol": "bump"
+      },
+      "note": "same-file method call via this (rule 1). Note: bumpTwice's source calls bump() twice (lines 19 and 20), but the adapter only captured one ParsedCall for this identical repeated call \u2014 a real, separately-noted recall gap in the adapter, not scored here since there is no second call site to label"
+    },
+    {
+      "fromFile": "packages/core/src/models/named-entity.ts",
+      "fromSymbol": "serialize",
+      "callName": "touch",
+      "callLine": 18,
+      "expected": {
+        "toFile": "packages/core/src/models/base-entity.ts",
+        "toSymbol": "touch"
+      },
+      "note": "inherited method call via this, two classes up (NamedEntity -> Entity -> BaseEntity) \u2014 same rule-3 unique-match shape as entity.ts's bump->touch, one level further"
+    },
+    {
+      "fromFile": "packages/core/src/models/named-entity.ts",
+      "fromSymbol": "rename",
+      "callName": "trim",
+      "callLine": 23,
+      "expected": null,
+      "note": "built-in String.prototype.trim on a parameter (next); no METHOD named trim exists anywhere in the repo, so this is correctly not confused with the unrelated trim() FUNCTION in packages/utils"
+    },
+    {
+      "fromFile": "packages/core/src/models/named-entity.ts",
+      "fromSymbol": "rename",
+      "callName": "bump",
+      "callLine": 24,
+      "expected": {
+        "toFile": "packages/core/src/models/entity.ts",
+        "toSymbol": "bump"
+      },
+      "note": "inherited method call via this, one class up (rule 3 unique match)"
+    },
+    {
+      "fromFile": "packages/core/src/webhooks/handler.ts",
+      "fromSymbol": "handler",
+      "callName": "normalizeEvent",
+      "callLine": 4,
+      "expected": {
+        "toFile": "packages/core/src/webhooks/handler.ts",
+        "toSymbol": "normalizeEvent"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/core/src/webhooks/handler.ts",
+      "fromSymbol": "normalizeEvent",
+      "callName": "toLowerCase",
+      "callLine": 9,
+      "expected": null,
+      "note": "built-in String.prototype.toLowerCase"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "chunk",
+      "callName": "push",
+      "callLine": 4,
+      "expected": null,
+      "note": "built-in Array.prototype.push"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "chunk",
+      "callName": "slice",
+      "callLine": 4,
+      "expected": null,
+      "note": "built-in Array.prototype.slice"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "unique",
+      "callName": "chunk",
+      "callLine": 15,
+      "expected": {
+        "toFile": "packages/utils/src/array-utils.ts",
+        "toSymbol": "chunk"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "unique",
+      "callName": "has",
+      "callLine": 17,
+      "expected": null,
+      "note": "built-in Set.prototype.has"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "unique",
+      "callName": "add",
+      "callLine": 18,
+      "expected": null,
+      "note": "built-in Set.prototype.add"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "unique",
+      "callName": "push",
+      "callLine": 19,
+      "expected": null,
+      "note": "built-in Array.prototype.push"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "chunkUnique",
+      "callName": "chunk",
+      "callLine": 28,
+      "expected": {
+        "toFile": "packages/utils/src/array-utils.ts",
+        "toSymbol": "chunk"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "chunkUnique",
+      "callName": "unique",
+      "callLine": 28,
+      "expected": {
+        "toFile": "packages/utils/src/array-utils.ts",
+        "toSymbol": "unique"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "sum",
+      "callName": "reduce",
+      "callLine": 34,
+      "expected": null,
+      "note": "built-in Array.prototype.reduce"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "sum",
+      "callName": "toString",
+      "callLine": 34,
+      "expected": null,
+      "note": "built-in Number.prototype.toString"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "joinAll",
+      "callName": "map",
+      "callLine": 38,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "packages/utils/src/array-utils.ts",
+      "fromSymbol": "joinAll",
+      "callName": "join",
+      "callLine": 38,
+      "expected": null,
+      "note": "built-in Array.prototype.join (inner, on batch)"
+    },
+    {
+      "fromFile": "packages/utils/src/formatters/date-formatter.ts",
+      "fromSymbol": "serialize",
+      "callName": "toISOString",
+      "callLine": 16,
+      "expected": null,
+      "note": "built-in Date.prototype.toISOString"
+    },
+    {
+      "fromFile": "packages/utils/src/formatters/date-formatter.ts",
+      "fromSymbol": "formatDate",
+      "callName": "serialize",
+      "callLine": 21,
+      "expected": {
+        "toFile": "packages/utils/src/formatters/date-formatter.ts",
+        "toSymbol": "serialize"
+      },
+      "note": "receiver is `new DateFormatter(epochMs)`; DateFormatter is declared in this same file (not imported), so rule 1's looser \"any same-file method by name\" matches before rule 5's stricter receiver-in-scope check is ever reached (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/formatters/date-formatter.ts",
+      "fromSymbol": "formatDates",
+      "callName": "map",
+      "callLine": 27,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "packages/utils/src/formatters/date-formatter.ts",
+      "fromSymbol": "formatDates",
+      "callName": "formatDate",
+      "callLine": 27,
+      "expected": {
+        "toFile": "packages/utils/src/formatters/date-formatter.ts",
+        "toSymbol": "formatDate"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/hash.ts",
+      "fromSymbol": "hashPassword",
+      "callName": "charCodeAt",
+      "callLine": 8,
+      "expected": null,
+      "note": "built-in String.prototype.charCodeAt"
+    },
+    {
+      "fromFile": "packages/utils/src/hash.ts",
+      "fromSymbol": "hashPassword",
+      "callName": "toString",
+      "callLine": 10,
+      "expected": null,
+      "note": "built-in Number.prototype.toString"
+    },
+    {
+      "fromFile": "packages/utils/src/hash.ts",
+      "fromSymbol": "hashPasswordPadded",
+      "callName": "hashPassword",
+      "callLine": 16,
+      "expected": {
+        "toFile": "packages/utils/src/hash.ts",
+        "toSymbol": "hashPassword"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/hash.ts",
+      "fromSymbol": "hashPasswordPadded",
+      "callName": "padStart",
+      "callLine": 16,
+      "expected": null,
+      "note": "built-in String.prototype.padStart"
+    },
+    {
+      "fromFile": "packages/utils/src/pad.ts",
+      "fromSymbol": "pad",
+      "callName": "padEnd",
+      "callLine": 5,
+      "expected": null,
+      "note": "built-in String.prototype.padEnd"
+    },
+    {
+      "fromFile": "packages/utils/src/registry.ts",
+      "fromSymbol": "index",
+      "callName": "map",
+      "callLine": 8,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "packages/utils/src/registry.ts",
+      "fromSymbol": "index",
+      "callName": "capitalize",
+      "callLine": 8,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "capitalize"
+      },
+      "note": "named import, same package (rule 2)"
+    },
+    {
+      "fromFile": "packages/utils/src/registry.ts",
+      "fromSymbol": "normalize",
+      "callName": "map",
+      "callLine": 13,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "packages/utils/src/registry.ts",
+      "fromSymbol": "normalize",
+      "callName": "trim",
+      "callLine": 13,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "trim"
+      },
+      "note": "named import, same package (rule 2)"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "capitalize",
+      "callName": "trim",
+      "callLine": 6,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "trim"
+      },
+      "note": "same-file call (rule 1) \u2014 both capitalize and trim are declared in this file"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "capitalize",
+      "callName": "toUpperCase",
+      "callLine": 8,
+      "expected": null,
+      "note": "built-in String.prototype.toUpperCase, receiver is trimmed[0]! (a non-null-asserted index access, correctly captured in full)"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "capitalize",
+      "callName": "slice",
+      "callLine": 8,
+      "expected": null,
+      "note": "built-in String.prototype.slice"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "trim",
+      "callName": "trim",
+      "callLine": 12,
+      "expected": null,
+      "note": "built-in String.prototype.trim on a parameter (value); this file also declares a FUNCTION named trim, but since the call has a receiver, candidates are filtered to METHOD kind only, so the FUNCTION is correctly not matched \u2014 no false positive from the name collision with itself"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "capitalizeAndLog",
+      "callName": "capitalize",
+      "callLine": 24,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "capitalize"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "capitalizeAndLog",
+      "callName": "logLine",
+      "callLine": 25,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "logLine"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "padAndCapitalize",
+      "callName": "capitalize",
+      "callLine": 33,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "capitalize"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "packages/utils/src/string-utils.ts",
+      "fromSymbol": "padAndCapitalize",
+      "callName": "pad",
+      "callLine": 33,
+      "expected": {
+        "toFile": "packages/utils/src/pad.ts",
+        "toSymbol": "pad"
+      },
+      "note": "no import at all; pad is unique within this file's own package bucket (@fixture/utils), so it resolves via the repo-wide/per-package name index directly (rule 3)"
+    },
+    {
+      "fromFile": "src/api/dispatcher.ts",
+      "fromSymbol": "dispatchItem",
+      "callName": "process",
+      "callLine": 10,
+      "expected": null,
+      "expectedAmbiguousSet": [
+        {
+          "toFile": "src/processors/batch-processor.ts",
+          "toSymbol": "process"
+        },
+        {
+          "toFile": "src/processors/queue-processor.ts",
+          "toSymbol": "process"
+        },
+        {
+          "toFile": "src/processors/stream-processor.ts",
+          "toSymbol": "process"
+        }
+      ],
+      "note": "genuine N=3 ambiguity, no import \u2014 exactly CALL_AMBIGUITY_MAX_CANDIDATES, the boundary the N>3 skip does not cross: three edges at confidence 0.4/3, not a skip (rule 4)"
+    },
+    {
+      "fromFile": "src/api/handler.ts",
+      "fromSymbol": "handle",
+      "callName": "render",
+      "callLine": 11,
+      "expected": null,
+      "note": "genuine N=4 ambiguity, no import \u2014 four same-named render() exports exist repo-wide (src/components/*-render.ts); N exceeds CALL_AMBIGUITY_MAX_CANDIDATES (3), so rule 4's skip applies and correct behavior is NO edge at all, not a guess (rule 4, the N>3 skip)"
+    },
+    {
+      "fromFile": "src/checks/verify-utils.ts",
+      "fromSymbol": "checkCapitalize",
+      "callName": "capitalize",
+      "callLine": 14,
+      "expected": {
+        "toFile": "packages/utils/src/string-utils.ts",
+        "toSymbol": "capitalize"
+      },
+      "note": "named import, cross-package (rule 2)"
+    },
+    {
+      "fromFile": "src/components/button-render.ts",
+      "fromSymbol": "renderTwice",
+      "callName": "render",
+      "callLine": 11,
+      "expected": {
+        "toFile": "src/components/button-render.ts",
+        "toSymbol": "render"
+      },
+      "note": "same-file call (rule 1) \u2014 resolves to this file's own render, not the three other collisions, because it is a bare call from within the same file. Note: the source calls render() twice (once assigned to a variable, once inline), but the adapter only captured one ParsedCall \u2014 same repeated-identical-call recall gap noted for entity.ts's bumpTwice"
+    },
+    {
+      "fromFile": "src/processors/batch-processor.ts",
+      "fromSymbol": "processBatch",
+      "callName": "map",
+      "callLine": 9,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "src/processors/batch-processor.ts",
+      "fromSymbol": "processBatch",
+      "callName": "process",
+      "callLine": 9,
+      "expected": {
+        "toFile": "src/processors/batch-processor.ts",
+        "toSymbol": "process"
+      },
+      "note": "same-file call (rule 1) \u2014 unambiguous, unlike dispatcher.ts's bare call to the same collision name"
+    },
+    {
+      "fromFile": "src/processors/batch-processor.ts",
+      "fromSymbol": "nonEmpty",
+      "callName": "filter",
+      "callLine": 14,
+      "expected": null,
+      "note": "built-in Array.prototype.filter"
+    },
+    {
+      "fromFile": "src/processors/queue-processor.ts",
+      "fromSymbol": "processMany",
+      "callName": "map",
+      "callLine": 10,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "src/processors/queue-processor.ts",
+      "fromSymbol": "processMany",
+      "callName": "process",
+      "callLine": 10,
+      "expected": {
+        "toFile": "src/processors/queue-processor.ts",
+        "toSymbol": "process"
+      },
+      "note": "same-file call (rule 1)"
+    },
+    {
+      "fromFile": "src/reports/summary.ts",
+      "fromSymbol": "summarize",
+      "callName": "formatDate",
+      "callLine": 7,
+      "expected": {
+        "toFile": "packages/utils/src/formatters/date-formatter.ts",
+        "toSymbol": "formatDate"
+      },
+      "note": "named import via a deep workspace-package subpath, from a top-level file outside any package boundary (rule 2)"
+    },
+    {
+      "fromFile": "src/reports/summary.ts",
+      "fromSymbol": "summarizeAll",
+      "callName": "map",
+      "callLine": 12,
+      "expected": null,
+      "note": "built-in Array.prototype.map"
+    },
+    {
+      "fromFile": "src/reports/summary.ts",
+      "fromSymbol": "summarizeAll",
+      "callName": "summarize",
+      "callLine": 12,
+      "expected": {
+        "toFile": "src/reports/summary.ts",
+        "toSymbol": "summarize"
+      },
+      "note": "same-file call (rule 1)"
+    }
+  ]
+}
