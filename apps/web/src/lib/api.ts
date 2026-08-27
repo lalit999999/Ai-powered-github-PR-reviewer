@@ -234,3 +234,33 @@ export async function getIndexStatus(repositoryId: string): Promise<IndexStatus 
   }
   return (await res.json()) as IndexStatus;
 }
+
+/**
+ * `GET /api/repositories/:id/knowledge` response body (phase-04 §7), mirroring
+ * `RepositoryKnowledgeDto` (apps/api) field-for-field. Only the *type* lives here —
+ * `knowledge-panel.tsx` does its own `credentials: "include"` client-side fetch, the same
+ * reason `index-status-poller.tsx`'s own `fetchIndexStatus` is local to that component
+ * rather than added as a function here (`apiFetch`, above, reads `next/headers` and only
+ * works in a Server Component).
+ */
+export interface TopFileByInboundEdges {
+  fileId: string;
+  path: string;
+  inboundEdgeCount: number;
+}
+
+export interface TopUnresolvedSpecifier {
+  rawSpecifier: string | null;
+  count: number;
+}
+
+export interface RepositoryKnowledge {
+  fileCount: number;
+  symbolCount: number;
+  edgeCount: number;
+  unresolvedImportRatio: number;
+  topFilesByInboundEdges: TopFileByInboundEdges[];
+  edgeCountByKind: Record<string, number>;
+  parseStateCounts: Record<string, number>;
+  topUnresolvedSpecifiers: TopUnresolvedSpecifier[];
+}

@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DisconnectRepositoryButton } from "@/components/repository/disconnect-repository-button";
 import { IndexStatusPoller } from "@/components/repository/index-status-poller";
+import { KnowledgePanel } from "@/components/repository/knowledge-panel";
 import type { IndexStatus, Repository } from "@/lib/api";
 
 /**
@@ -56,8 +57,9 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
           <DisconnectRepositoryButton repositoryId={repository.id} />
         </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
         <IndexStatusPoller repositoryId={repository.id} initialStatus={toInitialStatus(repository)} />
+        <KnowledgePanel repositoryId={repository.id} indexStatus={repository.indexStatus} />
       </CardContent>
     </Card>
   );
