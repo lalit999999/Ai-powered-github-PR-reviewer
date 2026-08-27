@@ -26,18 +26,27 @@ export interface SeededInstallation {
 
 export async function seedInstallation(
   userId: string,
-  overrides: { accountLogin?: string; accountType?: string; installationId?: bigint } = {},
+  overrides: {
+    accountLogin?: string;
+    accountType?: string;
+    installationId?: bigint;
+  } = {},
 ): Promise<SeededInstallation> {
   installationSeq += 1;
   const row = await prisma.githubInstallation.create({
     data: {
-      installationId: overrides.installationId ?? BigInt(60_000_000 + installationSeq),
+      installationId:
+        overrides.installationId ?? BigInt(60_000_000 + installationSeq),
       accountLogin: overrides.accountLogin ?? "octocat",
       accountType: overrides.accountType ?? "User",
       userId,
     },
   });
-  return { id: row.id, installationId: row.installationId, accountLogin: row.accountLogin };
+  return {
+    id: row.id,
+    installationId: row.installationId,
+    accountLogin: row.accountLogin,
+  };
 }
 
 let repoIdSeq = 0;
@@ -45,7 +54,9 @@ let repoIdSeq = 0;
 /** A realistic `GithubRepositoryMetadata` — what `repositoryGithub.getRepository`'s
  * mocked result carries in `{ ok: true, repository: ... }`. One counter-derived id per
  * call by default so tests that connect several repositories never collide by accident. */
-export function githubRepoMetadata(overrides: Partial<GithubRepositoryMetadata> = {}): GithubRepositoryMetadata {
+export function githubRepoMetadata(
+  overrides: Partial<GithubRepositoryMetadata> = {},
+): GithubRepositoryMetadata {
   repoIdSeq += 1;
   const owner = overrides.owner ?? "octocat";
   const name = overrides.name ?? `hello-world-${repoIdSeq}`;
@@ -54,7 +65,8 @@ export function githubRepoMetadata(overrides: Partial<GithubRepositoryMetadata> 
     owner,
     name,
     fullName: overrides.fullName ?? `${owner}/${name}`,
-    defaultBranch: overrides.defaultBranch === undefined ? "main" : overrides.defaultBranch,
+    defaultBranch:
+      overrides.defaultBranch === undefined ? "main" : overrides.defaultBranch,
     isPrivate: overrides.isPrivate ?? false,
     htmlUrl: overrides.htmlUrl ?? `https://github.com/${owner}/${name}`,
     sizeKib: overrides.sizeKib ?? 108,
@@ -76,8 +88,9 @@ export async function assertNoTokenPersisted(): Promise<void> {
     prisma.repository.findMany(),
     prisma.githubInstallation.findMany(),
   ]);
-  const serialized = JSON.stringify([repositories, installations], (_key, value) =>
-    typeof value === "bigint" ? value.toString() : value,
+  const serialized = JSON.stringify(
+    [repositories, installations],
+    (_key, value) => (typeof value === "bigint" ? value.toString() : value),
   );
   expect(serialized).not.toMatch(TOKEN_SHAPE);
 }

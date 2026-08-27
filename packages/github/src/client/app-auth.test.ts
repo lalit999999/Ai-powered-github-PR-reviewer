@@ -2,7 +2,11 @@ import { Writable } from "node:stream";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
 import { createLogger } from "@repo/observability";
-import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../errors.js";
+import {
+  GithubAccessRevokedError,
+  GithubRateLimitError,
+  ServiceUnavailableError,
+} from "../errors.js";
 import {
   createInstallationTokenService,
   effectiveTtlSeconds,
@@ -30,11 +34,18 @@ function fakeClock(startMs = START_MS) {
 }
 
 /** A 201 shaped like GitHub's real access_tokens response. */
-function mintResponse(token = TOKEN, expiresAtMs = START_MS + 60 * 60 * 1000): GithubHttpResponse {
+function mintResponse(
+  token = TOKEN,
+  expiresAtMs = START_MS + 60 * 60 * 1000,
+): GithubHttpResponse {
   return {
     status: 201,
     headers: { "x-ratelimit-remaining": "4999" },
-    body: { token, expires_at: new Date(expiresAtMs).toISOString(), permissions: { contents: "read" } },
+    body: {
+      token,
+      expires_at: new Date(expiresAtMs).toISOString(),
+      permissions: { contents: "read" },
+    },
   };
 }
 
@@ -47,7 +58,10 @@ function capturingLogger(component = "github.client") {
       callback();
     },
   });
-  const instance = pino({ level: "debug", base: null, timestamp: false, messageKey: "msg" }, stream);
+  const instance = pino(
+    { level: "debug", base: null, timestamp: false, messageKey: "msg" },
+    stream,
+  );
   return { logger: createLogger(component, instance), lines };
 }
 
@@ -102,18 +116,25 @@ describe("the token-cache margin constant itself (plan.md §45 named failure poi
 
   it("leaves real margin under GitHub's own 60-minute expiry, so a token cannot die mid-call", () => {
     expect(TOKEN_CACHE_TTL_SECONDS).toBeLessThan(GITHUB_TOKEN_LIFETIME_SECONDS);
-    expect(GITHUB_TOKEN_LIFETIME_SECONDS - TOKEN_CACHE_TTL_SECONDS).toBeGreaterThanOrEqual(10 * 60);
+    expect(
+      GITHUB_TOKEN_LIFETIME_SECONDS - TOKEN_CACHE_TTL_SECONDS,
+    ).toBeGreaterThanOrEqual(10 * 60);
   });
 
   it("never caches a token for its full stated lifetime, even when GitHub says 60 minutes", () => {
-    const ttl = effectiveTtlSeconds(START_MS + GITHUB_TOKEN_LIFETIME_SECONDS * 1000, START_MS);
+    const ttl = effectiveTtlSeconds(
+      START_MS + GITHUB_TOKEN_LIFETIME_SECONDS * 1000,
+      START_MS,
+    );
     expect(ttl).toBeLessThan(GITHUB_TOKEN_LIFETIME_SECONDS);
   });
 });
 
 describe("effectiveTtlSeconds", () => {
   it("uses the 50-minute cap when GitHub's expires_at is the usual 60 minutes away", () => {
-    expect(effectiveTtlSeconds(START_MS + 60 * 60 * 1000, START_MS)).toBe(TOKEN_CACHE_TTL_SECONDS);
+    expect(effectiveTtlSeconds(START_MS + 60 * 60 * 1000, START_MS)).toBe(
+      TOKEN_CACHE_TTL_SECONDS,
+    );
   });
 
   it("falls back to the cap when GitHub sends no parseable expires_at", () => {
@@ -137,7 +158,9 @@ describe("getInstallationToken — cache behavior", () => {
     const h = harness([mintResponse()]);
     expect(await h.service.getInstallationToken(INSTALLATION_ID)).toBe(TOKEN);
     expect(h.http).toHaveBeenCalledTimes(1);
-    expect(await h.cache.get(installationTokenCacheKey(INSTALLATION_ID))).toBe(TOKEN);
+    expect(await h.cache.get(installationTokenCacheKey(INSTALLATION_ID))).toBe(
+      TOKEN,
+    );
   });
 
   it("reuses the cached token on a second call without a second HTTP request", async () => {
@@ -157,7 +180,9 @@ describe("getInstallationToken — cache behavior", () => {
     const mintLine = h.lines.find((line) => line.cache === "miss");
     expect(mintLine?.component).toBe("github.client");
     expect(mintLine?.installationId).toBe(INSTALLATION_ID.toString());
-    expect(mintLine?.endpoint).toBe(`/app/installations/${INSTALLATION_ID}/access_tokens`);
+    expect(mintLine?.endpoint).toBe(
+      `/app/installations/${INSTALLATION_ID}/access_tokens`,
+    );
     expect(mintLine?.status).toBe(201);
   });
 
@@ -191,7 +216,10 @@ describe("getInstallationToken — the 50-minute expiry boundary (§22)", () => 
   });
 
   it("mints a FRESH token at 50:01 — a new HTTP request, not a stale cached value", async () => {
-    const h = harness([mintResponse(TOKEN), mintResponse("ghs_secondfreshtoken", START_MS + 3 * 60 * 60 * 1000)]);
+    const h = harness([
+      mintResponse(TOKEN),
+      mintResponse("ghs_secondfreshtoken", START_MS + 3 * 60 * 60 * 1000),
+    ]);
     expect(await h.service.getInstallationToken(INSTALLATION_ID)).toBe(TOKEN);
 
     h.clock.advanceSeconds(TOKEN_CACHE_TTL_SECONDS + 1); // 50:01
@@ -216,46 +244,65 @@ describe("getInstallationToken — the 50-minute expiry boundary (§22)", () => 
     expect(h.http).toHaveBeenCalledTimes(1);
 
     h.clock.advanceSeconds(2); // 19:01 — past the shortened TTL, still well inside 50:00
-    expect(await h.service.getInstallationToken(INSTALLATION_ID)).toBe("ghs_afterearlyexpiry");
+    expect(await h.service.getInstallationToken(INSTALLATION_ID)).toBe(
+      "ghs_afterearlyexpiry",
+    );
     expect(h.http).toHaveBeenCalledTimes(2);
   });
 });
 
 describe("getInstallationToken — failure handling (§12)", () => {
   it("retries a 5xx exactly 3 times with exponential backoff, then throws ServiceUnavailableError", async () => {
-    const h = harness([{ status: 500, headers: {}, body: { message: "Server Error" } }]);
-    await expect(h.service.getInstallationToken(INSTALLATION_ID)).rejects.toBeInstanceOf(ServiceUnavailableError);
+    const h = harness([
+      { status: 500, headers: {}, body: { message: "Server Error" } },
+    ]);
+    await expect(
+      h.service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toBeInstanceOf(ServiceUnavailableError);
     expect(h.http).toHaveBeenCalledTimes(TOKEN_MINT_MAX_ATTEMPTS);
     expect(h.sleeps).toEqual([250, 500]); // two waits between three attempts
   });
 
   it("surfaces a clean, user-safe message after exhausting retries rather than hanging", async () => {
     const h = harness([{ status: 503, headers: {}, body: null }]);
-    await expect(h.service.getInstallationToken(INSTALLATION_ID)).rejects.toThrow(/GitHub is temporarily unavailable/);
+    await expect(
+      h.service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toThrow(/GitHub is temporarily unavailable/);
   });
 
   it("retries a network-layer failure the same way a 5xx is retried", async () => {
     const h = harness([new Error("ECONNRESET")]);
-    await expect(h.service.getInstallationToken(INSTALLATION_ID)).rejects.toBeInstanceOf(ServiceUnavailableError);
+    await expect(
+      h.service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toBeInstanceOf(ServiceUnavailableError);
     expect(h.http).toHaveBeenCalledTimes(TOKEN_MINT_MAX_ATTEMPTS);
   });
 
   it("recovers if a retry succeeds, without surfacing the transient failure", async () => {
-    const h = harness([{ status: 502, headers: {}, body: null }, mintResponse()]);
+    const h = harness([
+      { status: 502, headers: {}, body: null },
+      mintResponse(),
+    ]);
     expect(await h.service.getInstallationToken(INSTALLATION_ID)).toBe(TOKEN);
     expect(h.http).toHaveBeenCalledTimes(2);
   });
 
   it("does NOT retry a 401 — it means the installation was revoked", async () => {
-    const h = harness([{ status: 401, headers: {}, body: { message: "Bad credentials" } }]);
-    await expect(h.service.getInstallationToken(INSTALLATION_ID)).rejects.toBeInstanceOf(GithubAccessRevokedError);
+    const h = harness([
+      { status: 401, headers: {}, body: { message: "Bad credentials" } },
+    ]);
+    await expect(
+      h.service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toBeInstanceOf(GithubAccessRevokedError);
     expect(h.http).toHaveBeenCalledTimes(1);
     expect(h.sleeps).toEqual([]);
   });
 
   it("carries a message the UI can show for a revoked installation", async () => {
     const h = harness([{ status: 401, headers: {}, body: null }]);
-    await expect(h.service.getInstallationToken(INSTALLATION_ID)).rejects.toThrow(/revoked/i);
+    await expect(
+      h.service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toThrow(/revoked/i);
   });
 
   it("treats a rate-limited 403 as rate limiting, NOT as revocation", async () => {
@@ -263,12 +310,17 @@ describe("getInstallationToken — failure handling (§12)", () => {
     const h = harness([
       {
         status: 403,
-        headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(resetAtSeconds) },
+        headers: {
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": String(resetAtSeconds),
+        },
         body: { message: "API rate limit exceeded" },
       },
     ]);
 
-    const error = await h.service.getInstallationToken(INSTALLATION_ID).catch((e: unknown) => e);
+    const error = await h.service
+      .getInstallationToken(INSTALLATION_ID)
+      .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(GithubRateLimitError);
     expect(error).not.toBeInstanceOf(GithubAccessRevokedError);
     expect((error as GithubRateLimitError).details.retryAfterSeconds).toBe(90);
@@ -278,29 +330,50 @@ describe("getInstallationToken — failure handling (§12)", () => {
     const h = harness([
       {
         status: 429,
-        headers: { "retry-after": "42", "x-ratelimit-reset": String(Math.floor(START_MS / 1000) + 3600) },
+        headers: {
+          "retry-after": "42",
+          "x-ratelimit-reset": String(Math.floor(START_MS / 1000) + 3600),
+        },
         body: null,
       },
     ]);
-    const error = await h.service.getInstallationToken(INSTALLATION_ID).catch((e: unknown) => e);
+    const error = await h.service
+      .getInstallationToken(INSTALLATION_ID)
+      .catch((e: unknown) => e);
     expect((error as GithubRateLimitError).details.retryAfterSeconds).toBe(42);
   });
 
   it("treats a 403 WITHOUT rate-limit headers as a suspended installation", async () => {
-    const h = harness([{ status: 403, headers: {}, body: { message: "This installation has been suspended" } }]);
-    await expect(h.service.getInstallationToken(INSTALLATION_ID)).rejects.toBeInstanceOf(GithubAccessRevokedError);
+    const h = harness([
+      {
+        status: 403,
+        headers: {},
+        body: { message: "This installation has been suspended" },
+      },
+    ]);
+    await expect(
+      h.service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toBeInstanceOf(GithubAccessRevokedError);
     expect(h.http).toHaveBeenCalledTimes(1);
   });
 
   it("does not cache anything when minting fails", async () => {
     const h = harness([{ status: 401, headers: {}, body: null }]);
-    await h.service.getInstallationToken(INSTALLATION_ID).catch(() => undefined);
-    expect(await h.cache.get(installationTokenCacheKey(INSTALLATION_ID))).toBeNull();
+    await h.service
+      .getInstallationToken(INSTALLATION_ID)
+      .catch(() => undefined);
+    expect(
+      await h.cache.get(installationTokenCacheKey(INSTALLATION_ID)),
+    ).toBeNull();
   });
 
   it("logs x-ratelimit-remaining as a structured number on failure (§20)", async () => {
-    const h = harness([{ status: 500, headers: { "x-ratelimit-remaining": "17" }, body: null }]);
-    await h.service.getInstallationToken(INSTALLATION_ID).catch(() => undefined);
+    const h = harness([
+      { status: 500, headers: { "x-ratelimit-remaining": "17" }, body: null },
+    ]);
+    await h.service
+      .getInstallationToken(INSTALLATION_ID)
+      .catch(() => undefined);
     const failureLine = h.lines.find((line) => line.status === 500);
     expect(failureLine?.["github.rate_limit_remaining"]).toBe(17);
   });
@@ -314,14 +387,24 @@ describe("getInstallationToken — the token never reaches the logs", () => {
       [mintResponse()],
       [{ status: 401, headers: {}, body: { token: TOKEN } }],
       [{ status: 500, headers: {}, body: { token: TOKEN } }],
-      [{ status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1" }, body: { token: TOKEN } }],
+      [
+        {
+          status: 403,
+          headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1" },
+          body: { token: TOKEN },
+        },
+      ],
     ];
 
     for (const responses of cases) {
       const h = harness(responses);
-      await h.service.getInstallationToken(INSTALLATION_ID).catch(() => undefined);
+      await h.service
+        .getInstallationToken(INSTALLATION_ID)
+        .catch(() => undefined);
       // Two calls, so the cache-hit path is covered too.
-      await h.service.getInstallationToken(INSTALLATION_ID).catch(() => undefined);
+      await h.service
+        .getInstallationToken(INSTALLATION_ID)
+        .catch(() => undefined);
 
       expect(h.lines.length).toBeGreaterThan(0);
       expect(JSON.stringify(h.lines)).not.toContain(TOKEN);
@@ -341,7 +424,9 @@ describe("getInstallationToken — the token never reaches the logs", () => {
       expect.objectContaining({
         method: "POST",
         url: `https://api.github.com/app/installations/${INSTALLATION_ID}/access_tokens`,
-        headers: expect.objectContaining({ authorization: "Bearer fake.app.jwt" }),
+        headers: expect.objectContaining({
+          authorization: "Bearer fake.app.jwt",
+        }),
       }),
     );
   });

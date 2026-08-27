@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GithubRepositoryMetadata } from "@repo/github";
-import type { InstallationRecord, RepositoryRecord } from "./repository.types.js";
+import type {
+  InstallationRecord,
+  RepositoryRecord,
+} from "./repository.types.js";
 
 /**
  * The seams: the two repository files (they own the Prisma import), the two GitHub
@@ -30,12 +33,21 @@ vi.mock("./installation.repository.js", () => ({
   findInstallationForUser: vi.fn(),
   findGithubAccessToken: vi.fn(),
 }));
+<<<<<<< HEAD
+vi.mock("./index-job.repository.js", () => ({
+  findLatestForRepository: vi.fn(),
+}));
+vi.mock("./knowledge.repository.js", () => ({
+  getKnowledgeAggregates: vi.fn(),
+}));
+=======
 vi.mock("./index-job.repository.js", () => ({ findLatestForRepository: vi.fn() }));
 // Prompt 4 sub-task 4.3's listRecentWebhookDeliveries is the only function in this file
 // that touches the webhooks module's own repository — stubbed here purely so the module
 // graph resolves without a real @repo/db import; its own behavior is covered by this
 // file's "listRecentWebhookDeliveries" describe block below.
 vi.mock("../webhooks/webhook-event.repository.js", () => ({ listRecentByRepositoryFullName: vi.fn() }));
+>>>>>>> main
 vi.mock("../../lib/rate-limit.js", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@repo/github", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@repo/github")>()),
@@ -48,9 +60,16 @@ vi.mock("@repo/github", async (importOriginal) => ({
     probeBranch: vi.fn(),
   },
 }));
-vi.mock("../../inngest/emit.js", () => ({ emitRepositoryIndexRequested: vi.fn() }));
+vi.mock("../../inngest/emit.js", () => ({
+  emitRepositoryIndexRequested: vi.fn(),
+}));
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
   return { ...actual, createLogger: () => logSpies };
@@ -59,16 +78,28 @@ vi.mock("@repo/observability", async (importOriginal) => {
 const repositoryRepository = await import("./repository.repository.js");
 const installationRepository = await import("./installation.repository.js");
 const indexJobRepository = await import("./index-job.repository.js");
+<<<<<<< HEAD
+const knowledgeRepository = await import("./knowledge.repository.js");
+=======
 const webhookEventRepository = await import("../webhooks/webhook-event.repository.js");
+>>>>>>> main
 const { checkRateLimit } = await import("../../lib/rate-limit.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { emitRepositoryIndexRequested } = await import("../../inngest/emit.js");
-const { ConflictError, ForbiddenError, InternalError, ServiceUnavailableError, TooManyRequestsError, UnauthenticatedError, UnprocessableEntityError } =
-  await import("../../lib/errors.js");
+const {
+  ConflictError,
+  ForbiddenError,
+  InternalError,
+  ServiceUnavailableError,
+  TooManyRequestsError,
+  UnauthenticatedError,
+  UnprocessableEntityError,
+} = await import("../../lib/errors.js");
 const {
   connectRepository,
   disconnectRepository,
   getIndexStatus,
+  getKnowledge,
   getRepositoryDetail,
   listInstallationRepositories,
   listRecentWebhookDeliveries,
@@ -83,22 +114,43 @@ const TENANT = { userId: USER_ID, projectId: PROJECT_ID };
 const INSTALLATION_ID = 4242n;
 const GITHUB_REPO_ID = 1296269n;
 
-const mockedListInstallations = vi.mocked(installationRepository.listInstallationsForUser);
-const mockedFindInstallation = vi.mocked(installationRepository.findInstallationForUser);
+const mockedListInstallations = vi.mocked(
+  installationRepository.listInstallationsForUser,
+);
+const mockedFindInstallation = vi.mocked(
+  installationRepository.findInstallationForUser,
+);
 const mockedFindToken = vi.mocked(installationRepository.findGithubAccessToken);
-const mockedUpsertInstallation = vi.mocked(installationRepository.upsertInstallation);
-const mockedListUserInstallations = vi.mocked(installationGithub.listUserInstallations);
-const mockedListInstallationRepos = vi.mocked(installationGithub.listInstallationRepositories);
+const mockedUpsertInstallation = vi.mocked(
+  installationRepository.upsertInstallation,
+);
+const mockedListUserInstallations = vi.mocked(
+  installationGithub.listUserInstallations,
+);
+const mockedListInstallationRepos = vi.mocked(
+  installationGithub.listInstallationRepositories,
+);
 const mockedGetRepository = vi.mocked(repositoryGithub.getRepository);
 const mockedProbeBranch = vi.mocked(repositoryGithub.probeBranch);
-const mockedFindByPair = vi.mocked(repositoryRepository.findByProjectAndGithubRepoId);
+const mockedFindByPair = vi.mocked(
+  repositoryRepository.findByProjectAndGithubRepoId,
+);
 const mockedCreate = vi.mocked(repositoryRepository.create);
 const mockedMarkDisconnected = vi.mocked(repositoryRepository.markDisconnected);
-const mockedFindByIdForProject = vi.mocked(repositoryRepository.findByIdForProject);
-const mockedFindLatestIndexJob = vi.mocked(indexJobRepository.findLatestForRepository);
+const mockedFindByIdForProject = vi.mocked(
+  repositoryRepository.findByIdForProject,
+);
+const mockedFindLatestIndexJob = vi.mocked(
+  indexJobRepository.findLatestForRepository,
+);
+const mockedGetKnowledgeAggregates = vi.mocked(
+  knowledgeRepository.getKnowledgeAggregates,
+);
 const mockedCheckRateLimit = vi.mocked(checkRateLimit);
 
-function installationRow(overrides: Partial<InstallationRecord> = {}): InstallationRecord {
+function installationRow(
+  overrides: Partial<InstallationRecord> = {},
+): InstallationRecord {
   return {
     id: "inst-1",
     installationId: INSTALLATION_ID,
@@ -112,7 +164,9 @@ function installationRow(overrides: Partial<InstallationRecord> = {}): Installat
   };
 }
 
-function metadata(overrides: Partial<GithubRepositoryMetadata> = {}): GithubRepositoryMetadata {
+function metadata(
+  overrides: Partial<GithubRepositoryMetadata> = {},
+): GithubRepositoryMetadata {
   return {
     githubRepoId: GITHUB_REPO_ID,
     owner: "octocat",
@@ -128,7 +182,9 @@ function metadata(overrides: Partial<GithubRepositoryMetadata> = {}): GithubRepo
   };
 }
 
-function repositoryRow(overrides: Partial<RepositoryRecord> = {}): RepositoryRecord {
+function repositoryRow(
+  overrides: Partial<RepositoryRecord> = {},
+): RepositoryRecord {
   return {
     id: "repo-1",
     projectId: PROJECT_ID,
@@ -173,7 +229,9 @@ describe("connectRepository — the happy path (§7, §21)", () => {
   it("creates a PENDING repository and returns its DTO", async () => {
     arrangeHappyPath();
 
-    const dto = await connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" });
+    const dto = await connectRepository(TENANT, {
+      repoUrl: "https://github.com/octocat/Hello-World",
+    });
 
     expect(dto.id).toBe("repo-1");
     expect(dto.indexStatus).toBe("PENDING");
@@ -186,7 +244,9 @@ describe("connectRepository — the happy path (§7, §21)", () => {
   it("calls GET /repos exactly once per connect attempt — the §21 cost lever", async () => {
     arrangeHappyPath();
 
-    await connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" });
+    await connectRepository(TENANT, {
+      repoUrl: "https://github.com/octocat/Hello-World",
+    });
 
     expect(mockedGetRepository).toHaveBeenCalledTimes(1);
     // And never probes for emptiness when the repository has content.
@@ -199,7 +259,9 @@ describe("connectRepository — the happy path (§7, §21)", () => {
     // nothing GitHub ever sends back, including Phase 06's webhook payloads.
     arrangeHappyPath();
 
-    await connectRepository(TENANT, { repoUrl: "https://github.com/OCTOCAT/hello-world" });
+    await connectRepository(TENANT, {
+      repoUrl: "https://github.com/OCTOCAT/hello-world",
+    });
 
     expect(mockedCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -217,15 +279,21 @@ describe("connectRepository — the happy path (§7, §21)", () => {
     // source is KiB, and Prompt 2 had to pick one and be consistent.
     arrangeHappyPath();
 
-    await connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" });
+    await connectRepository(TENANT, {
+      repoUrl: "https://github.com/octocat/Hello-World",
+    });
 
-    expect(mockedCreate).toHaveBeenCalledWith(expect.objectContaining({ sizeBytes: 108 * 1024 }));
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ sizeBytes: 108 * 1024 }),
+    );
   });
 
   it("emits repository/index.requested with the §8 payload", async () => {
     arrangeHappyPath();
 
-    await connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" });
+    await connectRepository(TENANT, {
+      repoUrl: "https://github.com/octocat/Hello-World",
+    });
 
     expect(emitRepositoryIndexRequested).toHaveBeenCalledWith({
       projectId: PROJECT_ID,
@@ -238,7 +306,9 @@ describe("connectRepository — the happy path (§7, §21)", () => {
   it("logs the success with repositoryId, projectId, userId and installationId (§20)", async () => {
     arrangeHappyPath();
 
-    await connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" });
+    await connectRepository(TENANT, {
+      repoUrl: "https://github.com/octocat/Hello-World",
+    });
 
     expect(logSpies.info).toHaveBeenCalledWith(
       "repository connected",
@@ -254,10 +324,16 @@ describe("connectRepository — the happy path (§7, §21)", () => {
   it("resolves the installation from the URL's owner, without a GitHub listing call", async () => {
     arrangeHappyPath();
 
-    await connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" });
+    await connectRepository(TENANT, {
+      repoUrl: "https://github.com/octocat/Hello-World",
+    });
 
     expect(mockedListInstallationRepos).not.toHaveBeenCalled();
-    expect(mockedGetRepository).toHaveBeenCalledWith(INSTALLATION_ID, "octocat", "Hello-World");
+    expect(mockedGetRepository).toHaveBeenCalledWith(
+      INSTALLATION_ID,
+      "octocat",
+      "Hello-World",
+    );
   });
 });
 
@@ -281,19 +357,30 @@ describe("connectRepository — the picker's githubRepoId path", () => {
     mockedFindByPair.mockResolvedValue(null);
     mockedCreate.mockResolvedValue({ ok: true, repository: repositoryRow() });
 
-    const dto = await connectRepository(TENANT, { githubRepoId: GITHUB_REPO_ID });
+    const dto = await connectRepository(TENANT, {
+      githubRepoId: GITHUB_REPO_ID,
+    });
 
     expect(dto.id).toBe("repo-1");
-    expect(mockedGetRepository).toHaveBeenCalledWith(INSTALLATION_ID, "octocat", "Hello-World");
+    expect(mockedGetRepository).toHaveBeenCalledWith(
+      INSTALLATION_ID,
+      "octocat",
+      "Hello-World",
+    );
   });
 
   it("rejects an id no installation of this user can see, with the 403 message", async () => {
     // §13: access is verified through the installation, never trusted from client
     // input — so an id the user simply guessed goes nowhere.
     mockedListInstallations.mockResolvedValue([installationRow()]);
-    mockedListInstallationRepos.mockResolvedValue({ ok: true, repositories: [] });
+    mockedListInstallationRepos.mockResolvedValue({
+      ok: true,
+      repositories: [],
+    });
 
-    await expect(connectRepository(TENANT, { githubRepoId: 999999n })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      connectRepository(TENANT, { githubRepoId: 999999n }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
     expect(mockedGetRepository).not.toHaveBeenCalled();
   });
 });
@@ -302,23 +389,32 @@ describe("connectRepository — each failure is its own answer (§4, §15)", () 
   it("400 for a URL that does not parse", async () => {
     mockedListInstallations.mockResolvedValue([installationRow()]);
 
-    await expect(connectRepository(TENANT, { repoUrl: "https://github.com.evil.com/o/r" })).rejects.toMatchObject({
+    await expect(
+      connectRepository(TENANT, { repoUrl: "https://github.com.evil.com/o/r" }),
+    ).rejects.toMatchObject({
       httpStatus: 400,
     });
     expect(mockedGetRepository).not.toHaveBeenCalled();
   });
 
   it("403 when the App has no installation on that account", async () => {
-    mockedListInstallations.mockResolvedValue([installationRow({ accountLogin: "someone-else" })]);
+    mockedListInstallations.mockResolvedValue([
+      installationRow({ accountLogin: "someone-else" }),
+    ]);
 
-    await expect(connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" })).rejects.toMatchObject(
-      { httpStatus: 403 },
-    );
+    await expect(
+      connectRepository(TENANT, {
+        repoUrl: "https://github.com/octocat/Hello-World",
+      }),
+    ).rejects.toMatchObject({ httpStatus: 403 });
   });
 
   it("403 when GitHub answers 404 for a repository the installation cannot see", async () => {
     mockedListInstallations.mockResolvedValue([installationRow()]);
-    mockedGetRepository.mockResolvedValue({ ok: false, reason: "NOT_ACCESSIBLE" });
+    mockedGetRepository.mockResolvedValue({
+      ok: false,
+      reason: "NOT_ACCESSIBLE",
+    });
 
     const thrown = await connectRepository(TENANT, {
       repoUrl: "https://github.com/octocat/secret",
@@ -333,7 +429,9 @@ describe("connectRepository — each failure is its own answer (§4, §15)", () 
     mockedGetRepository.mockResolvedValue({ ok: false, reason: "UNAVAILABLE" });
 
     await expect(
-      connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" }),
+      connectRepository(TENANT, {
+        repoUrl: "https://github.com/octocat/Hello-World",
+      }),
     ).rejects.toBeInstanceOf(ServiceUnavailableError);
   });
 
@@ -343,7 +441,9 @@ describe("connectRepository — each failure is its own answer (§4, §15)", () 
     mockedFindByPair.mockResolvedValue(repositoryRow());
 
     await expect(
-      connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" }),
+      connectRepository(TENANT, {
+        repoUrl: "https://github.com/octocat/Hello-World",
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(mockedCreate).not.toHaveBeenCalled();
   });
@@ -357,25 +457,35 @@ describe("connectRepository — each failure is its own answer (§4, §15)", () 
     mockedCreate.mockResolvedValue({ ok: false, reason: "ALREADY_CONNECTED" });
 
     await expect(
-      connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" }),
+      connectRepository(TENANT, {
+        repoUrl: "https://github.com/octocat/Hello-World",
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
   });
 
   it("422 for an empty repository", async () => {
     mockedListInstallations.mockResolvedValue([installationRow()]);
-    mockedGetRepository.mockResolvedValue({ ok: true, repository: metadata({ sizeKib: 0, defaultBranch: null }) });
+    mockedGetRepository.mockResolvedValue({
+      ok: true,
+      repository: metadata({ sizeKib: 0, defaultBranch: null }),
+    });
     mockedFindByPair.mockResolvedValue(null);
 
     await expect(
-      connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" }),
+      connectRepository(TENANT, {
+        repoUrl: "https://github.com/octocat/Hello-World",
+      }),
     ).rejects.toBeInstanceOf(UnprocessableEntityError);
     expect(mockedCreate).not.toHaveBeenCalled();
   });
 
   it("422 for a repository over the size cap", async () => {
     mockedListInstallations.mockResolvedValue([installationRow()]);
-    mockedGetRepository.mockResolvedValue({ ok: true, repository: metadata({ sizeKib: 600 * 1024 }) });
+    mockedGetRepository.mockResolvedValue({
+      ok: true,
+      repository: metadata({ sizeKib: 600 * 1024 }),
+    });
     mockedFindByPair.mockResolvedValue(null);
 
     const thrown = await connectRepository(TENANT, {
@@ -388,15 +498,25 @@ describe("connectRepository — each failure is its own answer (§4, §15)", () 
 
   it("probes only for an ambiguous size 0, and connects a freshly pushed repository", async () => {
     mockedListInstallations.mockResolvedValue([installationRow()]);
-    mockedGetRepository.mockResolvedValue({ ok: true, repository: metadata({ sizeKib: 0, defaultBranch: "main" }) });
+    mockedGetRepository.mockResolvedValue({
+      ok: true,
+      repository: metadata({ sizeKib: 0, defaultBranch: "main" }),
+    });
     mockedFindByPair.mockResolvedValue(null);
     mockedProbeBranch.mockResolvedValue("HAS_COMMITS");
     mockedCreate.mockResolvedValue({ ok: true, repository: repositoryRow() });
 
-    await expect(connectRepository(TENANT, { repoUrl: "https://github.com/octocat/Hello-World" })).resolves.toMatchObject(
-      { id: "repo-1" },
+    await expect(
+      connectRepository(TENANT, {
+        repoUrl: "https://github.com/octocat/Hello-World",
+      }),
+    ).resolves.toMatchObject({ id: "repo-1" });
+    expect(mockedProbeBranch).toHaveBeenCalledWith(
+      INSTALLATION_ID,
+      "octocat",
+      "Hello-World",
+      "main",
     );
-    expect(mockedProbeBranch).toHaveBeenCalledWith(INSTALLATION_ID, "octocat", "Hello-World", "main");
   });
 });
 
@@ -410,7 +530,10 @@ describe("connectRepository — the same repository under a DIFFERENT project (�
     mockedGetRepository.mockResolvedValue({ ok: true, repository: metadata() });
     // Already connected under project-1; project-2's lookup finds nothing.
     mockedFindByPair.mockResolvedValue(null);
-    mockedCreate.mockResolvedValue({ ok: true, repository: repositoryRow({ id: "repo-2", projectId: "project-2" }) });
+    mockedCreate.mockResolvedValue({
+      ok: true,
+      repository: repositoryRow({ id: "repo-2", projectId: "project-2" }),
+    });
 
     const dto = await connectRepository(
       { userId: USER_ID, projectId: "project-2" },
@@ -424,7 +547,11 @@ describe("connectRepository — the same repository under a DIFFERENT project (�
   });
 });
 
-function indexJobRow(overrides: Partial<Awaited<ReturnType<typeof indexJobRepository.findLatestForRepository>>> = {}) {
+function indexJobRow(
+  overrides: Partial<
+    Awaited<ReturnType<typeof indexJobRepository.findLatestForRepository>>
+  > = {},
+) {
   return {
     id: "job-1",
     repositoryId: "repo-1",
@@ -448,7 +575,10 @@ describe("getRepositoryDetail", () => {
     mockedFindByIdForProject.mockResolvedValue(repositoryRow());
     mockedFindLatestIndexJob.mockResolvedValue(null);
 
-    const detail = await getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" });
+    const detail = await getRepositoryDetail({
+      ...TENANT,
+      repositoryId: "repo-1",
+    });
 
     expect(detail.indexJob).toBeNull();
     expect(detail.repository.id).toBe("repo-1");
@@ -458,7 +588,10 @@ describe("getRepositoryDetail", () => {
     mockedFindByIdForProject.mockResolvedValue(repositoryRow());
     mockedFindLatestIndexJob.mockResolvedValue(indexJobRow());
 
-    const detail = await getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" });
+    const detail = await getRepositoryDetail({
+      ...TENANT,
+      repositoryId: "repo-1",
+    });
 
     expect(detail.indexJob).toEqual({
       id: "job-1",
@@ -483,7 +616,9 @@ describe("getRepositoryDetail", () => {
   it("404s if the repository vanished between the tenancy check and the read", async () => {
     mockedFindByIdForProject.mockResolvedValue(null);
 
-    await expect(getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({
+    await expect(
+      getRepositoryDetail({ ...TENANT, repositoryId: "repo-1" }),
+    ).rejects.toMatchObject({
       httpStatus: 404,
     });
   });
@@ -546,7 +681,9 @@ describe("listRecentWebhookDeliveries (phase-06 §7 — POST /webhook-test, desp
 
 describe("getIndexStatus (§7 — the cheap polling endpoint)", () => {
   it("falls back to the Repository row's own indexStatus/indexError when no IndexJob exists yet", async () => {
-    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "PENDING", indexError: null }));
+    mockedFindByIdForProject.mockResolvedValue(
+      repositoryRow({ indexStatus: "PENDING", indexError: null }),
+    );
     mockedFindLatestIndexJob.mockResolvedValue(null);
 
     const status = await getIndexStatus({ ...TENANT, repositoryId: "repo-1" });
@@ -563,7 +700,9 @@ describe("getIndexStatus (§7 — the cheap polling endpoint)", () => {
 
   it("returns the latest IndexJob's fields, and only the six §7 names (no id, no filesSkipped)", async () => {
     mockedFindByIdForProject.mockResolvedValue(repositoryRow());
-    mockedFindLatestIndexJob.mockResolvedValue(indexJobRow({ filesTotal: 100, filesProcessed: 60, filesSkipped: 10 }));
+    mockedFindLatestIndexJob.mockResolvedValue(
+      indexJobRow({ filesTotal: 100, filesProcessed: 60, filesSkipped: 10 }),
+    );
 
     const status = await getIndexStatus({ ...TENANT, repositoryId: "repo-1" });
 
@@ -582,7 +721,54 @@ describe("getIndexStatus (§7 — the cheap polling endpoint)", () => {
   it("404s if the repository vanished", async () => {
     mockedFindByIdForProject.mockResolvedValue(null);
 
-    await expect(getIndexStatus({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({ httpStatus: 404 });
+    await expect(
+      getIndexStatus({ ...TENANT, repositoryId: "repo-1" }),
+    ).rejects.toMatchObject({ httpStatus: 404 });
+  });
+});
+
+describe("getKnowledge (phase-04 §7 — the knowledge/debug panel's one read)", () => {
+  it("re-verifies ownership through findByIdForProject, then returns the DTO the repository layer's aggregates produce", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow());
+    mockedGetKnowledgeAggregates.mockResolvedValue({
+      fileTotals: { fileCount: 3, parseStateCounts: { OK: 2, FAILED: 1 } },
+      symbolCount: 12,
+      edgeTotals: {
+        edgeCount: 20,
+        edgeCountByKind: { CALLS: 15, IMPORTS: 5 },
+        unresolvedImportRatio: 0.2,
+      },
+      topUnresolvedSpecifiers: [{ rawSpecifier: "./missing.js", count: 1 }],
+      topFilesByInboundEdges: [
+        { fileId: "file-1", path: "src/a.ts", inboundEdgeCount: 4 },
+      ],
+    });
+
+    const knowledge = await getKnowledge({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(mockedFindByIdForProject).toHaveBeenCalledWith(PROJECT_ID, "repo-1");
+    expect(mockedGetKnowledgeAggregates).toHaveBeenCalledWith("repo-1");
+    expect(knowledge).toEqual({
+      fileCount: 3,
+      symbolCount: 12,
+      edgeCount: 20,
+      unresolvedImportRatio: 0.2,
+      topFilesByInboundEdges: [
+        { fileId: "file-1", path: "src/a.ts", inboundEdgeCount: 4 },
+      ],
+      edgeCountByKind: { CALLS: 15, IMPORTS: 5 },
+      parseStateCounts: { OK: 2, FAILED: 1 },
+      topUnresolvedSpecifiers: [{ rawSpecifier: "./missing.js", count: 1 }],
+    });
+  });
+
+  it("404s if the repository vanished, and never runs the aggregate queries", async () => {
+    mockedFindByIdForProject.mockResolvedValue(null);
+
+    await expect(
+      getKnowledge({ ...TENANT, repositoryId: "repo-1" }),
+    ).rejects.toMatchObject({ httpStatus: 404 });
+    expect(mockedGetKnowledgeAggregates).not.toHaveBeenCalled();
   });
 });
 
@@ -592,9 +778,14 @@ describe("triggerIndex (§7 — POST /index)", () => {
   });
 
   it("emits repository/index.requested with a pre-allocated indexJobId and returns it", async () => {
-    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "PENDING" }));
+    mockedFindByIdForProject.mockResolvedValue(
+      repositoryRow({ indexStatus: "PENDING" }),
+    );
 
-    const result = await triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" });
+    const result = await triggerIndex(
+      { ...TENANT, repositoryId: "repo-1" },
+      { mode: "FULL" },
+    );
 
     expect(result.indexJobId).toEqual(expect.any(String));
     expect(emitRepositoryIndexRequested).toHaveBeenCalledWith({
@@ -607,19 +798,30 @@ describe("triggerIndex (§7 — POST /index)", () => {
   });
 
   it("409s when the repository is already indexing", async () => {
-    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "INDEXING" }));
+    mockedFindByIdForProject.mockResolvedValue(
+      repositoryRow({ indexStatus: "INDEXING" }),
+    );
 
-    await expect(triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" })).rejects.toMatchObject({
+    await expect(
+      triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" }),
+    ).rejects.toMatchObject({
       httpStatus: 409,
     });
     expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
   });
 
   it("429s when the rate limit rejects, carrying retryAfterSeconds in details", async () => {
-    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ indexStatus: "PENDING" }));
-    mockedCheckRateLimit.mockResolvedValue({ allowed: false, retryAfterSeconds: 1800 });
+    mockedFindByIdForProject.mockResolvedValue(
+      repositoryRow({ indexStatus: "PENDING" }),
+    );
+    mockedCheckRateLimit.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 1800,
+    });
 
-    await expect(triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" })).rejects.toBeInstanceOf(TooManyRequestsError);
+    await expect(
+      triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" }),
+    ).rejects.toBeInstanceOf(TooManyRequestsError);
     expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
     // Repository lookup must not even run once the rate limit has already rejected.
     expect(mockedFindByIdForProject).not.toHaveBeenCalled();
@@ -628,14 +830,19 @@ describe("triggerIndex (§7 — POST /index)", () => {
   it("404s if the repository vanished", async () => {
     mockedFindByIdForProject.mockResolvedValue(null);
 
-    await expect(triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" })).rejects.toMatchObject({
+    await expect(
+      triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "FULL" }),
+    ).rejects.toMatchObject({
       httpStatus: 404,
     });
   });
 
   it("rejects a non-FULL mode defensively, even though the schema layer already rejects it", async () => {
     await expect(
-      triggerIndex({ ...TENANT, repositoryId: "repo-1" }, { mode: "INCREMENTAL" as "FULL" }),
+      triggerIndex(
+        { ...TENANT, repositoryId: "repo-1" },
+        { mode: "INCREMENTAL" as "FULL" },
+      ),
     ).rejects.toBeInstanceOf(InternalError);
     expect(emitRepositoryIndexRequested).not.toHaveBeenCalled();
   });
@@ -645,7 +852,9 @@ describe("disconnectRepository — idempotent (§7, §11)", () => {
   it("logs the transition when a row actually changed", async () => {
     mockedMarkDisconnected.mockResolvedValue(1);
 
-    await expect(disconnectRepository({ ...TENANT, repositoryId: "repo-1" })).resolves.toBeUndefined();
+    await expect(
+      disconnectRepository({ ...TENANT, repositoryId: "repo-1" }),
+    ).resolves.toBeUndefined();
 
     expect(logSpies.info).toHaveBeenCalledWith("repository disconnected", {
       repositoryId: "repo-1",
@@ -657,7 +866,9 @@ describe("disconnectRepository — idempotent (§7, §11)", () => {
   it("succeeds on a repeat call without overwriting the original transition", async () => {
     mockedMarkDisconnected.mockResolvedValue(0);
 
-    await expect(disconnectRepository({ ...TENANT, repositoryId: "repo-1" })).resolves.toBeUndefined();
+    await expect(
+      disconnectRepository({ ...TENANT, repositoryId: "repo-1" }),
+    ).resolves.toBeUndefined();
 
     expect(logSpies.info).toHaveBeenCalledWith(
       "repository disconnect no-op (already disconnected)",
@@ -670,17 +881,27 @@ describe("listInstallationRepositories — installation ownership is checked ser
   it("rejects an installation the caller does not own, before any GitHub call", async () => {
     mockedFindInstallation.mockResolvedValue(null);
 
-    await expect(listInstallationRepositories(OWNER, 999n, { q: undefined })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      listInstallationRepositories(OWNER, 999n, { q: undefined }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
     expect(mockedListInstallationRepos).not.toHaveBeenCalled();
   });
 
   it("cross-checks against GithubInstallation.userId rather than trusting the id", async () => {
     mockedFindInstallation.mockResolvedValue(installationRow());
-    mockedListInstallationRepos.mockResolvedValue({ ok: true, repositories: [] });
+    mockedListInstallationRepos.mockResolvedValue({
+      ok: true,
+      repositories: [],
+    });
 
-    await listInstallationRepositories(OWNER, INSTALLATION_ID, { q: undefined });
+    await listInstallationRepositories(OWNER, INSTALLATION_ID, {
+      q: undefined,
+    });
 
-    expect(mockedFindInstallation).toHaveBeenCalledWith(USER_ID, INSTALLATION_ID);
+    expect(mockedFindInstallation).toHaveBeenCalledWith(
+      USER_ID,
+      INSTALLATION_ID,
+    );
   });
 
   it("applies ?q server-side, case-insensitively", async () => {
@@ -688,14 +909,37 @@ describe("listInstallationRepositories — installation ownership is checked ser
     mockedListInstallationRepos.mockResolvedValue({
       ok: true,
       repositories: [
-        { githubRepoId: 1n, owner: "octocat", name: "api", fullName: "octocat/api", isPrivate: true, defaultBranch: "main" },
-        { githubRepoId: 2n, owner: "octocat", name: "web", fullName: "octocat/web", isPrivate: false, defaultBranch: "main" },
+        {
+          githubRepoId: 1n,
+          owner: "octocat",
+          name: "api",
+          fullName: "octocat/api",
+          isPrivate: true,
+          defaultBranch: "main",
+        },
+        {
+          githubRepoId: 2n,
+          owner: "octocat",
+          name: "web",
+          fullName: "octocat/web",
+          isPrivate: false,
+          defaultBranch: "main",
+        },
       ],
     });
 
-    const repos = await listInstallationRepositories(OWNER, INSTALLATION_ID, { q: "API" });
+    const repos = await listInstallationRepositories(OWNER, INSTALLATION_ID, {
+      q: "API",
+    });
 
-    expect(repos).toEqual([{ githubRepoId: "1", fullName: "octocat/api", isPrivate: true, defaultBranch: "main" }]);
+    expect(repos).toEqual([
+      {
+        githubRepoId: "1",
+        fullName: "octocat/api",
+        isPrivate: true,
+        defaultBranch: "main",
+      },
+    ]);
   });
 });
 
@@ -705,7 +949,12 @@ describe("syncInstallations — the temporary polling fallback (§10)", () => {
     mockedListUserInstallations.mockResolvedValue({
       ok: true,
       installations: [
-        { installationId: INSTALLATION_ID, accountLogin: "octocat", accountType: "User", suspended: false },
+        {
+          installationId: INSTALLATION_ID,
+          accountLogin: "octocat",
+          accountType: "User",
+          suspended: false,
+        },
       ],
     });
     mockedUpsertInstallation.mockResolvedValue(installationRow());
@@ -725,7 +974,10 @@ describe("syncInstallations — the temporary polling fallback (§10)", () => {
 
   it("treats 'just installed, nothing synced yet' as an empty list, not an error (§9)", async () => {
     mockedFindToken.mockResolvedValue("gho_token");
-    mockedListUserInstallations.mockResolvedValue({ ok: true, installations: [] });
+    mockedListUserInstallations.mockResolvedValue({
+      ok: true,
+      installations: [],
+    });
 
     await expect(syncInstallations(OWNER)).resolves.toEqual([]);
   });
@@ -733,21 +985,33 @@ describe("syncInstallations — the temporary polling fallback (§10)", () => {
   it("asks for a 401 re-auth when no GitHub OAuth token is stored", async () => {
     mockedFindToken.mockResolvedValue(null);
 
-    await expect(syncInstallations(OWNER)).rejects.toBeInstanceOf(UnauthenticatedError);
+    await expect(syncInstallations(OWNER)).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
     expect(mockedListUserInstallations).not.toHaveBeenCalled();
   });
 
   it("asks for a 401 re-auth when GitHub rejects the stored token", async () => {
     mockedFindToken.mockResolvedValue("stale");
-    mockedListUserInstallations.mockResolvedValue({ ok: false, reason: "UNAUTHENTICATED" });
+    mockedListUserInstallations.mockResolvedValue({
+      ok: false,
+      reason: "UNAUTHENTICATED",
+    });
 
-    await expect(syncInstallations(OWNER)).rejects.toBeInstanceOf(UnauthenticatedError);
+    await expect(syncInstallations(OWNER)).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
   });
 
   it("surfaces a GitHub outage as 503, not as a re-auth prompt", async () => {
     mockedFindToken.mockResolvedValue("gho_token");
-    mockedListUserInstallations.mockResolvedValue({ ok: false, reason: "UNAVAILABLE" });
+    mockedListUserInstallations.mockResolvedValue({
+      ok: false,
+      reason: "UNAVAILABLE",
+    });
 
-    await expect(syncInstallations(OWNER)).rejects.toBeInstanceOf(ServiceUnavailableError);
+    await expect(syncInstallations(OWNER)).rejects.toBeInstanceOf(
+      ServiceUnavailableError,
+    );
   });
 });

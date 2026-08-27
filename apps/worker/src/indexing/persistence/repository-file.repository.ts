@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Prisma, prisma } from "@repo/db";
-import type { FileClassification, IndexState, SkipReason } from "@repo/shared";
+import type {
+  FileClassification,
+  IndexState,
+  ParseState,
+  SkipReason,
+} from "@repo/shared";
 
 /**
  * `plan.md` §8.2 step 6: batched, upsert-based `RepositoryFile` persistence. The
@@ -69,14 +74,22 @@ export const REPOSITORY_FILE_BATCH_SIZE = 1000;
  * 200,000-file repository firing 200 concurrent multi-row statements would be a
  * self-inflicted connection-pool exhaustion, not a throughput win.
  */
-export async function upsertRepositoryFiles(files: readonly RepositoryFileUpsertInput[]): Promise<void> {
-  for (let offset = 0; offset < files.length; offset += REPOSITORY_FILE_BATCH_SIZE) {
+export async function upsertRepositoryFiles(
+  files: readonly RepositoryFileUpsertInput[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < files.length;
+    offset += REPOSITORY_FILE_BATCH_SIZE
+  ) {
     const batch = files.slice(offset, offset + REPOSITORY_FILE_BATCH_SIZE);
     await upsertBatch(batch);
   }
 }
 
-async function upsertBatch(batch: readonly RepositoryFileUpsertInput[]): Promise<void> {
+async function upsertBatch(
+  batch: readonly RepositoryFileUpsertInput[],
+): Promise<void> {
   if (batch.length === 0) return;
 
   const now = new Date();
@@ -148,9 +161,146 @@ async function upsertBatch(batch: readonly RepositoryFileUpsertInput[]): Promise
  * `commitSha`) just widen the window where a concurrent read sees neither the old nor
  * the new row for a still-current path, for no benefit.
  */
-export async function sweepStaleRepositoryFiles(repositoryId: string, targetCommitSha: string): Promise<number> {
+export async function sweepStaleRepositoryFiles(
+  repositoryId: string,
+  targetCommitSha: string,
+): Promise<number> {
   const result = await prisma.repositoryFile.deleteMany({
     where: { repositoryId, commitSha: { not: targetCommitSha } },
   });
   return result.count;
+}
+
+export interface RepositoryFileGraphInput {
+  id: string;
+  path: string;
+  indexState: IndexState;
+  isTest: boolean;
+}
+
+/**
+ * Phase 04 (sub-task 4.6): reads back every `RepositoryFile` row just written for
+ * `commitSha` — the `{id, path, indexState, isTest}` shape `graph-builder.ts`'s
+ * `GraphBuilderFileInput` needs. Read back rather than carried forward from the caller's
+ * own `upsertRepositoryFiles` input on purpose: that function's upsert deliberately
+ * discards a conflicting row's freshly-generated id in favor of the existing row's own
+ * (see that function's header comment), so the id an existing file ends up with is not
+ * knowable to the caller without asking Postgres after the upsert has committed.
+ */
+export async function findRepositoryFilesByCommit(
+  repositoryId: string,
+  commitSha: string,
+): Promise<RepositoryFileGraphInput[]> {
+  const rows = await prisma.repositoryFile.findMany({
+    where: { repositoryId, commitSha },
+    select: { id: true, path: true, indexState: true, isTest: true },
+  });
+  // `RepositoryFile.indexState` is a plain `String` column (like `classification` — see
+  // this file's own upsert header comment), so Prisma's generated type is `string`, not
+  // the app-level `IndexState` union; narrowed here at the one place this table's rows
+  // become a typed `GraphBuilderFileInput`.
+  return rows.map((row) => ({
+    ...row,
+    indexState: row.indexState as IndexState,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Phase 04 — the RepositoryFile graph-metadata update pass (sub-task 4.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * `symbolCount`/`inboundEdgeCount`/`parseState`/`packageName`/`isTest` are populated
+ * meaningfully for the first time by this phase (phase-04 §6/§5 OUTPUT) — this module's
+ * own header comment above already named this as the phase and the file that decides how
+ * they're maintained; extended in place here rather than a parallel module, per that
+ * comment's own instruction.
+ *
+ * ## `inboundEdgeCount` counts both file-level and symbol-level inbound edges
+ *
+ * `code-dependency.repository.ts`'s `countInboundEdgesByFile` (the source of the
+ * `inboundEdgeCount` value a caller passes in here) unions edges pointing directly at a
+ * file (`toFileId`) with edges pointing at any symbol the file `CONTAINS` (`toSymbolId`
+ * joined back through `CodeSymbol.fileId`) — see that function's own header for why:
+ * counting file-level edges alone would make this metric blind to almost every real
+ * dependency, since `CALLS`/`EXTENDS`/`IMPLEMENTS`/`REFERENCES` are all symbol-level, and
+ * spec §14's Database Verification requires a shared utility module to score meaningfully
+ * higher than a leaf file.
+ *
+ * ## `packageName` is the *declared* package name, not the directory-derived one
+ *
+ * `graph-builder.ts` computes this via `repo-context.ts`'s `getPackageNameForFile` (reads
+ * the nearest `package.json#name`), upgrading Phase 03's own directory-based
+ * `detectPackageName` guess (spec §15's acceptance criterion: "monorepo workspace files
+ * are correctly tagged with packageName").
+ *
+ * ## `isTest` is the caller's already-reconciled value, not re-derived here
+ *
+ * `graph-builder.ts`'s own `FileGraphMetadata.isTest` is already `pathBased ||
+ * frameworkImport` for a successfully parsed file, and the original walk-based value,
+ * unchanged, for a FAILED/NOT_PARSED file whose imports were never trusted enough to
+ * check (`test-detection.ts`'s own §3.3 doc comment) — this function only ever writes
+ * whatever it is given.
+ */
+export interface RepositoryFileGraphMetadataUpdate {
+  fileId: string;
+  symbolCount: number;
+  inboundEdgeCount: number;
+  parseState: ParseState;
+  packageName: string | null;
+  isTest: boolean;
+}
+
+/** Same batch size as {@link upsertRepositoryFiles} — one statement per 1,000 rows,
+ * sequential batches (the same shared-connection-pool reasoning applies identically here). */
+export async function updateRepositoryFileGraphMetadata(
+  updates: readonly RepositoryFileGraphMetadataUpdate[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < updates.length;
+    offset += REPOSITORY_FILE_BATCH_SIZE
+  ) {
+    const batch = updates.slice(offset, offset + REPOSITORY_FILE_BATCH_SIZE);
+    await updateGraphMetadataBatch(batch);
+  }
+}
+
+async function updateGraphMetadataBatch(
+  batch: readonly RepositoryFileGraphMetadataUpdate[],
+): Promise<void> {
+  if (batch.length === 0) return;
+
+  // Every value is explicitly cast — a bound parameter carries no type of its own until
+  // Postgres infers one from context, and a bare `VALUES (...)` with no surrounding
+  // typed column reference infers `text` for everything (confirmed empirically: without
+  // these casts, `column "symbolCount" is of type integer but expression is of type
+  // text`). The `INSERT ... VALUES` pattern elsewhere in this file never hits this because
+  // the target table's column list gives every value an inferred type for free; a
+  // `FROM (VALUES ...)` join has no such column list to infer from.
+  const rows = Prisma.join(
+    batch.map(
+      (u) =>
+        Prisma.sql`(
+          ${u.fileId}::text,
+          ${u.symbolCount}::integer,
+          ${u.inboundEdgeCount}::integer,
+          ${u.parseState}::text,
+          ${u.packageName}::text,
+          ${u.isTest}::boolean
+        )`,
+    ),
+  );
+
+  await prisma.$executeRaw`
+    UPDATE "RepositoryFile" AS rf
+    SET
+      "symbolCount" = v."symbolCount",
+      "inboundEdgeCount" = v."inboundEdgeCount",
+      "parseState" = v."parseState",
+      "packageName" = v."packageName",
+      "isTest" = v."isTest"
+    FROM (VALUES ${rows}) AS v(id, "symbolCount", "inboundEdgeCount", "parseState", "packageName", "isTest")
+    WHERE rf.id = v.id
+  `;
 }

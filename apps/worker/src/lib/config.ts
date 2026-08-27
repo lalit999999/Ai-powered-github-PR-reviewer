@@ -20,7 +20,9 @@ const GIB = 1024 ** 3;
  * see docs/decisions/phase-03-log.md, sub-task 1.1/1.2.
  */
 export const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   INNGEST_EVENT_KEY: z.string().min(1, "INNGEST_EVENT_KEY is required"),
   INNGEST_SIGNING_KEY: z.string().min(1, "INNGEST_SIGNING_KEY is required"),
@@ -43,7 +45,11 @@ export const envSchema = z.object({
   // Phase 03 §19 — all three have code defaults, so none are required; exposed as env
   // vars purely so an MVP size limit can be tuned without a redeploy.
   WORKER_TEMP_DIR: z.string().min(1).optional(),
-  INDEX_MAX_TOTAL_BYTES: z.coerce.number().int().positive().default(2 * GIB),
+  INDEX_MAX_TOTAL_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(2 * GIB),
   INDEX_MAX_FILE_COUNT: z.coerce.number().int().positive().default(200_000),
 });
 
@@ -56,11 +62,15 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
     // Carries each field's first Zod message, not just its name — otherwise a mangled
     // GITHUB_APP_PRIVATE_KEY reads identically to a missing one (matches
     // apps/api/src/lib/config.ts, added there for the same variable).
-    const missingOrInvalid = Object.entries(fieldErrors).map(([name, messages]) => {
-      const reason = messages?.[0];
-      return reason ? `${name} (${reason})` : name;
-    });
-    throw new ConfigError(`Invalid environment configuration — missing/invalid variable(s): ${missingOrInvalid.join(", ")}`);
+    const missingOrInvalid = Object.entries(fieldErrors).map(
+      ([name, messages]) => {
+        const reason = messages?.[0];
+        return reason ? `${name} (${reason})` : name;
+      },
+    );
+    throw new ConfigError(
+      `Invalid environment configuration — missing/invalid variable(s): ${missingOrInvalid.join(", ")}`,
+    );
   }
   return Object.freeze(parsed.data);
 }

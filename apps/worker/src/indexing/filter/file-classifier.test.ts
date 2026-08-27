@@ -65,7 +65,10 @@ describe("detectMinified", () => {
   });
 
   it("one very long line among many short ones is NOT flagged — it's the average, not the max", () => {
-    const shortLines = Array.from({ length: 50 }, (_, i) => `const x${i.toString()} = ${i.toString()};`);
+    const shortLines = Array.from(
+      { length: 50 },
+      (_, i) => `const x${i.toString()} = ${i.toString()};`,
+    );
     const oneLongLine = "a".repeat(5000);
     const content = Buffer.from([...shortLines, oneLongLine].join("\n"));
     expect(detectMinified(content)).toBe(false);
@@ -131,24 +134,33 @@ describe("detectIsTest", () => {
     expect(detectIsTest(relativePath)).toBe(true);
   });
 
-  it.each(["src/index.ts", "src/contest.ts", "src/latest.ts"])("does not flag %s", (relativePath) => {
-    expect(detectIsTest(relativePath)).toBe(false);
-  });
+  it.each(["src/index.ts", "src/contest.ts", "src/latest.ts"])(
+    "does not flag %s",
+    (relativePath) => {
+      expect(detectIsTest(relativePath)).toBe(false);
+    },
+  );
 });
 
 describe("detectIsGenerated", () => {
-  it.each(["api/service.pb.go", "src/schema.generated.ts", "src/generated/foo.ts", "generated/foo.ts", ".generated/bar.ts"])(
-    "flags %s as generated",
+  it.each([
+    "api/service.pb.go",
+    "src/schema.generated.ts",
+    "src/generated/foo.ts",
+    "generated/foo.ts",
+    ".generated/bar.ts",
+  ])("flags %s as generated", (relativePath) => {
+    expect(detectIsGenerated(relativePath)).toBe(true);
+  });
+
+  it.each(["src/index.ts", "src/generation-utils.ts", "src/gen/foo.ts"])(
+    "does not flag %s",
     (relativePath) => {
-      expect(detectIsGenerated(relativePath)).toBe(true);
+      // "gen" alone is deliberately too loose a match to accept (it would false-positive
+      // on a directory like "src/general/") — only the full "generated" segment counts.
+      expect(detectIsGenerated(relativePath)).toBe(false);
     },
   );
-
-  it.each(["src/index.ts", "src/generation-utils.ts", "src/gen/foo.ts"])("does not flag %s", (relativePath) => {
-    // "gen" alone is deliberately too loose a match to accept (it would false-positive
-    // on a directory like "src/general/") — only the full "generated" segment counts.
-    expect(detectIsGenerated(relativePath)).toBe(false);
-  });
 });
 
 describe("detectPackageName", () => {
@@ -176,19 +188,27 @@ describe("detectPackageName", () => {
 
 describe("classifyFile", () => {
   it("a lockfile is DEPENDENCY_LOCK regardless of other signals", () => {
-    expect(classifyFile("package-lock.json", false, false, "json")).toBe("DEPENDENCY_LOCK");
+    expect(classifyFile("package-lock.json", false, false, "json")).toBe(
+      "DEPENDENCY_LOCK",
+    );
   });
 
   it("a test file is TEST even if it would otherwise look like SOURCE", () => {
-    expect(classifyFile("src/foo.test.ts", true, false, "typescript")).toBe("TEST");
+    expect(classifyFile("src/foo.test.ts", true, false, "typescript")).toBe(
+      "TEST",
+    );
   });
 
   it("a generated file is GENERATED", () => {
-    expect(classifyFile("src/schema.generated.ts", false, true, "typescript")).toBe("GENERATED");
+    expect(
+      classifyFile("src/schema.generated.ts", false, true, "typescript"),
+    ).toBe("GENERATED");
   });
 
   it("a README is DOCUMENTATION", () => {
-    expect(classifyFile("README.md", false, false, "markdown")).toBe("DOCUMENTATION");
+    expect(classifyFile("README.md", false, false, "markdown")).toBe(
+      "DOCUMENTATION",
+    );
   });
 
   it("a png is ASSET", () => {
@@ -204,7 +224,9 @@ describe("classifyFile", () => {
   });
 
   it("a recognized-language file with no other signal is SOURCE", () => {
-    expect(classifyFile("src/index.ts", false, false, "typescript")).toBe("SOURCE");
+    expect(classifyFile("src/index.ts", false, false, "typescript")).toBe(
+      "SOURCE",
+    );
   });
 
   it("an unrecognized file with no other signal is UNKNOWN", () => {
@@ -214,7 +236,12 @@ describe("classifyFile", () => {
 
 describe("classify — the combined decision, in order", () => {
   it("size cap is checked before any content read", () => {
-    const decision = classify("big.ts", SIZE_CAP_BYTES + 1, Buffer.from("anything"), []);
+    const decision = classify(
+      "big.ts",
+      SIZE_CAP_BYTES + 1,
+      Buffer.from("anything"),
+      [],
+    );
     expect(decision).toEqual({ skip: true, reason: "SKIPPED_TOO_LARGE" });
   });
 
@@ -232,8 +259,12 @@ describe("classify — the combined decision, in order", () => {
   });
 
   it("a clean source file produces a full classification result", () => {
-    const content = Buffer.from("export function add(a: number, b: number) {\n  return a + b;\n}\n");
-    const decision = classify("src/math.ts", content.byteLength, content, ["."]);
+    const content = Buffer.from(
+      "export function add(a: number, b: number) {\n  return a + b;\n}\n",
+    );
+    const decision = classify("src/math.ts", content.byteLength, content, [
+      ".",
+    ]);
     expect(decision).toEqual({
       skip: false,
       classification: "SOURCE",

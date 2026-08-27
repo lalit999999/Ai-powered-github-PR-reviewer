@@ -12,9 +12,14 @@ function loadConfigOrExit(): Config {
     return loadConfig();
   } catch (err) {
     const logger = createLogger("config");
-    logger.error(err instanceof ConfigError ? err.message : "Invalid environment configuration", {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error(
+      err instanceof ConfigError
+        ? err.message
+        : "Invalid environment configuration",
+      {
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
     return process.exit(1);
   }
 }
@@ -25,4 +30,8 @@ export const env = loadConfigOrExit();
 // call that hands it apps/api's own already-validated values. Must run after env is
 // resolved above and before anything imports the GitHub client's default (non-injected)
 // code paths, which in practice means "right here, at the top of the module graph".
-initGithubClient({ appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY, redisUrl: env.REDIS_URL });
+initGithubClient({
+  appId: env.GITHUB_APP_ID,
+  privateKey: env.GITHUB_APP_PRIVATE_KEY,
+  redisUrl: env.REDIS_URL,
+});

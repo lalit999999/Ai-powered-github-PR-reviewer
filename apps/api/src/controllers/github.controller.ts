@@ -78,10 +78,15 @@ function installUrl(): string {
  * A user who just completed the install flow would otherwise see an empty list and
  * conclude it failed.
  */
-export async function listInstallations(req: Request, res: Response): Promise<void> {
+export async function listInstallations(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
 
-  const installations = await repositoryService.syncInstallations({ userId: session.user.id });
+  const installations = await repositoryService.syncInstallations({
+    userId: session.user.id,
+  });
 
   res.status(200).json({ installations, installUrl: installUrl() });
 }
@@ -91,9 +96,15 @@ export async function listInstallations(req: Request, res: Response): Promise<vo
  * 403 if the installation is not the caller's (see this file's header); 401 without a
  * session.
  */
-export async function listInstallationRepos(req: Request, res: Response): Promise<void> {
+export async function listInstallationRepos(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
-  const { installationId } = parseOrThrow(installationIdParamSchema, req.params);
+  const { installationId } = parseOrThrow(
+    installationIdParamSchema,
+    req.params,
+  );
   const query = parseOrThrow(listInstallationReposQuerySchema, req.query);
 
   const repos = await repositoryService.listInstallationRepositories(

@@ -46,7 +46,9 @@ export interface UpsertInstallationInput {
  * for. Phase 06's webhook-driven sync is where this becomes a real multi-user
  * question rather than a single-user sync artifact.
  */
-export async function upsertInstallation(input: UpsertInstallationInput): Promise<InstallationRecord> {
+export async function upsertInstallation(
+  input: UpsertInstallationInput,
+): Promise<InstallationRecord> {
   return prisma.githubInstallation.upsert({
     where: { installationId: input.installationId },
     create: {
@@ -122,7 +124,9 @@ export async function setInstallationSuspendedAt(installationId: bigint, suspend
 }
 
 /** Every installation attributed to this user. Owner-scoped in the `where`. */
-export async function listInstallationsForUser(userId: string): Promise<InstallationRecord[]> {
+export async function listInstallationsForUser(
+  userId: string,
+): Promise<InstallationRecord[]> {
   return prisma.githubInstallation.findMany({
     where: { userId },
     select: INSTALLATION_SELECT,
@@ -164,7 +168,9 @@ export async function findInstallationForUser(
  * this token is about to be sent to github.com, and sending a different provider's
  * token there would be a credential leak, not a failed request.
  */
-export async function findGithubAccessToken(userId: string): Promise<string | null> {
+export async function findGithubAccessToken(
+  userId: string,
+): Promise<string | null> {
   const account = await prisma.account.findFirst({
     where: { userId, provider: "github" },
     select: { access_token: true },

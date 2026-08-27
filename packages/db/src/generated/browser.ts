@@ -43,6 +43,16 @@ export type Repository = Prisma.RepositoryModel
  */
 export type RepositoryFile = Prisma.RepositoryFileModel
 /**
+ * Model CodeSymbol
+ * 
+ */
+export type CodeSymbol = Prisma.CodeSymbolModel
+/**
+ * Model CodeDependency
+ * 
+ */
+export type CodeDependency = Prisma.CodeDependencyModel
+/**
  * Model IndexJob
  * 
  */

@@ -39,7 +39,7 @@ real, committed work:
 ## 1. Repository topology — binding decision, overrides the phase document
 
 **Contradiction found.** `phase-00-foundation.md` §1 and `plan.md` §44 are explicit and binding:
-*"this is not a multi-package `apps/*` monorepo split; it is one Next.js codebase"* — a single
+_"this is not a multi-package `apps/*` monorepo split; it is one Next.js codebase"_ — a single
 `src/` tree, Next.js Route Handlers for all API routes, RSC calling the service layer directly
 (no network hop).
 
@@ -49,22 +49,22 @@ that way.
 
 **Resolution.** Asked the user directly (this is a high-blast-radius call — collapsing the
 monorepo would discard/rewrite `apps/api` and rip out Clerk). The user's explicit instruction:
-*"i use monorepo and in /app/api have backend and /apps/web have frontend and /apps/worker have
-inngest architecture"* — i.e., keep the monorepo split. This is a deliberate user override of
+_"i use monorepo and in /app/api have backend and /apps/web have frontend and /apps/worker have
+inngest architecture"_ — i.e., keep the monorepo split. This is a deliberate user override of
 `plan.md`/phase-00's architecture decision, which takes precedence over the document. Recording
 it here rather than silently picking a side, per instructions.
 
 **Consequence for every "src/" path named in the phase document:** they are remapped onto the
 existing package layout as follows. This mapping is binding for Prompts 2 and 3 too.
 
-| Phase doc path | This repo |
-|---|---|
-| `src/app/api/**` (route handlers) | `apps/api/src/routes/**`, `apps/api/src/controllers/**` (Express) |
-| `src/lib/*.ts` | `apps/api/src/lib/*.ts` |
-| `src/db/prisma.ts`, `src/db/repositories/*` | `packages/db/src/client.ts` (Prisma client) + future `apps/api/src/modules/**/*.repository.ts` |
-| `src/inngest/**` | `apps/worker/**` (created in Prompt 2, per phase-00 — worker has nothing to run until Phase 03 for real functions, but the no-op wiring lands in Prompt 2) |
-| `src/components/ui/**` | `apps/web/src/components/ui/**` (already populated) |
-| `tests/{unit,integration,fixtures}/` | `apps/api/tests/{integration,fixtures}/` + colocated `*.test.ts` in `apps/api/src/**` |
+| Phase doc path                              | This repo                                                                                                                                                  |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/api/**` (route handlers)           | `apps/api/src/routes/**`, `apps/api/src/controllers/**` (Express)                                                                                          |
+| `src/lib/*.ts`                              | `apps/api/src/lib/*.ts`                                                                                                                                    |
+| `src/db/prisma.ts`, `src/db/repositories/*` | `packages/db/src/client.ts` (Prisma client) + future `apps/api/src/modules/**/*.repository.ts`                                                             |
+| `src/inngest/**`                            | `apps/worker/**` (created in Prompt 2, per phase-00 — worker has nothing to run until Phase 03 for real functions, but the no-op wiring lands in Prompt 2) |
+| `src/components/ui/**`                      | `apps/web/src/components/ui/**` (already populated)                                                                                                        |
+| `tests/{unit,integration,fixtures}/`        | `apps/api/tests/{integration,fixtures}/` + colocated `*.test.ts` in `apps/api/src/**`                                                                      |
 
 **RSC-calls-service-layer-directly (plan.md §29.2) does not apply** — `apps/web` is a pure
 frontend and will consume `apps/api` over HTTP (it already ships `@tanstack/react-query`, which
@@ -78,8 +78,8 @@ request wrapper own `traceId` generation instead of relying on middleware. In th
 `apps/api` is a plain Node Express process — there is no Edge runtime anywhere in the request
 path. `AsyncLocalStorage` is fully reliable at the Express middleware layer, so `tracing.ts`'s
 context is established in ordinary Express middleware, seeded from an inbound
-`x-request-id`/`x-trace-id` header when present. Recording this because the *reasoning* behind
-the original caveat (ALS reliability) still matters even though the *mechanism* it warns about
+`x-request-id`/`x-trace-id` header when present. Recording this because the _reasoning_ behind
+the original caveat (ALS reliability) still matters even though the _mechanism_ it warns about
 (Edge middleware) isn't present here.
 
 ## 2. Rule B reconciliation (ESLint boundary: who may import `@prisma/client`)
@@ -113,7 +113,7 @@ scaffolding, not a contract.
 Only one migration existed (`20260823184926`, `User` with `email` only), no Postgres container
 was running, and nothing had ever applied it against real data. A Prisma migration's SQL can't be
 edited in place without corrupting migration history integrity, and the completion criterion
-requires *exactly one* migration containing only the two placeholder tables. Deleted that
+requires _exactly one_ migration containing only the two placeholder tables. Deleted that
 migration directory and regenerated a fresh initial migration against the corrected schema
 (`User` + `Project`, PKs only) — not a `prisma migrate reset` against a live database, just
 removing dead migration history that predates any real data. No `--force-reset` /
@@ -200,6 +200,7 @@ covered by its own. Also configured `@typescript-eslint/no-unused-vars` with
 ships with this repo's `eslint-config-next` version. Since `pnpm lint` is a required
 verification command and these are small, mechanical, low-risk fixes unrelated to any
 design decision:
+
 - `use-mobile.ts`: switched to a lazy `useState` initializer for the initial value,
   leaving the effect to only subscribe to the media-query change event (the rule's
   own suggested pattern) — a strict improvement, not just a lint suppression.
@@ -216,19 +217,19 @@ trimming that is Prompt 2/3's call, not this one's.
 
 All run against this repo, in order, after all of the above:
 
-| Command | Result |
-|---|---|
-| `pnpm install` | Clean install, all workspaces resolved |
-| `pnpm typecheck` (`turbo typecheck`) | Pass — `api`, `web` (strict, `noUncheckedIndexedAccess`, `noImplicitOverride`) |
-| `pnpm lint` (`turbo lint` + root boundary/no-console config) | Pass, 0 errors |
-| `pnpm test:unit` | Pass — 7 files, 50 tests |
-| `pnpm test:integration` | Pass — 1 file, 3 tests (Testcontainers Postgres: migrate deploy, round-trip, no schema creep) |
-| `pnpm build` (`turbo build`) | Pass — `api` (`tsc`), `web` (`next build`) |
-| `prisma migrate status` against a fresh local DB | `Database schema is up to date!`, 1 migration found |
-| Behavioral: `DATABASE_URL` absent at boot | Refuses to boot; structured log line names `DATABASE_URL` explicitly; exit code 1. Real `apps/api/.env` never touched (used `DOTENV_CONFIG_PATH` pointed at a throwaway file instead) |
-| Behavioral: lint fixtures | All three (`rule-a/b/c-violation.ts`) fail with `no-restricted-imports`, each message naming its rule (A/B/C) and citing phase-00 §3 |
-| Smoke test: existing `/api/health` through the new global middleware | 200, `x-trace-id` header present, route itself unchanged (out of scope this prompt) |
-| Smoke test: unmatched route | 404, standard envelope `{"error":{"code":"NOT_FOUND",...}}` |
+| Command                                                              | Result                                                                                                                                                                                |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`                                                       | Clean install, all workspaces resolved                                                                                                                                                |
+| `pnpm typecheck` (`turbo typecheck`)                                 | Pass — `api`, `web` (strict, `noUncheckedIndexedAccess`, `noImplicitOverride`)                                                                                                        |
+| `pnpm lint` (`turbo lint` + root boundary/no-console config)         | Pass, 0 errors                                                                                                                                                                        |
+| `pnpm test:unit`                                                     | Pass — 7 files, 50 tests                                                                                                                                                              |
+| `pnpm test:integration`                                              | Pass — 1 file, 3 tests (Testcontainers Postgres: migrate deploy, round-trip, no schema creep)                                                                                         |
+| `pnpm build` (`turbo build`)                                         | Pass — `api` (`tsc`), `web` (`next build`)                                                                                                                                            |
+| `prisma migrate status` against a fresh local DB                     | `Database schema is up to date!`, 1 migration found                                                                                                                                   |
+| Behavioral: `DATABASE_URL` absent at boot                            | Refuses to boot; structured log line names `DATABASE_URL` explicitly; exit code 1. Real `apps/api/.env` never touched (used `DOTENV_CONFIG_PATH` pointed at a throwaway file instead) |
+| Behavioral: lint fixtures                                            | All three (`rule-a/b/c-violation.ts`) fail with `no-restricted-imports`, each message naming its rule (A/B/C) and citing phase-00 §3                                                  |
+| Smoke test: existing `/api/health` through the new global middleware | 200, `x-trace-id` header present, route itself unchanged (out of scope this prompt)                                                                                                   |
+| Smoke test: unmatched route                                          | 404, standard envelope `{"error":{"code":"NOT_FOUND",...}}`                                                                                                                           |
 
 **Safety note, not a defect:** `packages/db/.env` (pre-existing, gitignored, untouched by
 this work) points at a real external Neon Postgres instance. Every Prisma command run
@@ -268,7 +269,7 @@ controller bypassed the wrapper and fell back to `component: "http"`). Response 
 ## 14. Frontend shell — route groups required moving `page.tsx`
 
 `(marketing)` and `(app)` route groups added per plan.md §44. `src/app/page.tsx` had to
-move to `src/app/(marketing)/page.tsx`: with a root-level `page.tsx` *and* a
+move to `src/app/(marketing)/page.tsx`: with a root-level `page.tsx` _and_ a
 `(marketing)` group, `/` would resolve from two places, which Next.js rejects. Moved
 with `git mv` so history is preserved.
 

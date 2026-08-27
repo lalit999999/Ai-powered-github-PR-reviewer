@@ -56,6 +56,8 @@ export const ModelName = {
   GithubInstallation: 'GithubInstallation',
   Repository: 'Repository',
   RepositoryFile: 'RepositoryFile',
+  CodeSymbol: 'CodeSymbol',
+  CodeDependency: 'CodeDependency',
   IndexJob: 'IndexJob',
   WebhookEvent: 'WebhookEvent',
   PullRequest: 'PullRequest',
@@ -177,6 +179,44 @@ export const RepositoryFileScalarFieldEnum = {
 } as const
 
 export type RepositoryFileScalarFieldEnum = (typeof RepositoryFileScalarFieldEnum)[keyof typeof RepositoryFileScalarFieldEnum]
+
+
+export const CodeSymbolScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  fileId: 'fileId',
+  name: 'name',
+  kind: 'kind',
+  startLine: 'startLine',
+  endLine: 'endLine',
+  isExported: 'isExported',
+  isDefault: 'isDefault',
+  signature: 'signature',
+  docComment: 'docComment',
+  parentSymbolId: 'parentSymbolId',
+  complexity: 'complexity',
+  commitSha: 'commitSha'
+} as const
+
+export type CodeSymbolScalarFieldEnum = (typeof CodeSymbolScalarFieldEnum)[keyof typeof CodeSymbolScalarFieldEnum]
+
+
+export const CodeDependencyScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  kind: 'kind',
+  fromFileId: 'fromFileId',
+  toFileId: 'toFileId',
+  fromSymbolId: 'fromSymbolId',
+  toSymbolId: 'toSymbolId',
+  externalPackage: 'externalPackage',
+  rawSpecifier: 'rawSpecifier',
+  resolution: 'resolution',
+  confidence: 'confidence',
+  commitSha: 'commitSha'
+} as const
+
+export type CodeDependencyScalarFieldEnum = (typeof CodeDependencyScalarFieldEnum)[keyof typeof CodeDependencyScalarFieldEnum]
 
 
 export const IndexJobScalarFieldEnum = {

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@repo/observability")>()),
   createLogger: () => logSpies,
@@ -14,7 +19,11 @@ beforeEach(() => {
 
 /** Matches the real shape enough for this middleware's own fields — `stepInfo`'s other
  * properties are never read here. */
-function stepInfo(overrides: { id: string; memoized: boolean; stepType?: string }) {
+function stepInfo(overrides: {
+  id: string;
+  memoized: boolean;
+  stepType?: string;
+}) {
   return {
     hashedId: "hashed",
     memoized: overrides.memoized,
@@ -36,7 +45,10 @@ describe("LoggingMiddleware.wrapStepHandler — step-duration logging (phase-03 
 
     expect(result).toBe("step-result");
     expect(logSpies.info).toHaveBeenCalledOnce();
-    const [message, fields] = logSpies.info.mock.calls[0] as [string, Record<string, unknown>];
+    const [message, fields] = logSpies.info.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
     expect(message).toBe("step completed");
     expect(fields).toMatchObject({ stepId: "acquire-lock", stepType: "run" });
     expect(typeof fields.durationMs).toBe("number");
@@ -64,7 +76,10 @@ describe("LoggingMiddleware.wrapStepHandler — step-duration logging (phase-03 
       middleware.wrapStepHandler({
         ctx: {} as never,
         fn: {} as never,
-        stepInfo: stepInfo({ id: "fetch-extract-persist", memoized: false }) as never,
+        stepInfo: stepInfo({
+          id: "fetch-extract-persist",
+          memoized: false,
+        }) as never,
         next: async () => {
           throw new Error("boom");
         },
@@ -72,7 +87,10 @@ describe("LoggingMiddleware.wrapStepHandler — step-duration logging (phase-03 
     ).rejects.toThrow("boom");
 
     expect(logSpies.info).toHaveBeenCalledOnce();
-    const [, fields] = logSpies.info.mock.calls[0] as [string, Record<string, unknown>];
+    const [, fields] = logSpies.info.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
     expect(fields).toMatchObject({ stepId: "fetch-extract-persist" });
   });
 });

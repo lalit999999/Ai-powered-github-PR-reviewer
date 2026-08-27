@@ -47,6 +47,13 @@ export interface RateLimitResult {
  * parameterization. */
 const DEFAULT_WINDOW_SECONDS = 60 * 60;
 
+<<<<<<< HEAD
+export async function checkRateLimit(
+  key: string,
+  limit: number,
+): Promise<RateLimitResult> {
+  const windowKey = `ratelimit:${key}:${Math.floor(Date.now() / 1000 / WINDOW_SECONDS).toString()}`;
+=======
 /**
  * `windowSeconds` defaults to the original one-hour window so the existing
  * `repo-index:${repositoryId}` call site needs no change at all. A caller that does pass
@@ -67,6 +74,7 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const bucket = Math.floor(Date.now() / 1000 / windowSeconds);
   const windowKey = `ratelimit:${key}:${windowSeconds.toString()}:${bucket.toString()}`;
+>>>>>>> main
 
   try {
     const redis = getRedisClient();
@@ -77,7 +85,14 @@ export async function checkRateLimit(
 
     if (count > limit) {
       const ttl = await redis.ttl(windowKey);
+<<<<<<< HEAD
+      return {
+        allowed: false,
+        retryAfterSeconds: ttl > 0 ? ttl : WINDOW_SECONDS,
+      };
+=======
       return { allowed: false, retryAfterSeconds: ttl > 0 ? ttl : windowSeconds };
+>>>>>>> main
     }
 
     return { allowed: true };

@@ -20,7 +20,10 @@ export const createProjectBodySchema = z.object({
     .string()
     .trim()
     .min(1, "Project name is required")
-    .max(PROJECT_NAME_MAX_LENGTH, `Project name must be at most ${PROJECT_NAME_MAX_LENGTH} characters`),
+    .max(
+      PROJECT_NAME_MAX_LENGTH,
+      `Project name must be at most ${PROJECT_NAME_MAX_LENGTH} characters`,
+    ),
 });
 
 export const listProjectsQuerySchema = z.object({
@@ -32,7 +35,10 @@ export const listProjectsQuerySchema = z.object({
     .number()
     .int("limit must be a whole number")
     .positive("limit must be greater than 0")
-    .max(PROJECT_LIST_MAX_LIMIT, `limit must be at most ${PROJECT_LIST_MAX_LIMIT}`)
+    .max(
+      PROJECT_LIST_MAX_LIMIT,
+      `limit must be at most ${PROJECT_LIST_MAX_LIMIT}`,
+    )
     .default(PROJECT_LIST_DEFAULT_LIMIT),
 });
 

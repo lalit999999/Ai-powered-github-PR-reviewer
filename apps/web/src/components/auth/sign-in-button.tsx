@@ -26,7 +26,9 @@ export function SignInButton({ callbackUrl }: { callbackUrl: string }) {
     setPending(true);
     setFailed(false);
     try {
-      const res = await fetch(`${API_URL}/api/auth/csrf`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/api/auth/csrf`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error(`csrf ${res.status}`);
       const { csrfToken } = (await res.json()) as { csrfToken: string };
 
@@ -60,7 +62,8 @@ export function SignInButton({ callbackUrl }: { callbackUrl: string }) {
       </Button>
       {failed && (
         <p className="text-sm text-destructive">
-          Could not reach the sign-in service. Check that the API is running, then try again.
+          Could not reach the sign-in service. Check that the API is running,
+          then try again.
         </p>
       )}
     </div>

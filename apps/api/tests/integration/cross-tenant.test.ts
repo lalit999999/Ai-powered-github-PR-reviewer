@@ -3,7 +3,11 @@ import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedSignedInUser, type SeededUser } from "./auth-helpers.js";
 import { resetDatabase } from "./db-helpers.js";
-import { githubRepoMetadata, seedInstallation, type SeededInstallation } from "./repository-helpers.js";
+import {
+  githubRepoMetadata,
+  seedInstallation,
+  type SeededInstallation,
+} from "./repository-helpers.js";
 
 // project/deleted and repository/index.requested have no consumer in this phase
 // (phase-01 §8, phase-02 §8) and CI has no Inngest server; stubbing the emit boundary
@@ -33,7 +37,8 @@ vi.mock("@repo/github", async (importOriginal) => {
 
 const { default: app } = await import("../../src/app.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
-const { emitRepositoryIndexRequested } = await import("../../src/inngest/emit.js");
+const { emitRepositoryIndexRequested } =
+  await import("../../src/inngest/emit.js");
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════════
@@ -66,7 +71,12 @@ let userB: SeededUser;
 let projectOfA: { id: string; slug: string };
 let installationOfA: SeededInstallation;
 let installationOfB: SeededInstallation;
-let repositoryOfA: { id: string; fullName: string; githubRepoId: string; projectId: string };
+let repositoryOfA: {
+  id: string;
+  fullName: string;
+  githubRepoId: string;
+  projectId: string;
+};
 
 beforeEach(async () => {
   await resetDatabase();
@@ -77,8 +87,12 @@ beforeEach(async () => {
 
   userA = await seedSignedInUser("user-a");
   userB = await seedSignedInUser("user-b");
-  installationOfA = await seedInstallation(userA.id, { accountLogin: "user-a" });
-  installationOfB = await seedInstallation(userB.id, { accountLogin: "user-b" });
+  installationOfA = await seedInstallation(userA.id, {
+    accountLogin: "user-a",
+  });
+  installationOfB = await seedInstallation(userB.id, {
+    accountLogin: "user-b",
+  });
 
   const created = await request(app)
     .post("/api/projects")
@@ -90,12 +104,20 @@ beforeEach(async () => {
   // A resource for user B to be hostile toward, alongside the project — the whole
   // point of extending this file for Phase 02 (phase-02 §14/§15: "user B cannot view,
   // connect to, or disconnect user A's repositories").
-  const metadataForA = githubRepoMetadata({ owner: "user-a", name: "a-private-repo" });
-  vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({ ok: true, repository: metadataForA });
+  const metadataForA = githubRepoMetadata({
+    owner: "user-a",
+    name: "a-private-repo",
+  });
+  vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({
+    ok: true,
+    repository: metadataForA,
+  });
   const connected = await request(app)
     .post(`/api/projects/${projectOfA.id}/repositories`)
     .set("Cookie", userA.cookie)
-    .send({ repoUrl: `https://github.com/${metadataForA.owner}/${metadataForA.name}` });
+    .send({
+      repoUrl: `https://github.com/${metadataForA.owner}/${metadataForA.name}`,
+    });
   expect(connected.status).toBe(202);
   repositoryOfA = connected.body.repository;
 
@@ -114,7 +136,9 @@ afterAll(async () => {
 
 describe("cross-tenant access — user B cannot reach user A's project by any route", () => {
   it("GET /api/projects/:id — 404, not 403, not the project", async () => {
-    const res = await request(app).get(`/api/projects/${projectOfA.id}`).set("Cookie", userB.cookie);
+    const res = await request(app)
+      .get(`/api/projects/${projectOfA.id}`)
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(404);
     expect(res.body).not.toHaveProperty("project");
@@ -122,9 +146,14 @@ describe("cross-tenant access — user B cannot reach user A's project by any ro
 
   it("GET /api/projects — user B's list never contains user A's project", async () => {
     // User B has projects of their own, so this proves scoping rather than emptiness.
-    await request(app).post("/api/projects").set("Cookie", userB.cookie).send({ name: "B's Own Project" });
+    await request(app)
+      .post("/api/projects")
+      .set("Cookie", userB.cookie)
+      .send({ name: "B's Own Project" });
 
-    const res = await request(app).get("/api/projects").set("Cookie", userB.cookie);
+    const res = await request(app)
+      .get("/api/projects")
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(200);
     const ids = res.body.projects.map((p: { id: string }) => p.id);
@@ -134,19 +163,25 @@ describe("cross-tenant access — user B cannot reach user A's project by any ro
   });
 
   it("DELETE /api/projects/:id — 404, and user A's project is untouched", async () => {
-    const res = await request(app).delete(`/api/projects/${projectOfA.id}`).set("Cookie", userB.cookie);
+    const res = await request(app)
+      .delete(`/api/projects/${projectOfA.id}`)
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(404);
 
     // The status code alone would not catch a handler that soft-deletes and *then*
     // discovers it should not have.
-    const row = await prisma.project.findUniqueOrThrow({ where: { id: projectOfA.id } });
+    const row = await prisma.project.findUniqueOrThrow({
+      where: { id: projectOfA.id },
+    });
     expect(row.deletedAt).toBeNull();
     expect(row.userId).toBe(userA.id);
   });
 
   it("refuses identically whether the project is foreign or nonexistent — no existence oracle", async () => {
-    const foreign = await request(app).get(`/api/projects/${projectOfA.id}`).set("Cookie", userB.cookie);
+    const foreign = await request(app)
+      .get(`/api/projects/${projectOfA.id}`)
+      .set("Cookie", userB.cookie);
     const nonexistent = await request(app)
       .get("/api/projects/00000000-0000-0000-0000-000000000000")
       .set("Cookie", userB.cookie);
@@ -156,7 +191,9 @@ describe("cross-tenant access — user B cannot reach user A's project by any ro
   });
 
   it("user A is still able to reach their own project — the isolation is not just a blanket deny", async () => {
-    const res = await request(app).get(`/api/projects/${projectOfA.id}`).set("Cookie", userA.cookie);
+    const res = await request(app)
+      .get(`/api/projects/${projectOfA.id}`)
+      .set("Cookie", userA.cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.project.id).toBe(projectOfA.id);
@@ -182,13 +219,18 @@ describe("cross-tenant access — per-user slug namespaces do not collide", () =
 describe("cross-tenant access — a revoked session stops authenticating immediately", () => {
   it("returns 401 once user B's session row is gone (phase-01 §15 sign-out)", async () => {
     const staleCookie = userB.cookie;
-    await request(app).get("/api/projects").set("Cookie", staleCookie).expect(200);
+    await request(app)
+      .get("/api/projects")
+      .set("Cookie", staleCookie)
+      .expect(200);
 
     // Exactly what Auth.js's signout action does: delete the Session row. This is the
     // property database sessions exist for (§1/§22 — JWTs cannot be revoked).
     await prisma.session.deleteMany({ where: { userId: userB.id } });
 
-    const res = await request(app).get("/api/projects").set("Cookie", staleCookie);
+    const res = await request(app)
+      .get("/api/projects")
+      .set("Cookie", staleCookie);
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
@@ -223,20 +265,26 @@ describe("cross-tenant access — a revoked session stops authenticating immedia
 
 describe("cross-tenant access — user B cannot reach user A's repository by any route", () => {
   it("GET /api/repositories/:id — 404, not 403, not the repository", async () => {
-    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+    const res = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}`)
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(404);
     expect(res.body).not.toHaveProperty("repository");
   });
 
   it("DELETE /api/repositories/:id — 404, and user A's repository is unchanged in the database", async () => {
-    const res = await request(app).delete(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+    const res = await request(app)
+      .delete(`/api/repositories/${repositoryOfA.id}`)
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(404);
 
     // The status code alone would not catch a handler that disconnects and *then*
     // discovers it should not have — same discipline as the project DELETE case above.
-    const row = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryOfA.id } });
+    const row = await prisma.repository.findUniqueOrThrow({
+      where: { id: repositoryOfA.id },
+    });
     expect(row.connectionStatus).toBe("ACTIVE");
     expect(row.projectId).toBe(projectOfA.id);
   });
@@ -252,22 +300,30 @@ describe("cross-tenant access — user B cannot reach user A's repository by any
   });
 
   it("GET /api/projects/:id — 404, and user A's repository never appears in user B's project detail", async () => {
-    const res = await request(app).get(`/api/projects/${projectOfA.id}`).set("Cookie", userB.cookie);
+    const res = await request(app)
+      .get(`/api/projects/${projectOfA.id}`)
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(404);
     expect(JSON.stringify(res.body)).not.toContain(repositoryOfA.fullName);
   });
 
   it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
-    const foreign = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
-    const nonexistent = await request(app).get("/api/repositories/00000000-0000-0000-0000-000000000000").set("Cookie", userB.cookie);
+    const foreign = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}`)
+      .set("Cookie", userB.cookie);
+    const nonexistent = await request(app)
+      .get("/api/repositories/00000000-0000-0000-0000-000000000000")
+      .set("Cookie", userB.cookie);
 
     expect(foreign.status).toBe(nonexistent.status);
     expect(foreign.body).toEqual(nonexistent.body);
   });
 
   it("user A is still able to reach their own repository — the isolation is not just a blanket deny", async () => {
-    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userA.cookie);
+    const res = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}`)
+      .set("Cookie", userA.cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.repository.id).toBe(repositoryOfA.id);
@@ -287,7 +343,9 @@ describe("cross-tenant access — user B cannot reach user A's repository by any
  */
 describe("cross-tenant access — user B cannot reach user A's repository's index state or trigger its indexing", () => {
   it("GET /api/repositories/:id/index-status — 404, not 403, not the status", async () => {
-    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}/index-status`).set("Cookie", userB.cookie);
+    const res = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}/index-status`)
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(404);
     expect(res.body).not.toHaveProperty("status");
@@ -306,14 +364,20 @@ describe("cross-tenant access — user B cannot reach user A's repository's inde
 
     // The status code alone would not catch a handler that flips the lock and *then*
     // discovers it should not have — same discipline as the DELETE cases above.
-    const row = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryOfA.id } });
+    const row = await prisma.repository.findUniqueOrThrow({
+      where: { id: repositoryOfA.id },
+    });
     expect(row.indexStatus).not.toBe("INDEXING");
   });
 
   it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
-    const foreign = await request(app).get(`/api/repositories/${repositoryOfA.id}/index-status`).set("Cookie", userB.cookie);
+    const foreign = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}/index-status`)
+      .set("Cookie", userB.cookie);
     const nonexistent = await request(app)
-      .get("/api/repositories/00000000-0000-0000-0000-000000000000/index-status")
+      .get(
+        "/api/repositories/00000000-0000-0000-0000-000000000000/index-status",
+      )
       .set("Cookie", userB.cookie);
 
     expect(foreign.status).toBe(nonexistent.status);
@@ -321,7 +385,9 @@ describe("cross-tenant access — user B cannot reach user A's repository's inde
   });
 
   it("user A is still able to read their own repository's index status and trigger its indexing — not a blanket deny", async () => {
-    const statusRes = await request(app).get(`/api/repositories/${repositoryOfA.id}/index-status`).set("Cookie", userA.cookie);
+    const statusRes = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}/index-status`)
+      .set("Cookie", userA.cookie);
     expect(statusRes.status).toBe(200);
     expect(statusRes.body).toHaveProperty("status");
 
@@ -331,6 +397,47 @@ describe("cross-tenant access — user B cannot reach user A's repository's inde
       .send({ mode: "FULL" });
     expect(triggerRes.status).toBe(202);
     expect(triggerRes.body).toHaveProperty("indexJobId");
+  });
+});
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *  PHASE 04 EXTENSION — the knowledge route, same three-part pattern.
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * phase-04 §7: `GET /api/repositories/:id/knowledge` shares `requireTenantAccess` with
+ * every other repository route — this confirms the shared seam covers it too, and that
+ * no aggregate query in `knowledge.repository.ts` is reachable before tenancy is proven.
+ */
+describe("cross-tenant access — user B cannot reach user A's repository's knowledge graph", () => {
+  it("GET /api/repositories/:id/knowledge — 404, not 403, not the aggregates", async () => {
+    const res = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}/knowledge`)
+      .set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("fileCount");
+    expect(res.body).not.toHaveProperty("symbolCount");
+  });
+
+  it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}/knowledge`)
+      .set("Cookie", userB.cookie);
+    const nonexistent = await request(app)
+      .get("/api/repositories/00000000-0000-0000-0000-000000000000/knowledge")
+      .set("Cookie", userB.cookie);
+
+    expect(foreign.status).toBe(nonexistent.status);
+    expect(foreign.body).toEqual(nonexistent.body);
+  });
+
+  it("user A is still able to read their own repository's knowledge graph — not a blanket deny", async () => {
+    const res = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}/knowledge`)
+      .set("Cookie", userA.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("fileCount");
   });
 });
 
@@ -354,14 +461,23 @@ describe("cross-tenant access — GitHub installations", () => {
     vi.mocked(installationGithub.listUserInstallations).mockResolvedValueOnce({
       ok: true,
       installations: [
-        { installationId: installationOfB.installationId, accountLogin: "user-b", accountType: "User", suspended: false },
+        {
+          installationId: installationOfB.installationId,
+          accountLogin: "user-b",
+          accountType: "User",
+          suspended: false,
+        },
       ],
     });
 
-    const res = await request(app).get("/api/github/installations").set("Cookie", userB.cookie);
+    const res = await request(app)
+      .get("/api/github/installations")
+      .set("Cookie", userB.cookie);
 
     expect(res.status).toBe(200);
-    const ids = res.body.installations.map((installation: { installationId: string }) => installation.installationId);
+    const ids = res.body.installations.map(
+      (installation: { installationId: string }) => installation.installationId,
+    );
     expect(ids).toEqual([installationOfB.installationId.toString()]);
     expect(ids).not.toContain(installationOfA.installationId.toString());
   });
@@ -379,14 +495,25 @@ describe("cross-tenant access — GitHub installations", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("FORBIDDEN");
-    expect(installationGithub.listInstallationRepositories).not.toHaveBeenCalled();
+    expect(
+      installationGithub.listInstallationRepositories,
+    ).not.toHaveBeenCalled();
   });
 
   it("user B can still list repositories through their OWN installation — not a blanket deny", async () => {
-    vi.mocked(installationGithub.listInstallationRepositories).mockResolvedValueOnce({
+    vi.mocked(
+      installationGithub.listInstallationRepositories,
+    ).mockResolvedValueOnce({
       ok: true,
       repositories: [
-        { githubRepoId: 555_000_111n, owner: "user-b", name: "b-repo", fullName: "user-b/b-repo", isPrivate: false, defaultBranch: "main" },
+        {
+          githubRepoId: 555_000_111n,
+          owner: "user-b",
+          name: "b-repo",
+          fullName: "user-b/b-repo",
+          isPrivate: false,
+          defaultBranch: "main",
+        },
       ],
     });
 
@@ -414,7 +541,9 @@ describe("cross-tenant access — the dual-project case (plan.md §45's named fa
     // would show up here as either a spurious 409 or a genuine cross-tenant leak
     // (docs/decisions/phase-02-log.md §4/§23; repository.repository.ts's header).
     const sharedGithubRepoId = BigInt(repositoryOfA.githubRepoId);
-    vi.mocked(installationGithub.listInstallationRepositories).mockResolvedValueOnce({
+    vi.mocked(
+      installationGithub.listInstallationRepositories,
+    ).mockResolvedValueOnce({
       ok: true,
       repositories: [
         {
@@ -429,7 +558,11 @@ describe("cross-tenant access — the dual-project case (plan.md §45's named fa
     });
     vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({
       ok: true,
-      repository: githubRepoMetadata({ owner: "user-a", name: "a-private-repo", githubRepoId: sharedGithubRepoId }),
+      repository: githubRepoMetadata({
+        owner: "user-a",
+        name: "a-private-repo",
+        githubRepoId: sharedGithubRepoId,
+      }),
     });
 
     const res = await request(app)
@@ -441,15 +574,23 @@ describe("cross-tenant access — the dual-project case (plan.md §45's named fa
     expect(res.body.repository.id).not.toBe(repositoryOfA.id);
     expect(res.body.repository.projectId).toBe(projectOfB.body.project.id);
 
-    const rows = await prisma.repository.findMany({ where: { githubRepoId: sharedGithubRepoId } });
+    const rows = await prisma.repository.findMany({
+      where: { githubRepoId: sharedGithubRepoId },
+    });
     expect(rows).toHaveLength(2);
-    expect(new Set(rows.map((row) => row.projectId))).toEqual(new Set([projectOfA.id, projectOfB.body.project.id]));
+    expect(new Set(rows.map((row) => row.projectId))).toEqual(
+      new Set([projectOfA.id, projectOfB.body.project.id]),
+    );
 
     // B can read B's own new row...
-    const bReadsOwn = await request(app).get(`/api/repositories/${res.body.repository.id}`).set("Cookie", userB.cookie);
+    const bReadsOwn = await request(app)
+      .get(`/api/repositories/${res.body.repository.id}`)
+      .set("Cookie", userB.cookie);
     expect(bReadsOwn.status).toBe(200);
     // ...but still never A's, even though the two rows now share a githubRepoId.
-    const bReadsA = await request(app).get(`/api/repositories/${repositoryOfA.id}`).set("Cookie", userB.cookie);
+    const bReadsA = await request(app)
+      .get(`/api/repositories/${repositoryOfA.id}`)
+      .set("Cookie", userB.cookie);
     expect(bReadsA.status).toBe(404);
   });
 });

@@ -5,7 +5,14 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +24,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_URL } from "@/lib/api-url";
 import type { Installation } from "@/lib/api";
@@ -72,7 +82,9 @@ export function ConnectRepositoryDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"search" | "url">("search");
-  const [installationId, setInstallationId] = useState(installations[0]?.installationId ?? "");
+  const [installationId, setInstallationId] = useState(
+    installations[0]?.installationId ?? "",
+  );
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, DEBOUNCE_MS);
 
@@ -83,12 +95,20 @@ export function ConnectRepositoryDialog({
   // last-resolved result's key doesn't match what installationId/debouncedQuery
   // currently ask for, including before the very first fetch has resolved.
   const [queryResult, setQueryResult] = useState<
-    { key: string; status: "success"; repos: PickerRepo[] } | { key: string; status: "error"; message: string } | null
+    | { key: string; status: "success"; repos: PickerRepo[] }
+    | { key: string; status: "error"; message: string }
+    | null
   >(null);
   const currentQueryKey = `${installationId}::${debouncedQuery}`;
   const reposLoading = queryResult?.key !== currentQueryKey;
-  const repos = queryResult?.key === currentQueryKey && queryResult.status === "success" ? queryResult.repos : null;
-  const reposError = queryResult?.key === currentQueryKey && queryResult.status === "error" ? queryResult.message : null;
+  const repos =
+    queryResult?.key === currentQueryKey && queryResult.status === "success"
+      ? queryResult.repos
+      : null;
+  const reposError =
+    queryResult?.key === currentQueryKey && queryResult.status === "error"
+      ? queryResult.message
+      : null;
 
   const [selectedRepo, setSelectedRepo] = useState<PickerRepo | null>(null);
   const [url, setUrl] = useState("");
@@ -122,21 +142,32 @@ export function ConnectRepositoryDialog({
     const key = `${installationId}::${debouncedQuery}`;
     const controller = new AbortController();
 
-    fetch(`${API_URL}/api/github/installations/${installationId}/repos?q=${encodeURIComponent(debouncedQuery)}`, {
-      credentials: "include",
-      signal: controller.signal,
-    })
+    fetch(
+      `${API_URL}/api/github/installations/${installationId}/repos?q=${encodeURIComponent(debouncedQuery)}`,
+      {
+        credentials: "include",
+        signal: controller.signal,
+      },
+    )
       .then(async (res) => {
         if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-          throw new Error(body?.error?.message ?? `Could not load repositories (${res.status})`);
+          const body = (await res.json().catch(() => null)) as {
+            error?: { message?: string };
+          } | null;
+          throw new Error(
+            body?.error?.message ??
+              `Could not load repositories (${res.status})`,
+          );
         }
         return (await res.json()) as { repos: PickerRepo[] };
       })
-      .then((body) => setQueryResult({ key, status: "success", repos: body.repos }))
+      .then((body) =>
+        setQueryResult({ key, status: "success", repos: body.repos }),
+      )
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        const message = err instanceof Error ? err.message : "Could not load repositories";
+        const message =
+          err instanceof Error ? err.message : "Could not load repositories";
         setQueryResult({ key, status: "error", message });
       });
 
@@ -153,15 +184,21 @@ export function ConnectRepositoryDialog({
     setPending(true);
     setError(null);
 
-    const body = mode === "url" ? { repoUrl: url.trim() } : { githubRepoId: selectedRepo?.githubRepoId };
+    const body =
+      mode === "url"
+        ? { repoUrl: url.trim() }
+        : { githubRepoId: selectedRepo?.githubRepoId };
 
     try {
-      const res = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}/repositories`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch(
+        `${API_URL}/api/projects/${encodeURIComponent(projectId)}/repositories`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
 
       if (!res.ok) {
         const responseBody = (await res.json().catch(() => null)) as {
@@ -169,7 +206,9 @@ export function ConnectRepositoryDialog({
         } | null;
         setError({
           status: res.status,
-          message: responseBody?.error?.message ?? `Could not connect that repository (${res.status})`,
+          message:
+            responseBody?.error?.message ??
+            `Could not connect that repository (${res.status})`,
           repositoryId: responseBody?.error?.details?.repositoryId,
         });
         setPending(false);
@@ -180,18 +219,26 @@ export function ConnectRepositoryDialog({
       handleOpenChange(false);
       router.refresh();
     } catch {
-      setError({ status: 0, message: "Could not reach the API. Check that it is running, then try again." });
+      setError({
+        status: 0,
+        message:
+          "Could not reach the API. Check that it is running, then try again.",
+      });
       setPending(false);
     }
   }
 
-  const canSubmit = mode === "url" ? url.trim().length > 0 : selectedRepo !== null;
+  const canSubmit =
+    mode === "url" ? url.trim().length > 0 : selectedRepo !== null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <Button disabled={disabled} title={disabled ? "Install the GitHub App first" : undefined} />
+          <Button
+            disabled={disabled}
+            title={disabled ? "Install the GitHub App first" : undefined}
+          />
         }
       >
         Connect repository
@@ -199,7 +246,9 @@ export function ConnectRepositoryDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Connect a repository</DialogTitle>
-          <DialogDescription>Search a GitHub App installation, or paste a repository URL.</DialogDescription>
+          <DialogDescription>
+            Search a GitHub App installation, or paste a repository URL.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -209,10 +258,15 @@ export function ConnectRepositoryDialog({
               <NativeSelect
                 id="installation-select"
                 value={installationId}
-                onChange={(event) => handleInstallationChange(event.target.value)}
+                onChange={(event) =>
+                  handleInstallationChange(event.target.value)
+                }
               >
                 {installations.map((installation) => (
-                  <NativeSelectOption key={installation.id} value={installation.installationId}>
+                  <NativeSelectOption
+                    key={installation.id}
+                    value={installation.installationId}
+                  >
                     {installation.accountLogin} ({installation.accountType})
                   </NativeSelectOption>
                 ))}
@@ -220,7 +274,10 @@ export function ConnectRepositoryDialog({
             </div>
           )}
 
-          <Tabs value={mode} onValueChange={(value) => setMode(value as "search" | "url")}>
+          <Tabs
+            value={mode}
+            onValueChange={(value) => setMode(value as "search" | "url")}
+          >
             <TabsList>
               <TabsTrigger value="search">Search</TabsTrigger>
               <TabsTrigger value="url">Paste URL</TabsTrigger>
@@ -228,43 +285,65 @@ export function ConnectRepositoryDialog({
 
             <TabsContent value="search" className="mt-3">
               <Command shouldFilter={false} className="border">
-                <CommandInput placeholder="Search repositories…" value={query} onValueChange={setQuery} />
+                <CommandInput
+                  placeholder="Search repositories…"
+                  value={query}
+                  onValueChange={setQuery}
+                />
                 <CommandList>
                   {reposLoading && (
-                    <div className="py-6 text-center text-sm text-muted-foreground">Searching…</div>
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      Searching…
+                    </div>
                   )}
                   {!reposLoading && reposError && (
-                    <div className="py-6 text-center text-sm text-destructive">{reposError}</div>
+                    <div className="py-6 text-center text-sm text-destructive">
+                      {reposError}
+                    </div>
                   )}
-                  {!reposLoading && !reposError && repos !== null && repos.length === 0 && (
-                    <CommandEmpty>
-                      {debouncedQuery
-                        ? "No repositories match your search."
-                        : "This installation has access to no repositories — check its GitHub App settings."}
-                    </CommandEmpty>
-                  )}
-                  {!reposLoading && !reposError && repos !== null && repos.length > 0 && (
-                    <CommandGroup>
-                      {repos.map((repo) => (
-                        <CommandItem
-                          key={repo.githubRepoId}
-                          value={repo.githubRepoId}
-                          data-checked={selectedRepo?.githubRepoId === repo.githubRepoId}
-                          onSelect={() => setSelectedRepo(repo)}
-                        >
-                          <span className="truncate">{repo.fullName}</span>
-                          <Badge variant={repo.isPrivate ? "secondary" : "outline"} className="ml-auto shrink-0">
-                            {repo.isPrivate ? "Private" : "Public"}
-                          </Badge>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
+                  {!reposLoading &&
+                    !reposError &&
+                    repos !== null &&
+                    repos.length === 0 && (
+                      <CommandEmpty>
+                        {debouncedQuery
+                          ? "No repositories match your search."
+                          : "This installation has access to no repositories — check its GitHub App settings."}
+                      </CommandEmpty>
+                    )}
+                  {!reposLoading &&
+                    !reposError &&
+                    repos !== null &&
+                    repos.length > 0 && (
+                      <CommandGroup>
+                        {repos.map((repo) => (
+                          <CommandItem
+                            key={repo.githubRepoId}
+                            value={repo.githubRepoId}
+                            data-checked={
+                              selectedRepo?.githubRepoId === repo.githubRepoId
+                            }
+                            onSelect={() => setSelectedRepo(repo)}
+                          >
+                            <span className="truncate">{repo.fullName}</span>
+                            <Badge
+                              variant={repo.isPrivate ? "secondary" : "outline"}
+                              className="ml-auto shrink-0"
+                            >
+                              {repo.isPrivate ? "Private" : "Public"}
+                            </Badge>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
                 </CommandList>
               </Command>
               {selectedRepo && (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Selected: <span className="font-medium text-foreground">{selectedRepo.fullName}</span>
+                  Selected:{" "}
+                  <span className="font-medium text-foreground">
+                    {selectedRepo.fullName}
+                  </span>
                 </p>
               )}
             </TabsContent>
@@ -290,7 +369,12 @@ export function ConnectRepositoryDialog({
                 {error.status === 403 && (
                   <>
                     {" — "}
-                    <a href={INSTALLATION_SETTINGS_URL} target="_blank" rel="noopener noreferrer" className="underline">
+                    <a
+                      href={INSTALLATION_SETTINGS_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
                       check your installation settings
                     </a>
                   </>
@@ -298,7 +382,11 @@ export function ConnectRepositoryDialog({
                 {error.status === 409 && error.repositoryId && (
                   <>
                     {" — "}
-                    <a href={`#repository-${error.repositoryId}`} className="underline" onClick={() => handleOpenChange(false)}>
+                    <a
+                      href={`#repository-${error.repositoryId}`}
+                      className="underline"
+                      onClick={() => handleOpenChange(false)}
+                    >
                       view it below
                     </a>
                   </>

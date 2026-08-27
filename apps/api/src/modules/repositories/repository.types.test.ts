@@ -18,7 +18,9 @@ import {
  * spread.
  */
 
-function repositoryRow(overrides: Partial<RepositoryRecord> = {}): RepositoryRecord {
+function repositoryRow(
+  overrides: Partial<RepositoryRecord> = {},
+): RepositoryRecord {
   return {
     id: "repo-1",
     projectId: "project-1",
@@ -62,13 +64,17 @@ describe("toRepositoryDto — no bigint may reach a JSON response", () => {
     const json = JSON.stringify(toRepositoryDto(repositoryRow()));
 
     expect(() => JSON.parse(json)).not.toThrow();
-    expect(JSON.parse(json)).toMatchObject({ githubRepoId: "9223372036854775807" });
+    expect(JSON.parse(json)).toMatchObject({
+      githubRepoId: "9223372036854775807",
+    });
   });
 
   it("carries no bigint on any field, however deeply the DTO grows", () => {
     // Guards the whole shape rather than the two fields known today: a field added
     // later by spread would fail here rather than in production.
-    for (const [key, value] of Object.entries(toRepositoryDto(repositoryRow()))) {
+    for (const [key, value] of Object.entries(
+      toRepositoryDto(repositoryRow()),
+    )) {
       expect(typeof value, `field ${key}`).not.toBe("bigint");
     }
   });
@@ -78,20 +84,30 @@ describe("toRepositoryDto — no bigint may reach a JSON response", () => {
     expect(dto.createdAt).toBe("2026-01-01T00:00:00.000Z");
     expect(dto.lastIndexedAt).toBeNull();
 
-    const indexed = toRepositoryDto(repositoryRow({ lastIndexedAt: new Date("2026-02-03T04:05:06.000Z") }));
+    const indexed = toRepositoryDto(
+      repositoryRow({ lastIndexedAt: new Date("2026-02-03T04:05:06.000Z") }),
+    );
     expect(indexed.lastIndexedAt).toBe("2026-02-03T04:05:06.000Z");
   });
 
   it("falls back to ACTIVE for a connectionStatus the column allowed but the union does not", () => {
     // The column is a plain String (phase-02-log §5), so a hand-edited row can hold
     // anything. A read must not 500 because of one.
-    expect(toRepositoryDto(repositoryRow({ connectionStatus: "WHATEVER" })).connectionStatus).toBe("ACTIVE");
-    expect(toRepositoryDto(repositoryRow({ connectionStatus: "ACCESS_LOST" })).connectionStatus).toBe("ACCESS_LOST");
+    expect(
+      toRepositoryDto(repositoryRow({ connectionStatus: "WHATEVER" }))
+        .connectionStatus,
+    ).toBe("ACTIVE");
+    expect(
+      toRepositoryDto(repositoryRow({ connectionStatus: "ACCESS_LOST" }))
+        .connectionStatus,
+    ).toBe("ACCESS_LOST");
   });
 });
 
 describe("toInstallationDto", () => {
-  function installationRow(overrides: Partial<InstallationRecord> = {}): InstallationRecord {
+  function installationRow(
+    overrides: Partial<InstallationRecord> = {},
+  ): InstallationRecord {
     return {
       id: "inst-1",
       installationId: 87654321n,
@@ -113,12 +129,16 @@ describe("toInstallationDto", () => {
 
   it("exposes suspension as a boolean, not the timestamp", () => {
     expect(toInstallationDto(installationRow()).suspended).toBe(false);
-    expect(toInstallationDto(installationRow({ suspendedAt: new Date() })).suspended).toBe(true);
+    expect(
+      toInstallationDto(installationRow({ suspendedAt: new Date() })).suspended,
+    ).toBe(true);
   });
 
   it("does not leak the owning userId into the DTO", () => {
     // The caller is the owner by construction — every route resolves ownership first.
-    expect(Object.keys(toInstallationDto(installationRow()))).not.toContain("userId");
+    expect(Object.keys(toInstallationDto(installationRow()))).not.toContain(
+      "userId",
+    );
   });
 });
 
@@ -159,11 +179,17 @@ describe("toWebhookDeliveryDto", () => {
 });
 
 describe("isConnectionStatus", () => {
-  it.each([["ACTIVE"], ["DISCONNECTED"], ["ACCESS_LOST"]])("accepts %s", (value) => {
-    expect(isConnectionStatus(value)).toBe(true);
-  });
+  it.each([["ACTIVE"], ["DISCONNECTED"], ["ACCESS_LOST"]])(
+    "accepts %s",
+    (value) => {
+      expect(isConnectionStatus(value)).toBe(true);
+    },
+  );
 
-  it.each([["active"], [""], ["PENDING"], [null], [42]])("rejects %j", (value) => {
-    expect(isConnectionStatus(value)).toBe(false);
-  });
+  it.each([["active"], [""], ["PENDING"], [null], [42]])(
+    "rejects %j",
+    (value) => {
+      expect(isConnectionStatus(value)).toBe(false);
+    },
+  );
 });

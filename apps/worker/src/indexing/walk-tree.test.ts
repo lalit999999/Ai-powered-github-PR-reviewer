@@ -11,7 +11,9 @@ function noopLogger() {
 
 const tempDirs: string[] = [];
 
-async function makeTempRepo(files: Record<string, string | Buffer>): Promise<string> {
+async function makeTempRepo(
+  files: Record<string, string | Buffer>,
+): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "walk-tree-test-"));
   tempDirs.push(dir);
   for (const [relativePath, content] of Object.entries(files)) {
@@ -35,7 +37,8 @@ function sha256(content: string | Buffer): string {
 
 describe("walkTree", () => {
   it("indexes an ordinary source file with the correct hash and metadata", async () => {
-    const content = "export function add(a: number, b: number) {\n  return a + b;\n}\n";
+    const content =
+      "export function add(a: number, b: number) {\n  return a + b;\n}\n";
     const dir = await makeTempRepo({ "src/math.ts": content });
 
     const summary = await walkTree(dir, { logger: noopLogger() as never });
@@ -103,7 +106,9 @@ describe("walkTree", () => {
     // Two files: .gitattributes itself (an ordinary, legitimately-indexed repo file)
     // and the generated one it declares.
     expect(summary.files).toHaveLength(2);
-    const generated = summary.files.find((f) => f.path === "api/v1/service.pb.go");
+    const generated = summary.files.find(
+      (f) => f.path === "api/v1/service.pb.go",
+    );
     expect(generated).toMatchObject({
       indexState: "SKIPPED",
       skipReason: "SKIPPED_GENERATED",
@@ -133,18 +138,26 @@ describe("walkTree", () => {
 
     const summary = await walkTree(dir, { logger: noopLogger() as never });
 
-    expect(summary.files[0]).toMatchObject({ indexState: "SKIPPED", skipReason: "SKIPPED_BINARY" });
+    expect(summary.files[0]).toMatchObject({
+      indexState: "SKIPPED",
+      skipReason: "SKIPPED_BINARY",
+    });
   });
 
   it("gives a minified file a row marked SKIPPED_MINIFIED", async () => {
     // "dist/" would be hard-ignored — pick a path that only trips the minified
     // heuristic, not the hard-ignore stage.
     const line = "a".repeat(600);
-    const dir = await makeTempRepo({ "src/vendor-inline.js": `${line}\n${line}\n` });
+    const dir = await makeTempRepo({
+      "src/vendor-inline.js": `${line}\n${line}\n`,
+    });
 
     const summary = await walkTree(dir, { logger: noopLogger() as never });
 
-    expect(summary.files[0]).toMatchObject({ indexState: "SKIPPED", skipReason: "SKIPPED_MINIFIED" });
+    expect(summary.files[0]).toMatchObject({
+      indexState: "SKIPPED",
+      skipReason: "SKIPPED_MINIFIED",
+    });
   });
 
   it("marks an unreadable path FAILED and continues the walk rather than throwing", async () => {
@@ -190,7 +203,8 @@ describe("walkTree", () => {
   it("logs a repository health note when hard-ignore removes most of the tree", async () => {
     const files: Record<string, string> = { "src/index.ts": "export {};\n" };
     for (let i = 0; i < 200; i += 1) {
-      files[`node_modules/pkg${i.toString()}/index.js`] = "module.exports = {};\n";
+      files[`node_modules/pkg${i.toString()}/index.js`] =
+        "module.exports = {};\n";
     }
     const dir = await makeTempRepo(files);
     const logger = noopLogger();

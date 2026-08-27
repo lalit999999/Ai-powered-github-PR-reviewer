@@ -28,12 +28,15 @@ afterAll(async () => {
 });
 
 /** Auth.js requires a matching csrf cookie + token on every POST action. */
-async function getCsrf(secure: boolean): Promise<{ token: string; cookies: string[] }> {
+async function getCsrf(
+  secure: boolean,
+): Promise<{ token: string; cookies: string[] }> {
   const req = request(app).get("/api/auth/csrf");
   if (secure) req.set("X-Forwarded-Proto", "https");
   const res = await req;
 
-  const setCookie = res.headers["set-cookie"] as unknown as string[] | undefined;
+  const setCookie = res.headers["set-cookie"] as unknown as
+    string[] | undefined;
   return {
     token: (res.body as { csrfToken: string }).csrfToken,
     cookies: (setCookie ?? []).map((c) => c.split(";")[0] ?? ""),
@@ -99,7 +102,10 @@ describe("sign-out invalidates the session (phase-01 §15)", () => {
     const user = await seedSignedInUser("signs-out");
 
     // Authenticates before sign-out.
-    await request(app).get("/api/projects").set("Cookie", user.cookie).expect(200);
+    await request(app)
+      .get("/api/projects")
+      .set("Cookie", user.cookie)
+      .expect(200);
 
     const csrf = await getCsrf(false);
     await request(app)
@@ -114,7 +120,9 @@ describe("sign-out invalidates the session (phase-01 §15)", () => {
 
     // Replaying the *same* cookie now fails. Clearing it client-side would not have
     // been enough; the server has to refuse it.
-    const replay = await request(app).get("/api/projects").set("Cookie", user.cookie);
+    const replay = await request(app)
+      .get("/api/projects")
+      .set("Cookie", user.cookie);
     expect(replay.status).toBe(401);
     expect(replay.body.error.code).toBe("UNAUTHENTICATED");
   });

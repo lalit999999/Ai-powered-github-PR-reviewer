@@ -4,7 +4,10 @@ import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import app from "../../src/app.js";
 import { UnauthenticatedError } from "../../src/lib/errors.js";
-import { getCurrentSession, requireSession } from "../../src/lib/auth/session.js";
+import {
+  getCurrentSession,
+  requireSession,
+} from "../../src/lib/auth/session.js";
 import { getTraceContext, runWithTraceContext } from "@repo/observability";
 import { resetDatabase } from "./db-helpers.js";
 
@@ -18,7 +21,9 @@ function fakeRequest(cookieHeader?: string): Request {
   } as unknown as Request;
 }
 
-async function seedUser(overrides: Partial<{ githubUserId: bigint; githubLogin: string }> = {}) {
+async function seedUser(
+  overrides: Partial<{ githubUserId: bigint; githubLogin: string }> = {},
+) {
   return prisma.user.create({
     data: {
       githubUserId: overrides.githubUserId ?? 555001n,
@@ -28,7 +33,10 @@ async function seedUser(overrides: Partial<{ githubUserId: bigint; githubLogin: 
   });
 }
 
-async function seedSession(userId: string, opts: { token?: string; expiresInMs?: number } = {}) {
+async function seedSession(
+  userId: string,
+  opts: { token?: string; expiresInMs?: number } = {},
+) {
   const token = opts.token ?? "test-session-token";
   await prisma.session.create({
     data: {
@@ -65,21 +73,28 @@ describe("/api/auth/* route mounting (phase-01 §17 step 1)", () => {
 
 describe("requireSession (phase-01 §4/§17 step 4)", () => {
   it("throws UnauthenticatedError when there is no session cookie", async () => {
-    await expect(requireSession(fakeRequest())).rejects.toBeInstanceOf(UnauthenticatedError);
-  });
-
-  it("throws UnauthenticatedError for an unknown session token — never falls open to a default user", async () => {
-    await seedUser();
-    await expect(requireSession(fakeRequest("authjs.session-token=does-not-exist"))).rejects.toBeInstanceOf(
+    await expect(requireSession(fakeRequest())).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
   });
 
+  it("throws UnauthenticatedError for an unknown session token — never falls open to a default user", async () => {
+    await seedUser();
+    await expect(
+      requireSession(fakeRequest("authjs.session-token=does-not-exist")),
+    ).rejects.toBeInstanceOf(UnauthenticatedError);
+  });
+
   it("resolves a seeded Session row to the right user, including the custom GitHub fields", async () => {
-    const user = await seedUser({ githubUserId: 777002n, githubLogin: "hubot" });
+    const user = await seedUser({
+      githubUserId: 777002n,
+      githubLogin: "hubot",
+    });
     const token = await seedSession(user.id);
 
-    const session = await requireSession(fakeRequest(`authjs.session-token=${token}`));
+    const session = await requireSession(
+      fakeRequest(`authjs.session-token=${token}`),
+    );
 
     expect(session.user.id).toBe(user.id);
     expect(session.user.githubLogin).toBe("hubot");
@@ -91,11 +106,13 @@ describe("requireSession (phase-01 §4/§17 step 4)", () => {
     const user = await seedUser();
     const token = await seedSession(user.id, { expiresInMs: -60_000 });
 
-    await expect(requireSession(fakeRequest(`authjs.session-token=${token}`))).rejects.toBeInstanceOf(
-      UnauthenticatedError,
-    );
+    await expect(
+      requireSession(fakeRequest(`authjs.session-token=${token}`)),
+    ).rejects.toBeInstanceOf(UnauthenticatedError);
 
-    const stillThere = await prisma.session.findUnique({ where: { sessionToken: token } });
+    const stillThere = await prisma.session.findUnique({
+      where: { sessionToken: token },
+    });
     expect(stillThere).toBeNull(); // @auth/core's session action deletes expired sessions on read
   });
 
@@ -105,7 +122,10 @@ describe("requireSession (phase-01 §4/§17 step 4)", () => {
 
     await runWithTraceContext({ traceId: "trace-auth-test" }, async () => {
       await requireSession(fakeRequest(`authjs.session-token=${token}`));
-      expect(getTraceContext()).toMatchObject({ traceId: "trace-auth-test", userId: user.id });
+      expect(getTraceContext()).toMatchObject({
+        traceId: "trace-auth-test",
+        userId: user.id,
+      });
     });
   });
 
@@ -132,7 +152,9 @@ describe("Auth.js Prisma adapter — profile()-field passthrough and upsert beha
     } as any);
 
     expect(created.id).toBeTruthy();
-    const row = await prisma.user.findUniqueOrThrow({ where: { id: created.id } });
+    const row = await prisma.user.findUniqueOrThrow({
+      where: { id: created.id },
+    });
     expect(row.githubUserId).toBe(909003n);
     expect(row.githubLogin).toBe("hubot");
     expect(row.avatarUrl).toBe("https://avatars.example.com/hubot.png");
@@ -146,7 +168,10 @@ describe("Auth.js Prisma adapter — profile()-field passthrough and upsert beha
     const provider = "github";
     const providerAccountId = "424004";
 
-    const firstLookup = await authAdapter.getUserByAccount!({ provider, providerAccountId });
+    const firstLookup = await authAdapter.getUserByAccount!({
+      provider,
+      providerAccountId,
+    });
     expect(firstLookup).toBeNull();
 
     const user = await authAdapter.createUser!({
@@ -168,10 +193,15 @@ describe("Auth.js Prisma adapter — profile()-field passthrough and upsert beha
 
     // Second sign-in: handleLoginOrRegister looks up by (provider, providerAccountId)
     // first and, on a hit, never calls createUser again.
-    const secondLookup = await authAdapter.getUserByAccount!({ provider, providerAccountId });
+    const secondLookup = await authAdapter.getUserByAccount!({
+      provider,
+      providerAccountId,
+    });
     expect(secondLookup?.id).toBe(user.id);
 
-    const userCount = await prisma.user.count({ where: { githubUserId: 424004n } });
+    const userCount = await prisma.user.count({
+      where: { githubUserId: 424004n },
+    });
     expect(userCount).toBe(1);
   });
 });

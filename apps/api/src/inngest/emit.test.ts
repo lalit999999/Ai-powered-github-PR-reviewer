@@ -5,13 +5,23 @@ const send = vi.fn();
 // never touches the config module or the network.
 vi.mock("./client.js", () => ({ inngest: { send } }));
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
   return { ...actual, createLogger: () => logSpies };
 });
 
+<<<<<<< HEAD
+const { emitProjectDeleted, emitRepositoryIndexRequested } =
+  await import("./emit.js");
+=======
 const { emitProjectDeleted, emitRepositoryIndexRequested, emitPullRequestReviewRequested } = await import("./emit.js");
+>>>>>>> main
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -23,7 +33,10 @@ describe("emitProjectDeleted (phase-01 §8)", () => {
 
     await emitProjectDeleted({ projectId: "project-1" });
 
-    expect(send).toHaveBeenCalledWith({ name: "project/deleted", data: { projectId: "project-1" } });
+    expect(send).toHaveBeenCalledWith({
+      name: "project/deleted",
+      data: { projectId: "project-1" },
+    });
   });
 
   it("does not fail the caller when Inngest is unreachable — it logs instead", async () => {
@@ -31,13 +44,20 @@ describe("emitProjectDeleted (phase-01 §8)", () => {
     // event has no consumer in this phase. Rejecting an already-successful delete
     // because a fire-and-forget notification failed would be strictly worse; the
     // failure has to be *visible*, not fatal. See emit.ts for the full reasoning.
-    send.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:8288"));
+    send.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 127.0.0.1:8288"),
+    );
 
-    await expect(emitProjectDeleted({ projectId: "project-1" })).resolves.toBeUndefined();
+    await expect(
+      emitProjectDeleted({ projectId: "project-1" }),
+    ).resolves.toBeUndefined();
 
     expect(logSpies.error).toHaveBeenCalledWith(
       "failed to emit project/deleted",
-      expect.objectContaining({ event: "project/deleted", projectId: "project-1" })
+      expect.objectContaining({
+        event: "project/deleted",
+        projectId: "project-1",
+      }),
     );
   });
 });
@@ -55,7 +75,10 @@ describe("emitRepositoryIndexRequested (phase-02 §8)", () => {
 
     await emitRepositoryIndexRequested(payload);
 
-    expect(send).toHaveBeenCalledWith({ name: "repository/index.requested", data: payload });
+    expect(send).toHaveBeenCalledWith({
+      name: "repository/index.requested",
+      data: payload,
+    });
   });
 
   it("logs at error with BOTH ids when Inngest is unreachable, and still resolves", async () => {
@@ -63,9 +86,13 @@ describe("emitRepositoryIndexRequested (phase-02 §8)", () => {
     // has to be *visible* — hence `error`, not `warn`. It is still not fatal: the
     // Repository row is already committed in PENDING, which is the durable record and
     // the thing Phase 03 reconciles from. See emit.ts for the full argument.
-    send.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:8288"));
+    send.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 127.0.0.1:8288"),
+    );
 
-    await expect(emitRepositoryIndexRequested(payload)).resolves.toBeUndefined();
+    await expect(
+      emitRepositoryIndexRequested(payload),
+    ).resolves.toBeUndefined();
 
     expect(logSpies.error).toHaveBeenCalledWith(
       "failed to emit repository/index.requested",
@@ -73,7 +100,7 @@ describe("emitRepositoryIndexRequested (phase-02 §8)", () => {
         event: "repository/index.requested",
         projectId: "project-1",
         repositoryId: "repo-1",
-      })
+      }),
     );
   });
 });

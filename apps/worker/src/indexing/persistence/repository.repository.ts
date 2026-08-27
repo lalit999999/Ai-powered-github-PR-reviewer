@@ -22,7 +22,9 @@ export type AcquireLockResult = { acquired: true } | { acquired: false };
  * mid-index already), `1` means this run just won it. There is no `SELECT` before the
  * `UPDATE`: a check-then-act would race exactly the way this lock exists to prevent.
  */
-export async function acquireIndexingLock(repositoryId: string): Promise<AcquireLockResult> {
+export async function acquireIndexingLock(
+  repositoryId: string,
+): Promise<AcquireLockResult> {
   const result = await prisma.repository.updateMany({
     where: { id: repositoryId, indexStatus: { in: [...LOCKABLE_STATUSES] } },
     data: { indexStatus: "INDEXING" },
@@ -51,9 +53,14 @@ export interface StalePendingRepository {
  * (§11/§12). This query only ever has to be a reasonable heuristic for "probably stuck",
  * not a proof.
  */
-export async function findStalePending(olderThanMs: number): Promise<StalePendingRepository[]> {
+export async function findStalePending(
+  olderThanMs: number,
+): Promise<StalePendingRepository[]> {
   return prisma.repository.findMany({
-    where: { indexStatus: "PENDING", updatedAt: { lt: new Date(Date.now() - olderThanMs) } },
+    where: {
+      indexStatus: "PENDING",
+      updatedAt: { lt: new Date(Date.now() - olderThanMs) },
+    },
     select: { id: true, projectId: true },
   });
 }
@@ -76,10 +83,19 @@ export interface IndexTarget {
  * calls per full index run" — phase-03 §9/§14/§15) unsatisfiable, since resolving the SHA
  * already costs one call (`getHeadCommit`) and the tarball fetch costs the second.
  */
-export async function findIndexTarget(repositoryId: string): Promise<IndexTarget | null> {
+export async function findIndexTarget(
+  repositoryId: string,
+): Promise<IndexTarget | null> {
   return prisma.repository.findUnique({
     where: { id: repositoryId },
-    select: { owner: true, name: true, defaultBranch: true, installationId: true, projectId: true, indexedCommitSha: true },
+    select: {
+      owner: true,
+      name: true,
+      defaultBranch: true,
+      installationId: true,
+      projectId: true,
+      indexedCommitSha: true,
+    },
   });
 }
 
@@ -122,6 +138,9 @@ export interface MarkFailedInput {
 export async function markFailed(input: MarkFailedInput): Promise<void> {
   await prisma.repository.update({
     where: { id: input.repositoryId },
-    data: { indexStatus: "FAILED", indexError: { code: input.code, message: input.message } },
+    data: {
+      indexStatus: "FAILED",
+      indexError: { code: input.code, message: input.message },
+    },
   });
 }

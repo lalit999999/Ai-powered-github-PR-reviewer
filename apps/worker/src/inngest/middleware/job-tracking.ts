@@ -61,16 +61,25 @@ import { getTraceContext, runWithTraceContext } from "@repo/observability";
 export class JobTrackingMiddleware extends Middleware.BaseMiddleware {
   readonly id = "job-tracking";
 
-  override async wrapFunctionHandler({ ctx, next }: Middleware.WrapFunctionHandlerArgs): Promise<unknown> {
+  override async wrapFunctionHandler({
+    ctx,
+    next,
+  }: Middleware.WrapFunctionHandlerArgs): Promise<unknown> {
     return runWithTraceContext(mergeEventIds(ctx.event?.data), () => next());
   }
 
-  override async wrapStepHandler({ ctx, next }: Middleware.WrapStepHandlerArgs): Promise<unknown> {
+  override async wrapStepHandler({
+    ctx,
+    next,
+  }: Middleware.WrapStepHandlerArgs): Promise<unknown> {
     return runWithTraceContext(mergeEventIds(ctx.event?.data), () => next());
   }
 }
 
-function mergeEventIds(eventData: unknown): { traceId: string; [key: string]: unknown } {
+function mergeEventIds(eventData: unknown): {
+  traceId: string;
+  [key: string]: unknown;
+} {
   const existing = getTraceContext();
   const merged: { traceId: string; [key: string]: unknown } = {
     ...existing,
@@ -80,7 +89,8 @@ function mergeEventIds(eventData: unknown): { traceId: string; [key: string]: un
   };
 
   const data = eventData as Record<string, unknown> | undefined;
-  if (typeof data?.repositoryId === "string") merged.repositoryId = data.repositoryId;
+  if (typeof data?.repositoryId === "string")
+    merged.repositoryId = data.repositoryId;
   if (typeof data?.projectId === "string") merged.projectId = data.projectId;
 
   // Phase 06 §20 — must come AFTER the fallback assignment above, not before: this is

@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GithubRepositoryMetadata } from "@repo/github";
 import type { RepositoryRecord } from "./repository.types.js";
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
   return { ...actual, createLogger: () => logSpies };
@@ -29,7 +34,9 @@ const {
 
 const CONTEXT = { projectId: "project-1", userId: "user-a" };
 
-function metadata(overrides: Partial<GithubRepositoryMetadata> = {}): GithubRepositoryMetadata {
+function metadata(
+  overrides: Partial<GithubRepositoryMetadata> = {},
+): GithubRepositoryMetadata {
   return {
     githubRepoId: 1296269n,
     owner: "octocat",
@@ -51,7 +58,10 @@ const neverProbe = vi.fn(async () => {
   throw new Error("probeDefaultBranch must not be called on the happy path");
 });
 
-const usabilityContext = (probe = neverProbe) => ({ ...CONTEXT, probeDefaultBranch: probe });
+const usabilityContext = (probe = neverProbe) => ({
+  ...CONTEXT,
+  probeDefaultBranch: probe,
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -66,7 +76,9 @@ beforeEach(() => {
 
 describe("step 1 — the URL parses (400)", () => {
   it("returns the owner/repo pair for a valid URL", () => {
-    expect(resolveRepoRefFromUrl("https://github.com/octocat/Hello-World.git")).toEqual({
+    expect(
+      resolveRepoRefFromUrl("https://github.com/octocat/Hello-World.git"),
+    ).toEqual({
       owner: "octocat",
       repo: "Hello-World",
     });
@@ -83,13 +95,17 @@ describe("step 1 — the URL parses (400)", () => {
 
     expect(thrown).toBeInstanceOf(ValidationError);
     expect(thrown).toMatchObject({ httpStatus: 400, code: "VALIDATION_ERROR" });
-    expect((thrown as Error).message).toMatch(/doesn't look like a GitHub repository URL/i);
+    expect((thrown as Error).message).toMatch(
+      /doesn't look like a GitHub repository URL/i,
+    );
   });
 
   it("re-checks the URL even though the HTTP schema already did", () => {
     // This service is callable from places that are not an HTTP request; a chain whose
     // first step assumes someone else ran it is not a chain.
-    expect(() => resolveRepoRefFromUrl("http://github.com/o/r")).toThrow(ValidationError);
+    expect(() => resolveRepoRefFromUrl("http://github.com/o/r")).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -97,7 +113,9 @@ describe("step 2 — the installation has access (403)", () => {
   const ctx = { ...CONTEXT, target: "octocat/secret" };
 
   it("unwraps the metadata on success", () => {
-    expect(assertRepositoryAccessible({ ok: true, repository: metadata() }, ctx)).toEqual(metadata());
+    expect(
+      assertRepositoryAccessible({ ok: true, repository: metadata() }, ctx),
+    ).toEqual(metadata());
   });
 
   it("turns NOT_ACCESSIBLE into a 403 with the installation-settings message", () => {
@@ -105,7 +123,10 @@ describe("step 2 — the installation has access (403)", () => {
     // repository themselves, so nothing is revealed. See the service's doc comment.
     const thrown = (() => {
       try {
-        assertRepositoryAccessible({ ok: false, reason: "NOT_ACCESSIBLE" }, ctx);
+        assertRepositoryAccessible(
+          { ok: false, reason: "NOT_ACCESSIBLE" },
+          ctx,
+        );
       } catch (error) {
         return error;
       }
@@ -134,7 +155,9 @@ describe("step 2 — the installation has access (403)", () => {
 });
 
 describe("step 3 — already connected to THIS project (409)", () => {
-  function repositoryRow(overrides: Partial<RepositoryRecord> = {}): RepositoryRecord {
+  function repositoryRow(
+    overrides: Partial<RepositoryRecord> = {},
+  ): RepositoryRecord {
     return {
       id: "repo-1",
       projectId: "project-1",
@@ -184,9 +207,12 @@ describe("step 3 — already connected to THIS project (409)", () => {
   it("also rejects a DISCONNECTED row, because the unique constraint still holds it", () => {
     // A pre-check that ignored disconnected rows would propose an insert the database
     // then rejects — the constraint has no connectionStatus in it.
-    expect(() => assertNotAlreadyConnected(repositoryRow({ connectionStatus: "DISCONNECTED" }), ctx)).toThrow(
-      ConflictError,
-    );
+    expect(() =>
+      assertNotAlreadyConnected(
+        repositoryRow({ connectionStatus: "DISCONNECTED" }),
+        ctx,
+      ),
+    ).toThrow(ConflictError);
   });
 
   /**
@@ -198,13 +224,17 @@ describe("step 3 — already connected to THIS project (409)", () => {
     // The caller looked up by (projectId, githubRepoId), so the other project's row is
     // simply not found — and this function has no seam through which it could look for
     // one.
-    expect(() => assertNotAlreadyConnected(null, { ...ctx, projectId: "project-2" })).not.toThrow();
+    expect(() =>
+      assertNotAlreadyConnected(null, { ...ctx, projectId: "project-2" }),
+    ).not.toThrow();
   });
 });
 
 describe("step 4 — the repository is non-empty (422)", () => {
   it("does not probe at all when the repository has content", async () => {
-    await expect(assertRepositoryUsable(metadata({ sizeKib: 108 }), usabilityContext())).resolves.toBeUndefined();
+    await expect(
+      assertRepositoryUsable(metadata({ sizeKib: 108 }), usabilityContext()),
+    ).resolves.toBeUndefined();
     expect(neverProbe).not.toHaveBeenCalled();
   });
 
@@ -215,7 +245,10 @@ describe("step 4 — the repository is non-empty (422)", () => {
     );
 
     await expect(promise).rejects.toBeInstanceOf(UnprocessableEntityError);
-    await expect(promise).rejects.toMatchObject({ httpStatus: 422, code: "UNPROCESSABLE_ENTITY" });
+    await expect(promise).rejects.toMatchObject({
+      httpStatus: 422,
+      code: "UNPROCESSABLE_ENTITY",
+    });
     await expect(promise).rejects.toThrow(EMPTY_REPOSITORY_MESSAGE);
     expect(neverProbe).not.toHaveBeenCalled();
   });
@@ -224,7 +257,10 @@ describe("step 4 — the repository is non-empty (422)", () => {
     const probe = vi.fn(async () => "EMPTY" as const);
 
     await expect(
-      assertRepositoryUsable(metadata({ sizeKib: 0, defaultBranch: "main" }), usabilityContext(probe)),
+      assertRepositoryUsable(
+        metadata({ sizeKib: 0, defaultBranch: "main" }),
+        usabilityContext(probe),
+      ),
     ).rejects.toThrow(EMPTY_REPOSITORY_MESSAGE);
     expect(probe).toHaveBeenCalledTimes(1);
   });
@@ -236,7 +272,10 @@ describe("step 4 — the repository is non-empty (422)", () => {
     const probe = vi.fn(async () => "HAS_COMMITS" as const);
 
     await expect(
-      assertRepositoryUsable(metadata({ sizeKib: 0, defaultBranch: "main" }), usabilityContext(probe)),
+      assertRepositoryUsable(
+        metadata({ sizeKib: 0, defaultBranch: "main" }),
+        usabilityContext(probe),
+      ),
     ).resolves.toBeUndefined();
   });
 
@@ -244,14 +283,19 @@ describe("step 4 — the repository is non-empty (422)", () => {
     // A transient GitHub 5xx must not become "your repository is empty".
     const probe = vi.fn(async () => "UNKNOWN" as const);
 
-    await expect(isEmptyRepository(metadata({ sizeKib: 0, defaultBranch: "main" }), probe)).resolves.toBe(false);
+    await expect(
+      isEmptyRepository(metadata({ sizeKib: 0, defaultBranch: "main" }), probe),
+    ).resolves.toBe(false);
   });
 });
 
 describe("step 5 — the size cap (422)", () => {
   it("accepts a repository exactly at the cap", async () => {
     await expect(
-      assertRepositoryUsable(metadata({ sizeKib: REPOSITORY_SIZE_CAP_KIB }), usabilityContext()),
+      assertRepositoryUsable(
+        metadata({ sizeKib: REPOSITORY_SIZE_CAP_KIB }),
+        usabilityContext(),
+      ),
     ).resolves.toBeUndefined();
   });
 
@@ -267,7 +311,9 @@ describe("step 5 — the size cap (422)", () => {
     // Distinct from the empty message — §3 step 6's "not folded into empty" rule
     // applies to every one of these.
     expect((thrown as Error).message).not.toBe(EMPTY_REPOSITORY_MESSAGE);
-    expect((thrown as { details: Record<string, unknown> }).details).toMatchObject({
+    expect(
+      (thrown as { details: Record<string, unknown> }).details,
+    ).toMatchObject({
       reason: "REPOSITORY_TOO_LARGE",
       sizeKib: REPOSITORY_SIZE_CAP_KIB + 1,
       capKib: REPOSITORY_SIZE_CAP_KIB,
@@ -296,7 +342,8 @@ describe("step 6 — the default branch resolves (422, distinct message)", () =>
 
 describe("the six failures are six distinct answers (§15)", () => {
   it("produces six different (status, code, message) triples", async () => {
-    const outcomes: Array<{ status: number; code: string; message: string }> = [];
+    const outcomes: Array<{ status: number; code: string; message: string }> =
+      [];
     const capture = (error: unknown) => {
       const e = error as { httpStatus: number; code: string; message: string };
       outcomes.push({ status: e.httpStatus, code: e.code, message: e.message });
@@ -308,7 +355,10 @@ describe("the six failures are six distinct answers (§15)", () => {
       capture(error);
     }
     try {
-      assertRepositoryAccessible({ ok: false, reason: "NOT_ACCESSIBLE" }, { ...CONTEXT, target: "o/r" });
+      assertRepositoryAccessible(
+        { ok: false, reason: "NOT_ACCESSIBLE" },
+        { ...CONTEXT, target: "o/r" },
+      );
     } catch (error) {
       capture(error);
     }
@@ -320,14 +370,22 @@ describe("the six failures are six distinct answers (§15)", () => {
     } catch (error) {
       capture(error);
     }
-    await assertRepositoryUsable(metadata({ sizeKib: 0, defaultBranch: null }), usabilityContext()).catch(capture);
+    await assertRepositoryUsable(
+      metadata({ sizeKib: 0, defaultBranch: null }),
+      usabilityContext(),
+    ).catch(capture);
     await assertRepositoryUsable(
       metadata({ sizeKib: REPOSITORY_SIZE_CAP_KIB + 1 }),
       usabilityContext(),
     ).catch(capture);
-    await assertRepositoryUsable(metadata({ sizeKib: 500, defaultBranch: null }), usabilityContext()).catch(capture);
+    await assertRepositoryUsable(
+      metadata({ sizeKib: 500, defaultBranch: null }),
+      usabilityContext(),
+    ).catch(capture);
 
-    expect(outcomes.map((o) => o.status)).toEqual([400, 403, 409, 422, 422, 422]);
+    expect(outcomes.map((o) => o.status)).toEqual([
+      400, 403, 409, 422, 422, 422,
+    ]);
     // The three 422s share a status; a generic "connection failed" is exactly what §4
     // forbids, so their messages must still differ.
     expect(new Set(outcomes.map((o) => o.message)).size).toBe(6);

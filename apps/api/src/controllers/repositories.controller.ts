@@ -33,7 +33,10 @@ import * as repositoryService from "../modules/repositories/repository.service.j
  * Tenancy is resolved on the **project**, which is what the caller must own to connect
  * anything to it. The repository does not exist yet, so there is nothing else to check.
  */
-export async function connectRepository(req: Request, res: Response): Promise<void> {
+export async function connectRepository(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const { projectId } = parseOrThrow(projectIdParamSchema, req.params);
   const body = parseOrThrow(connectRepositoryBodySchema, req.body);
@@ -47,7 +50,10 @@ export async function connectRepository(req: Request, res: Response): Promise<vo
 /** GET /api/repositories/:repositoryId — `{ repository, indexJob: null }`; 404 for
  * missing, foreign, or under a soft-deleted project (see requireTenantAccess for why
  * all three are 404 and not the 403 §7 lists). */
-export async function getRepository(req: Request, res: Response): Promise<void> {
+export async function getRepository(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
 
@@ -69,7 +75,10 @@ export async function getRepository(req: Request, res: Response): Promise<void> 
  * to `DISCONNECTED`, so it keeps resolving and `markDisconnected` reports 0 rows
  * changed on a repeat call.
  */
-export async function disconnectRepository(req: Request, res: Response): Promise<void> {
+export async function disconnectRepository(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
 
@@ -87,7 +96,10 @@ export async function disconnectRepository(req: Request, res: Response): Promise
  * own doc comment for why a repository with no job yet still returns a coherent body
  * rather than 404/null.
  */
-export async function getIndexStatus(req: Request, res: Response): Promise<void> {
+export async function getIndexStatus(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
 
@@ -114,6 +126,13 @@ export async function triggerIndex(req: Request, res: Response): Promise<void> {
 }
 
 /**
+<<<<<<< HEAD
+ * GET /api/repositories/:repositoryId/knowledge — phase-04 §7. Internal/debug read path;
+ * same 404-for-missing/foreign/deleted-parent convention as every other route in this
+ * file (`requireTenantAccess`'s own doc comment) — never 403 (§1 non-negotiable rule 1).
+ */
+export async function getKnowledge(req: Request, res: Response): Promise<void> {
+=======
  * POST /api/repositories/:repositoryId/webhook-test — phase-06 §7. **Reads, does not
  * send.** The name is §7's own and is misleading on its face — this returns the
  * repository's recent `WebhookEvent` deliveries; it does not dispatch a synthetic
@@ -123,11 +142,18 @@ export async function triggerIndex(req: Request, res: Response): Promise<void> {
  * worth the divergence).
  */
 export async function getRecentWebhookDeliveries(req: Request, res: Response): Promise<void> {
+>>>>>>> main
   const session = await requireSession(req);
   const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
 
   const tenant = await requireTenantAccess(session, { repositoryId });
+<<<<<<< HEAD
+  const knowledge = await repositoryService.getKnowledge(tenant);
+
+  res.status(200).json(knowledge);
+=======
   const recentDeliveries = await repositoryService.listRecentWebhookDeliveries(tenant);
 
   res.status(200).json({ recentDeliveries });
+>>>>>>> main
 }

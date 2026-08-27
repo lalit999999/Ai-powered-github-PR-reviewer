@@ -32,11 +32,19 @@ export async function seedRepository(
   seq += 1;
 
   const user = await prisma.user.create({
-    data: { githubUserId: BigInt(2_000_000 + seq), githubLogin: `fixture-user-${seq.toString()}`, email: `fixture-${seq.toString()}@example.com` },
+    data: {
+      githubUserId: BigInt(2_000_000 + seq),
+      githubLogin: `fixture-user-${seq.toString()}`,
+      email: `fixture-${seq.toString()}@example.com`,
+    },
   });
 
   const project = await prisma.project.create({
-    data: { userId: user.id, name: `Fixture Project ${seq.toString()}`, slug: `fixture-project-${seq.toString()}` },
+    data: {
+      userId: user.id,
+      name: `Fixture Project ${seq.toString()}`,
+      slug: `fixture-project-${seq.toString()}`,
+    },
   });
 
   const owner = overrides.owner ?? "octocat";

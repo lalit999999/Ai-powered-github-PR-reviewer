@@ -24,7 +24,10 @@ export abstract class GithubClientError extends Error {
   readonly details: Record<string, unknown>;
 
   constructor(message: string, options: GithubClientErrorOptions = {}) {
-    super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
+    super(
+      message,
+      options.cause !== undefined ? { cause: options.cause } : undefined,
+    );
     this.name = this.constructor.name;
     this.details = options.details ?? {};
   }

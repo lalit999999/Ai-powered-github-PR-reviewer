@@ -111,7 +111,9 @@ export interface ProjectDetail {
 
 /** `null` means "not yours, or gone" — the API answers 404 for both, deliberately
  * (see requireTenantAccess in apps/api). */
-export async function getProjectDetail(projectId: string): Promise<ProjectDetail | null> {
+export async function getProjectDetail(
+  projectId: string,
+): Promise<ProjectDetail | null> {
   const res = await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`);
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -195,8 +197,12 @@ export interface RepositoryDetail {
 
 /** `null` means "not yours, or gone" — same 404-for-both convention as
  * `getProjectDetail`. */
-export async function getRepository(repositoryId: string): Promise<RepositoryDetail | null> {
-  const res = await apiFetch(`/api/repositories/${encodeURIComponent(repositoryId)}`);
+export async function getRepository(
+  repositoryId: string,
+): Promise<RepositoryDetail | null> {
+  const res = await apiFetch(
+    `/api/repositories/${encodeURIComponent(repositoryId)}`,
+  );
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Could not load repository (${res.status})`);
@@ -226,8 +232,12 @@ export interface IndexStatus {
 }
 
 /** `null` means "not yours, or gone" — same 404-for-both convention as `getRepository`. */
-export async function getIndexStatus(repositoryId: string): Promise<IndexStatus | null> {
-  const res = await apiFetch(`/api/repositories/${encodeURIComponent(repositoryId)}/index-status`);
+export async function getIndexStatus(
+  repositoryId: string,
+): Promise<IndexStatus | null> {
+  const res = await apiFetch(
+    `/api/repositories/${encodeURIComponent(repositoryId)}/index-status`,
+  );
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Could not load index status (${res.status})`);
@@ -236,6 +246,35 @@ export async function getIndexStatus(repositoryId: string): Promise<IndexStatus 
 }
 
 /**
+<<<<<<< HEAD
+ * `GET /api/repositories/:id/knowledge` response body (phase-04 §7), mirroring
+ * `RepositoryKnowledgeDto` (apps/api) field-for-field. Only the *type* lives here —
+ * `knowledge-panel.tsx` does its own `credentials: "include"` client-side fetch, the same
+ * reason `index-status-poller.tsx`'s own `fetchIndexStatus` is local to that component
+ * rather than added as a function here (`apiFetch`, above, reads `next/headers` and only
+ * works in a Server Component).
+ */
+export interface TopFileByInboundEdges {
+  fileId: string;
+  path: string;
+  inboundEdgeCount: number;
+}
+
+export interface TopUnresolvedSpecifier {
+  rawSpecifier: string | null;
+  count: number;
+}
+
+export interface RepositoryKnowledge {
+  fileCount: number;
+  symbolCount: number;
+  edgeCount: number;
+  unresolvedImportRatio: number;
+  topFilesByInboundEdges: TopFileByInboundEdges[];
+  edgeCountByKind: Record<string, number>;
+  parseStateCounts: Record<string, number>;
+  topUnresolvedSpecifiers: TopUnresolvedSpecifier[];
+=======
  * A `WebhookEvent` row as `POST /api/repositories/:id/webhook-test` returns it
  * (phase-06 §7) — despite the route's name, this reads recorded deliveries; nothing is
  * sent. Mirrors `WebhookDeliveryDto` (apps/api). No bigint fields: unlike `Repository`/
@@ -259,4 +298,5 @@ export interface WebhookDelivery {
   dispatchedAt: string | null;
   error: unknown;
   createdAt: string;
+>>>>>>> main
 }

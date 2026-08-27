@@ -1,7 +1,11 @@
 import { createAppAuth } from "@octokit/auth-app";
 import { createLogger, type Logger } from "@repo/observability";
 import { getGithubClientConfig } from "../config.js";
-import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "../errors.js";
+import {
+  GithubAccessRevokedError,
+  GithubRateLimitError,
+  ServiceUnavailableError,
+} from "../errors.js";
 import { getTokenCache } from "./redis.js";
 import type { Clock, TokenCache } from "./token-cache.js";
 
@@ -68,7 +72,9 @@ export interface GithubHttpRequest {
  * Octokit instance here would be circular, since octokit-factory.ts authenticates
  * *using* this module.
  */
-export type GithubHttpClient = (request: GithubHttpRequest) => Promise<GithubHttpResponse>;
+export type GithubHttpClient = (
+  request: GithubHttpRequest,
+) => Promise<GithubHttpResponse>;
 
 export interface InstallationTokenServiceOptions {
   cache?: TokenCache;
@@ -158,13 +164,21 @@ function parseExpiresAtMs(body: unknown): number | null {
  * is strictly safer — if this host's clock runs behind GitHub's, a token assumed good
  * for 50 more minutes may already be dead. Exported for the boundary test.
  */
-export function effectiveTtlSeconds(expiresAtMs: number | null, nowMs: number): number {
+export function effectiveTtlSeconds(
+  expiresAtMs: number | null,
+  nowMs: number,
+): number {
   if (expiresAtMs === null) return TOKEN_CACHE_TTL_SECONDS;
-  const remaining = Math.floor((expiresAtMs - nowMs) / 1000) - TOKEN_EXPIRY_SAFETY_MARGIN_SECONDS;
+  const remaining =
+    Math.floor((expiresAtMs - nowMs) / 1000) -
+    TOKEN_EXPIRY_SAFETY_MARGIN_SECONDS;
   return Math.max(0, Math.min(TOKEN_CACHE_TTL_SECONDS, remaining));
 }
 
-function rateLimitWaitSeconds(headers: Record<string, string>, nowMs: number): number | null {
+function rateLimitWaitSeconds(
+  headers: Record<string, string>,
+  nowMs: number,
+): number | null {
   const retryAfter = Number(headers["retry-after"]);
   if (Number.isFinite(retryAfter) && retryAfter >= 0) return retryAfter;
 
@@ -180,10 +194,15 @@ function rateLimitWaitSeconds(headers: Record<string, string>, nowMs: number): n
  * the App got busy (phase-02 §12).
  */
 function isRateLimited(headers: Record<string, string>): boolean {
-  return headers["x-ratelimit-remaining"] === "0" || headers["retry-after"] !== undefined;
+  return (
+    headers["x-ratelimit-remaining"] === "0" ||
+    headers["retry-after"] !== undefined
+  );
 }
 
-export function createInstallationTokenService(options: InstallationTokenServiceOptions = {}): InstallationTokenService {
+export function createInstallationTokenService(
+  options: InstallationTokenServiceOptions = {},
+): InstallationTokenService {
   const logger = options.logger ?? createLogger("github.client");
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? defaultSleep;
@@ -197,7 +216,10 @@ export function createInstallationTokenService(options: InstallationTokenService
   const resolveJwtFactory = () => (createAppJwt ??= defaultCreateAppJwt());
   const resolveCache = () => (cache ??= getTokenCache());
 
-  async function mintOnce(installationId: bigint, endpoint: string): Promise<GithubHttpResponse> {
+  async function mintOnce(
+    installationId: bigint,
+    endpoint: string,
+  ): Promise<GithubHttpResponse> {
     const jwt = await resolveJwtFactory()();
     return http({
       method: "POST",
@@ -210,7 +232,9 @@ export function createInstallationTokenService(options: InstallationTokenService
     });
   }
 
-  async function mint(installationId: bigint): Promise<{ token: string; ttlSeconds: number }> {
+  async function mint(
+    installationId: bigint,
+  ): Promise<{ token: string; ttlSeconds: number }> {
     const endpoint = `/app/installations/${installationId.toString()}/access_tokens`;
     let lastFailure: string = "no attempt made";
 
@@ -240,7 +264,9 @@ export function createInstallationTokenService(options: InstallationTokenService
         endpoint,
         status,
         attempt,
-        "github.rate_limit_remaining": Number(headers["x-ratelimit-remaining"] ?? Number.NaN),
+        "github.rate_limit_remaining": Number(
+          headers["x-ratelimit-remaining"] ?? Number.NaN,
+        ),
       };
 
       if (status >= 200 && status < 300) {
@@ -248,43 +274,74 @@ export function createInstallationTokenService(options: InstallationTokenService
         if (typeof token !== "string" || token.length === 0) {
           // A 2xx with no token is not retryable and is not revocation — it means we do
           // not understand the response, which is a bug, not a transient fault.
-          throw new ServiceUnavailableError("GitHub returned an unexpected response while minting an installation token", {
-            details: { installationId: installationId.toString() },
-          });
+          throw new ServiceUnavailableError(
+            "GitHub returned an unexpected response while minting an installation token",
+            {
+              details: { installationId: installationId.toString() },
+            },
+          );
         }
-        const ttlSeconds = effectiveTtlSeconds(parseExpiresAtMs(response.body), now());
-        logger.info("installation token minted", { ...rateLimitFields, cache: "miss", ttlSeconds });
+        const ttlSeconds = effectiveTtlSeconds(
+          parseExpiresAtMs(response.body),
+          now(),
+        );
+        logger.info("installation token minted", {
+          ...rateLimitFields,
+          cache: "miss",
+          ttlSeconds,
+        });
         return { token, ttlSeconds };
       }
 
       if (status === 401) {
         // Never retried: the installation was revoked, deleted, or suspended, and a
         // second identical request cannot change that (phase-02 §12).
-        logger.warn("installation token mint rejected — installation access lost", { ...rateLimitFields, retried: false });
-        throw new GithubAccessRevokedError("GitHub access was revoked — reinstall the app", {
-          details: { installationId: installationId.toString() },
-        });
+        logger.warn(
+          "installation token mint rejected — installation access lost",
+          { ...rateLimitFields, retried: false },
+        );
+        throw new GithubAccessRevokedError(
+          "GitHub access was revoked — reinstall the app",
+          {
+            details: { installationId: installationId.toString() },
+          },
+        );
       }
 
       if ((status === 403 || status === 429) && isRateLimited(headers)) {
         const waitSeconds = rateLimitWaitSeconds(headers, now());
-        logger.warn("installation token mint rate limited", { ...rateLimitFields, waitSeconds });
+        logger.warn("installation token mint rate limited", {
+          ...rateLimitFields,
+          waitSeconds,
+        });
         // Deliberately not a retry loop here. This module is called from inside a
         // user-facing request; sleeping out a primary-limit reset (up to an hour) would
         // hold the connection open for the whole window. octokit-factory.ts schedules
         // short waits for ordinary API calls; a rate-limited *mint* fails fast with the
         // wait time attached so the caller can decide.
-        throw new GithubRateLimitError("GitHub's rate limit for this app is exhausted — try again shortly", {
-          details: { installationId: installationId.toString(), retryAfterSeconds: waitSeconds },
-        });
+        throw new GithubRateLimitError(
+          "GitHub's rate limit for this app is exhausted — try again shortly",
+          {
+            details: {
+              installationId: installationId.toString(),
+              retryAfterSeconds: waitSeconds,
+            },
+          },
+        );
       }
 
       if (status === 403 || status === 404) {
         // 403 without rate-limit headers, or 404: the installation is suspended or gone.
-        logger.warn("installation token mint rejected — installation unavailable", { ...rateLimitFields, retried: false });
-        throw new GithubAccessRevokedError("GitHub access was revoked — reinstall the app", {
-          details: { installationId: installationId.toString(), status },
-        });
+        logger.warn(
+          "installation token mint rejected — installation unavailable",
+          { ...rateLimitFields, retried: false },
+        );
+        throw new GithubAccessRevokedError(
+          "GitHub access was revoked — reinstall the app",
+          {
+            details: { installationId: installationId.toString(), status },
+          },
+        );
       }
 
       lastFailure = `GitHub responded ${status}`;
@@ -297,9 +354,16 @@ export function createInstallationTokenService(options: InstallationTokenService
       await sleep(TOKEN_MINT_BASE_BACKOFF_MS * 2 ** (attempt - 1));
     }
 
-    throw new ServiceUnavailableError("GitHub is temporarily unavailable, try again", {
-      details: { installationId: installationId.toString(), attempts: TOKEN_MINT_MAX_ATTEMPTS, lastFailure },
-    });
+    throw new ServiceUnavailableError(
+      "GitHub is temporarily unavailable, try again",
+      {
+        details: {
+          installationId: installationId.toString(),
+          attempts: TOKEN_MINT_MAX_ATTEMPTS,
+          lastFailure,
+        },
+      },
+    );
   }
 
   return {
@@ -309,7 +373,11 @@ export function createInstallationTokenService(options: InstallationTokenService
       if (cached) {
         // Hit and miss are logged as distinct events (§20) — this is the signal §14 asks
         // to check when verifying that two calls in quick succession reuse one token.
-        logger.debug("installation token cache hit", { installationId: installationId.toString(), cacheKey: key, cache: "hit" });
+        logger.debug("installation token cache hit", {
+          installationId: installationId.toString(),
+          cacheKey: key,
+          cache: "hit",
+        });
         return cached;
       }
 
@@ -338,7 +406,9 @@ export function getInstallationToken(installationId: bigint): Promise<string> {
 }
 
 /** Drops the cached token for an installation. */
-export function invalidateInstallationToken(installationId: bigint): Promise<void> {
+export function invalidateInstallationToken(
+  installationId: bigint,
+): Promise<void> {
   defaultService ??= createInstallationTokenService();
   return defaultService.invalidate(installationId);
 }

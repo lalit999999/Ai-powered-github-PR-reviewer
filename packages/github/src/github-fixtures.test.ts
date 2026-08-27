@@ -6,7 +6,11 @@ import nock from "nock";
 import pino from "pino";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createLogger } from "@repo/observability";
-import { GithubAccessRevokedError, GithubRateLimitError, ServiceUnavailableError } from "./errors.js";
+import {
+  GithubAccessRevokedError,
+  GithubRateLimitError,
+  ServiceUnavailableError,
+} from "./errors.js";
 import {
   createInstallationTokenService,
   installationTokenCacheKey,
@@ -16,7 +20,10 @@ import {
 import { TokenCacheEtagStore } from "./client/etag-cache.js";
 import { createInstallationOctokit } from "./client/octokit-factory.js";
 import { InMemoryTokenCache } from "./client/token-cache.js";
-import { listInstallationRepositories, listUserInstallations } from "./services/installation.github.js";
+import {
+  listInstallationRepositories,
+  listUserInstallations,
+} from "./services/installation.github.js";
 import { getRepository, probeBranch } from "./services/repository.github.js";
 
 /**
@@ -47,7 +54,10 @@ import { getRepository, probeBranch } from "./services/repository.github.js";
  * each `tests/fixtures/github/*.json` is used by at least one test below.
  */
 
-const FIXTURES_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../tests/fixtures/github");
+const FIXTURES_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../tests/fixtures/github",
+);
 
 const GITHUB_API = "https://api.github.com";
 const INSTALLATION_ID = 58234971n;
@@ -64,14 +74,27 @@ interface FixtureResponse {
  * in the raw text first. Used for values — a rate-limit reset timestamp, mainly — that
  * have to be relative to whenever the test actually runs rather than baked in once.
  */
-function loadFixture(name: string, vars: Record<string, string> = {}): FixtureResponse {
+function loadFixture(
+  name: string,
+  vars: Record<string, string> = {},
+): FixtureResponse {
   const raw = readFileSync(path.join(FIXTURES_DIR, `${name}.json`), "utf8");
-  const substituted = Object.entries(vars).reduce((text, [key, value]) => text.split(`__${key}__`).join(value), raw);
+  const substituted = Object.entries(vars).reduce(
+    (text, [key, value]) => text.split(`__${key}__`).join(value),
+    raw,
+  );
   return JSON.parse(substituted) as FixtureResponse;
 }
 
-function replyWithFixture(interceptor: nock.Interceptor, fixture: FixtureResponse): nock.Scope {
-  return interceptor.reply(fixture.status, fixture.body as nock.Body, fixture.headers);
+function replyWithFixture(
+  interceptor: nock.Interceptor,
+  fixture: FixtureResponse,
+): nock.Scope {
+  return interceptor.reply(
+    fixture.status,
+    fixture.body as nock.Body,
+    fixture.headers,
+  );
 }
 
 function capturingLogger(component = "github.client") {
@@ -82,7 +105,10 @@ function capturingLogger(component = "github.client") {
       callback();
     },
   });
-  const instance = pino({ level: "debug", base: null, timestamp: false, messageKey: "msg" }, stream);
+  const instance = pino(
+    { level: "debug", base: null, timestamp: false, messageKey: "msg" },
+    stream,
+  );
   return { logger: createLogger(component, instance), lines };
 }
 
@@ -99,7 +125,10 @@ function fakeClock(startMs: number) {
 /** A hermetic Octokit for the repository/installation service-layer tests: a fixed
  * token (no real mint), an in-memory ETag store (no real Redis) — regardless of whether
  * this environment happens to have a local Redis running. */
-function fixtureOctokit(installationId: bigint, logger: ReturnType<typeof createLogger>) {
+function fixtureOctokit(
+  installationId: bigint,
+  logger: ReturnType<typeof createLogger>,
+) {
   return createInstallationOctokit(installationId, {
     getToken: async () => FIXTURE_TOKEN,
     etagStore: new TokenCacheEtagStore(new InMemoryTokenCache()),
@@ -128,9 +157,13 @@ afterAll(() => {
 
 describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => {
   it("mints once and reuses the cached token on a second call — one JWT→token exchange, logged as miss then hit", async () => {
-    const mint = loadFixture("access-token-success", { EXPIRES_AT: new Date(Date.now() + 3600_000).toISOString() });
+    const mint = loadFixture("access-token-success", {
+      EXPIRES_AT: new Date(Date.now() + 3600_000).toISOString(),
+    });
     replyWithFixture(
-      nock(GITHUB_API).post(`/app/installations/${INSTALLATION_ID}/access_tokens`).matchHeader("authorization", "Bearer fake.app.jwt"),
+      nock(GITHUB_API)
+        .post(`/app/installations/${INSTALLATION_ID}/access_tokens`)
+        .matchHeader("authorization", "Bearer fake.app.jwt"),
       mint,
     );
 
@@ -147,7 +180,9 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
 
     expect(first).toBe((mint.body as { token: string }).token);
     expect(second).toBe(first);
-    expect(await cache.get(installationTokenCacheKey(INSTALLATION_ID))).toBe(first);
+    expect(await cache.get(installationTokenCacheKey(INSTALLATION_ID))).toBe(
+      first,
+    );
 
     const outcomes = lines.map((line) => line.cache).filter(Boolean);
     expect(outcomes).toEqual(["miss", "hit"]);
@@ -157,13 +192,18 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
     const startMs = Date.UTC(2026, 0, 1, 12, 0, 0);
     // expires_at is exactly 60 minutes past this clock's start, so the effective TTL
     // lands on the usual 50-minute cap.
-    const mint1 = loadFixture("access-token-success", { EXPIRES_AT: new Date(startMs + 60 * 60 * 1000).toISOString() });
+    const mint1 = loadFixture("access-token-success", {
+      EXPIRES_AT: new Date(startMs + 60 * 60 * 1000).toISOString(),
+    });
     const path1 = `/app/installations/${INSTALLATION_ID}/access_tokens`;
     replyWithFixture(nock(GITHUB_API).post(path1), mint1);
     replyWithFixture(nock(GITHUB_API).post(path1), {
       status: 201,
       headers: { "content-type": "application/json" },
-      body: { token: "FIXTURE-INSTALLATION-TOKEN-SECOND-MINT", expires_at: "2026-01-01T14:00:00Z" },
+      body: {
+        token: "FIXTURE-INSTALLATION-TOKEN-SECOND-MINT",
+        expires_at: "2026-01-01T14:00:00Z",
+      },
     });
 
     const clock = fakeClock(startMs);
@@ -178,7 +218,9 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
     expect(first).toBe(FIXTURE_TOKEN);
 
     clock.advanceSeconds(TOKEN_CACHE_TTL_SECONDS - 1); // 49:59 — still cached
-    expect(await service.getInstallationToken(INSTALLATION_ID)).toBe(FIXTURE_TOKEN);
+    expect(await service.getInstallationToken(INSTALLATION_ID)).toBe(
+      FIXTURE_TOKEN,
+    );
 
     clock.advanceSeconds(2); // 50:01 — past the cache TTL
     const second = await service.getInstallationToken(INSTALLATION_ID);
@@ -188,22 +230,36 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
 
   it("a rate-limited mint (403 + x-ratelimit-reset) fails fast as GithubRateLimitError rather than sleeping out the wait", async () => {
     const resetAtSeconds = Math.floor(Date.now() / 1000) + 90;
-    const limited = loadFixture("access-token-403-rate-limited", { RATE_LIMIT_RESET: String(resetAtSeconds) });
-    replyWithFixture(nock(GITHUB_API).post(`/app/installations/${INSTALLATION_ID}/access_tokens`), limited);
+    const limited = loadFixture("access-token-403-rate-limited", {
+      RATE_LIMIT_RESET: String(resetAtSeconds),
+    });
+    replyWithFixture(
+      nock(GITHUB_API).post(
+        `/app/installations/${INSTALLATION_ID}/access_tokens`,
+      ),
+      limited,
+    );
 
     const service = createInstallationTokenService({
       cache: new InMemoryTokenCache(),
       createAppJwt: async () => "fake.app.jwt",
     });
 
-    const error = await service.getInstallationToken(INSTALLATION_ID).catch((e: unknown) => e);
+    const error = await service
+      .getInstallationToken(INSTALLATION_ID)
+      .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(GithubRateLimitError);
     expect((error as GithubRateLimitError).details.retryAfterSeconds).toBe(90);
   });
 
   it("401 (revoked installation) is GithubAccessRevokedError and is never retried — exactly one request reaches GitHub", async () => {
     const revoked = loadFixture("access-token-401-revoked");
-    replyWithFixture(nock(GITHUB_API).post(`/app/installations/${INSTALLATION_ID}/access_tokens`), revoked);
+    replyWithFixture(
+      nock(GITHUB_API).post(
+        `/app/installations/${INSTALLATION_ID}/access_tokens`,
+      ),
+      revoked,
+    );
 
     const cache = new InMemoryTokenCache();
     const service = createInstallationTokenService({
@@ -215,14 +271,20 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
     // disableNetConnect() means a retry would surface as a DIFFERENT (nock "no match")
     // error, so this assertion alone proves both the error type and the no-retry
     // behavior — a retry could not have produced a clean GithubAccessRevokedError here.
-    await expect(service.getInstallationToken(INSTALLATION_ID)).rejects.toBeInstanceOf(GithubAccessRevokedError);
-    expect(await cache.get(installationTokenCacheKey(INSTALLATION_ID))).toBeNull();
+    await expect(
+      service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toBeInstanceOf(GithubAccessRevokedError);
+    expect(
+      await cache.get(installationTokenCacheKey(INSTALLATION_ID)),
+    ).toBeNull();
   });
 
   it("5xx is retried up to the attempt cap, then surfaces a clean ServiceUnavailableError rather than hanging", async () => {
     const failure = loadFixture("access-token-500");
     replyWithFixture(
-      nock(GITHUB_API).post(`/app/installations/${INSTALLATION_ID}/access_tokens`).times(TOKEN_MINT_MAX_ATTEMPTS),
+      nock(GITHUB_API)
+        .post(`/app/installations/${INSTALLATION_ID}/access_tokens`)
+        .times(TOKEN_MINT_MAX_ATTEMPTS),
       failure,
     );
 
@@ -238,22 +300,32 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
       },
     });
 
-    await expect(service.getInstallationToken(INSTALLATION_ID)).rejects.toBeInstanceOf(ServiceUnavailableError);
+    await expect(
+      service.getInstallationToken(INSTALLATION_ID),
+    ).rejects.toBeInstanceOf(ServiceUnavailableError);
     expect(sleeps).toHaveLength(TOKEN_MINT_MAX_ATTEMPTS - 1);
   });
 
   it("never writes the minted token to the logs, on the success path or any failure path", async () => {
     const cases: Array<{ name: string; vars?: Record<string, string> }> = [
-      { name: "access-token-success", vars: { EXPIRES_AT: new Date(Date.now() + 3600_000).toISOString() } },
+      {
+        name: "access-token-success",
+        vars: { EXPIRES_AT: new Date(Date.now() + 3600_000).toISOString() },
+      },
       { name: "access-token-401-revoked" },
-      { name: "access-token-403-rate-limited", vars: { RATE_LIMIT_RESET: String(Math.floor(Date.now() / 1000) + 60) } },
+      {
+        name: "access-token-403-rate-limited",
+        vars: { RATE_LIMIT_RESET: String(Math.floor(Date.now() / 1000) + 60) },
+      },
     ];
 
     for (const { name, vars } of cases) {
       const fixture = loadFixture(name, vars);
       const times = name === "access-token-success" ? 1 : 1;
       replyWithFixture(
-        nock(GITHUB_API).post(`/app/installations/${INSTALLATION_ID}/access_tokens`).times(times),
+        nock(GITHUB_API)
+          .post(`/app/installations/${INSTALLATION_ID}/access_tokens`)
+          .times(times),
         fixture,
       );
 
@@ -264,7 +336,9 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
         logger,
       });
 
-      await service.getInstallationToken(INSTALLATION_ID).catch(() => undefined);
+      await service
+        .getInstallationToken(INSTALLATION_ID)
+        .catch(() => undefined);
 
       expect(lines.length).toBeGreaterThan(0);
       expect(JSON.stringify(lines)).not.toContain(FIXTURE_TOKEN);
@@ -278,13 +352,22 @@ describe("POST /app/installations/{id}/access_tokens — fixture-driven", () => 
 
 describe("the full chain: a minted token flows unbroken into an authenticated GitHub call", () => {
   it("fetches a repository using the token that was just minted from the fixture", async () => {
-    const mint = loadFixture("access-token-success", { EXPIRES_AT: new Date(Date.now() + 3600_000).toISOString() });
+    const mint = loadFixture("access-token-success", {
+      EXPIRES_AT: new Date(Date.now() + 3600_000).toISOString(),
+    });
     const repo = loadFixture("repo-normal");
     const mintedToken = (mint.body as { token: string }).token;
 
-    replyWithFixture(nock(GITHUB_API).post(`/app/installations/${INSTALLATION_ID}/access_tokens`), mint);
     replyWithFixture(
-      nock(GITHUB_API).get("/repos/octocat/hello-world").matchHeader("authorization", `token ${mintedToken}`),
+      nock(GITHUB_API).post(
+        `/app/installations/${INSTALLATION_ID}/access_tokens`,
+      ),
+      mint,
+    );
+    replyWithFixture(
+      nock(GITHUB_API)
+        .get("/repos/octocat/hello-world")
+        .matchHeader("authorization", `token ${mintedToken}`),
       repo,
     );
 
@@ -297,7 +380,12 @@ describe("the full chain: a minted token flows unbroken into an authenticated Gi
       etagStore: new TokenCacheEtagStore(new InMemoryTokenCache()),
     });
 
-    const result = await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      { octokit },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.repository.fullName).toBe("octocat/hello-world");
@@ -314,18 +402,33 @@ describe("GET /repos/{owner}/{repo} — rate limiting and ETag caching, fixture-
     // near-zero wait (see docs/decisions/phase-02-log.md) — the retry is real and goes
     // through the actual throttling plugin, but the test does not sleep for it.
     const resetAtSeconds = Math.floor(Date.now() / 1000) - 5;
-    const limited = loadFixture("repo-403-rate-limited", { RATE_LIMIT_RESET: String(resetAtSeconds) });
+    const limited = loadFixture("repo-403-rate-limited", {
+      RATE_LIMIT_RESET: String(resetAtSeconds),
+    });
     const success = loadFixture("repo-normal");
     const { logger, lines } = capturingLogger();
 
-    replyWithFixture(nock(GITHUB_API).get("/repos/octocat/hello-world"), limited);
-    replyWithFixture(nock(GITHUB_API).get("/repos/octocat/hello-world"), success);
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/octocat/hello-world"),
+      limited,
+    );
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/octocat/hello-world"),
+      success,
+    );
 
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    const result = await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      { octokit, logger },
+    );
 
     expect(result.ok).toBe(true);
-    const rateLimitLine = lines.find((line) => line.msg === "github rate limit hit");
+    const rateLimitLine = lines.find(
+      (line) => line.msg === "github rate limit hit",
+    );
     expect(rateLimitLine?.willRetry).toBe(true);
   });
 
@@ -336,15 +439,29 @@ describe("GET /repos/{owner}/{repo} — rate limiting and ETag caching, fixture-
 
     replyWithFixture(nock(GITHUB_API).get("/repos/octocat/hello-world"), repo);
     replyWithFixture(
-      nock(GITHUB_API).get("/repos/octocat/hello-world").matchHeader("if-none-match", etag),
+      nock(GITHUB_API)
+        .get("/repos/octocat/hello-world")
+        .matchHeader("if-none-match", etag),
       { status: 304, headers: { etag }, body: undefined },
     );
 
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    const first = await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
-    const second = await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
+    const first = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      { octokit, logger },
+    );
+    const second = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      { octokit, logger },
+    );
 
-    expect(first.ok && second.ok && second.repository).toEqual(first.ok && first.repository);
+    expect(first.ok && second.ok && second.repository).toEqual(
+      first.ok && first.repository,
+    );
   });
 });
 
@@ -358,16 +475,33 @@ describe("GET /installation/repositories — pagination, fixture-driven", () => 
     const page2 = loadFixture("installation-repositories-page-2");
     const { logger } = capturingLogger();
 
-    replyWithFixture(nock(GITHUB_API).get("/installation/repositories").query({ per_page: "100", page: "1" }), page1);
-    replyWithFixture(nock(GITHUB_API).get("/installation/repositories").query({ per_page: "100", page: "2" }), page2);
+    replyWithFixture(
+      nock(GITHUB_API)
+        .get("/installation/repositories")
+        .query({ per_page: "100", page: "1" }),
+      page1,
+    );
+    replyWithFixture(
+      nock(GITHUB_API)
+        .get("/installation/repositories")
+        .query({ per_page: "100", page: "2" }),
+      page2,
+    );
 
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.repositories).toHaveLength(137);
-    expect(result.ok && result.repositories[0]?.fullName).toBe("acme-corp/service-1");
-    expect(result.ok && result.repositories[136]?.fullName).toBe("acme-corp/service-137");
+    expect(result.ok && result.repositories[0]?.fullName).toBe(
+      "acme-corp/service-1",
+    );
+    expect(result.ok && result.repositories[136]?.fullName).toBe(
+      "acme-corp/service-137",
+    );
   });
 });
 
@@ -378,14 +512,31 @@ describe("GET /installation/repositories — pagination, fixture-driven", () => 
 describe("GET /user/installations — fixture-driven", () => {
   it("maps a realistic multi-installation response, including a suspended organization install", async () => {
     const installations = loadFixture("user-installations");
-    replyWithFixture(nock(GITHUB_API).get("/user/installations").query({ per_page: "100", page: "1" }), installations);
+    replyWithFixture(
+      nock(GITHUB_API)
+        .get("/user/installations")
+        .query({ per_page: "100", page: "1" }),
+      installations,
+    );
 
-    const result = await listUserInstallations("gho_fixture_oauth_token", { logger: createLogger("test") });
+    const result = await listUserInstallations("gho_fixture_oauth_token", {
+      logger: createLogger("test"),
+    });
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.installations).toEqual([
-      { installationId: 58234971n, accountLogin: "octocat", accountType: "User", suspended: false },
-      { installationId: 58234988n, accountLogin: "acme-corp", accountType: "Organization", suspended: true },
+      {
+        installationId: 58234971n,
+        accountLogin: "octocat",
+        accountType: "User",
+        suspended: false,
+      },
+      {
+        installationId: 58234988n,
+        accountLogin: "acme-corp",
+        accountType: "Organization",
+        suspended: true,
+      },
     ]);
   });
 });
@@ -398,9 +549,17 @@ describe("GET /repos/{owner}/{repo} — metadata variants, fixture-driven", () =
   it("normal: maps a non-empty, under-cap, private-false repository", async () => {
     const { logger } = capturingLogger();
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    replyWithFixture(nock(GITHUB_API).get("/repos/octocat/hello-world"), loadFixture("repo-normal"));
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/octocat/hello-world"),
+      loadFixture("repo-normal"),
+    );
 
-    const result = await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      { octokit, logger },
+    );
 
     expect(result.ok && result.repository).toMatchObject({
       githubRepoId: 1296269n,
@@ -414,26 +573,50 @@ describe("GET /repos/{owner}/{repo} — metadata variants, fixture-driven", () =
   it("empty (ambiguous size:0 + a named default branch): the probe finds no commits on it", async () => {
     const { logger } = capturingLogger();
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    replyWithFixture(nock(GITHUB_API).get("/repos/acme-corp/brand-new-repo"), loadFixture("repo-empty"));
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/acme-corp/brand-new-repo"),
+      loadFixture("repo-empty"),
+    );
     replyWithFixture(
       nock(GITHUB_API).get("/repos/acme-corp/brand-new-repo/branches/main"),
       loadFixture("branch-probe-empty-404"),
     );
 
-    const metadataResult = await getRepository(INSTALLATION_ID, "acme-corp", "brand-new-repo", { octokit, logger });
+    const metadataResult = await getRepository(
+      INSTALLATION_ID,
+      "acme-corp",
+      "brand-new-repo",
+      { octokit, logger },
+    );
     expect(metadataResult.ok && metadataResult.repository.sizeKib).toBe(0);
-    expect(metadataResult.ok && metadataResult.repository.defaultBranch).toBe("main");
+    expect(metadataResult.ok && metadataResult.repository.defaultBranch).toBe(
+      "main",
+    );
 
-    const probe = await probeBranch(INSTALLATION_ID, "acme-corp", "brand-new-repo", "main", { octokit, logger });
+    const probe = await probeBranch(
+      INSTALLATION_ID,
+      "acme-corp",
+      "brand-new-repo",
+      "main",
+      { octokit, logger },
+    );
     expect(probe).toBe("EMPTY");
   });
 
   it("oversized: maps a repository whose sizeKib is over the 500 MiB connect-time cap", async () => {
     const { logger } = capturingLogger();
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    replyWithFixture(nock(GITHUB_API).get("/repos/acme-corp/monorepo-of-everything"), loadFixture("repo-oversized"));
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/acme-corp/monorepo-of-everything"),
+      loadFixture("repo-oversized"),
+    );
 
-    const result = await getRepository(INSTALLATION_ID, "acme-corp", "monorepo-of-everything", { octokit, logger });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "acme-corp",
+      "monorepo-of-everything",
+      { octokit, logger },
+    );
 
     expect(result.ok && result.repository.sizeKib).toBeGreaterThan(500 * 1024);
   });
@@ -441,9 +624,17 @@ describe("GET /repos/{owner}/{repo} — metadata variants, fixture-driven", () =
   it("private-no-access: a 404 from GitHub is NOT_ACCESSIBLE, not a crash and not a false 'not found'", async () => {
     const { logger } = capturingLogger();
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    replyWithFixture(nock(GITHUB_API).get("/repos/acme-corp/secret-repo"), loadFixture("repo-not-accessible-404"));
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/acme-corp/secret-repo"),
+      loadFixture("repo-not-accessible-404"),
+    );
 
-    await expect(getRepository(INSTALLATION_ID, "acme-corp", "secret-repo", { octokit, logger })).resolves.toEqual({
+    await expect(
+      getRepository(INSTALLATION_ID, "acme-corp", "secret-repo", {
+        octokit,
+        logger,
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: "NOT_ACCESSIBLE",
     });
@@ -452,9 +643,17 @@ describe("GET /repos/{owner}/{repo} — metadata variants, fixture-driven", () =
   it("fork with an unusual default branch: 'trunk' maps through with no special-casing needed", async () => {
     const { logger } = capturingLogger();
     const octokit = fixtureOctokit(INSTALLATION_ID, logger);
-    replyWithFixture(nock(GITHUB_API).get("/repos/someuser/widget-service"), loadFixture("repo-fork-unusual-branch"));
+    replyWithFixture(
+      nock(GITHUB_API).get("/repos/someuser/widget-service"),
+      loadFixture("repo-fork-unusual-branch"),
+    );
 
-    const result = await getRepository(INSTALLATION_ID, "someuser", "widget-service", { octokit, logger });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "someuser",
+      "widget-service",
+      { octokit, logger },
+    );
 
     expect(result.ok && result.repository.defaultBranch).toBe("trunk");
   });
@@ -481,16 +680,21 @@ describe("fixtures never contain anything shaped like a real credential", () => 
     ["a PEM private key header", /-----BEGIN/],
   ];
 
-  const fixtureFiles = readdirSync(FIXTURES_DIR).filter((name) => name.endsWith(".json"));
+  const fixtureFiles = readdirSync(FIXTURES_DIR).filter((name) =>
+    name.endsWith(".json"),
+  );
 
   it("found at least one fixture to scan — a suite that scans nothing proves nothing", () => {
     expect(fixtureFiles.length).toBeGreaterThan(0);
   });
 
-  it.each(fixtureFiles)("%s contains nothing shaped like a real token or private key", (file) => {
-    const contents = readFileSync(path.join(FIXTURES_DIR, file), "utf8");
-    for (const [, pattern] of TOKEN_SHAPES) {
-      expect(contents).not.toMatch(pattern);
-    }
-  });
+  it.each(fixtureFiles)(
+    "%s contains nothing shaped like a real token or private key",
+    (file) => {
+      const contents = readFileSync(path.join(FIXTURES_DIR, file), "utf8");
+      for (const [, pattern] of TOKEN_SHAPES) {
+        expect(contents).not.toMatch(pattern);
+      }
+    },
+  );
 });

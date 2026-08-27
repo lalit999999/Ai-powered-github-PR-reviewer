@@ -83,7 +83,10 @@ export abstract class ArchiveExtractorError extends Error {
   abstract readonly code: string;
   readonly details: Record<string, unknown>;
   constructor(message: string, options: ArchiveExtractorErrorOptions = {}) {
-    super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
+    super(
+      message,
+      options.cause !== undefined ? { cause: options.cause } : undefined,
+    );
     this.name = this.constructor.name;
     this.details = options.details ?? {};
   }
@@ -160,7 +163,8 @@ export interface ArchiveExtractorOptions {
 // eslint-disable-next-line no-control-regex -- detecting control characters is the point
 const CONTROL_CHARS = /[\x00-\x1f\x7f]/;
 // Case-insensitive; matches with or without an extension (CON, con.txt, ...).
-const WINDOWS_RESERVED_NAME = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.[^/]*)?$/i;
+const WINDOWS_RESERVED_NAME =
+  /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.[^/]*)?$/i;
 
 /**
  * Filename *hygiene* only — NUL/control characters, Windows-reserved names, empty
@@ -202,11 +206,15 @@ function isValidRelativePath(relativePath: string): boolean {
  */
 /** Exported for direct unit testing of the sibling-prefix defeat (§14/§15) — see
  * archive-extractor.test.ts. Not part of the module's intended public API otherwise. */
-export function resolveSafePath(root: string, relativePath: string): string | null {
+export function resolveSafePath(
+  root: string,
+  relativePath: string,
+): string | null {
   const resolved = path.resolve(root, relativePath);
   const relativeToRoot = path.relative(root, resolved);
   if (relativeToRoot === "") return null; // resolves to the root itself, not a file
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return null;
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot))
+    return null;
   return resolved;
 }
 
@@ -222,7 +230,9 @@ export function resolveSafePath(root: string, relativePath: string): string | nu
  * relative to every other extracted path.
  */
 function stripTopLevelComponent(entryName: string): string | null {
-  const normalized = entryName.startsWith("./") ? entryName.slice(2) : entryName;
+  const normalized = entryName.startsWith("./")
+    ? entryName.slice(2)
+    : entryName;
   const firstSlash = normalized.indexOf("/");
   if (firstSlash === -1) return null;
   return normalized.slice(firstSlash + 1);
@@ -232,13 +242,21 @@ function stripTopLevelComponent(entryName: string): string | null {
 // The byte-counting cap — the actual zip-bomb defense
 // ---------------------------------------------------------------------------
 
-function createByteCounter(maxTotalBytes: number, onBytes: (cumulative: number) => void): Transform {
+function createByteCounter(
+  maxTotalBytes: number,
+  onBytes: (cumulative: number) => void,
+): Transform {
   let total = 0;
   return new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       total += chunk.byteLength;
       if (total > maxTotalBytes) {
-        callback(new ArchiveTooLargeError(`extraction exceeded the ${maxTotalBytes.toString()}-byte cap`, { details: { maxTotalBytes } }));
+        callback(
+          new ArchiveTooLargeError(
+            `extraction exceeded the ${maxTotalBytes.toString()}-byte cap`,
+            { details: { maxTotalBytes } },
+          ),
+        );
         return;
       }
       onBytes(total);
@@ -251,7 +269,10 @@ function createByteCounter(maxTotalBytes: number, onBytes: (cumulative: number) 
 // Extraction
 // ---------------------------------------------------------------------------
 
-async function writeEntry(entryStream: tarStream.Entry, destination: string): Promise<void> {
+async function writeEntry(
+  entryStream: tarStream.Entry,
+  destination: string,
+): Promise<void> {
   await fs.mkdir(path.dirname(destination), { recursive: true });
   const handle = await fs.open(destination, "w");
   try {
@@ -288,11 +309,19 @@ export async function extractRepositoryArchive<T>(
   onExtracted: (rootDir: string, summary: ExtractionSummary) => Promise<T>,
 ): Promise<T> {
   const logger = options.logger ?? createLogger("indexing.archive-extractor");
-  const jobDir = path.join(options.tempRootDir, `repo-index-${options.jobId}-${randomUUID()}`);
+  const jobDir = path.join(
+    options.tempRootDir,
+    `repo-index-${options.jobId}-${randomUUID()}`,
+  );
   await fs.mkdir(jobDir, { recursive: true });
 
   try {
-    const summary = await runExtraction(gzippedTarball, jobDir, options, logger);
+    const summary = await runExtraction(
+      gzippedTarball,
+      jobDir,
+      options,
+      logger,
+    );
     logger.info("archive extraction completed", {
       jobId: options.jobId,
       filesWritten: summary.filesWritten,
@@ -304,19 +333,22 @@ export async function extractRepositoryArchive<T>(
     });
     return await onExtracted(jobDir, summary);
   } finally {
-    await fs.rm(jobDir, { recursive: true, force: true }).catch((error: unknown) => {
-      logger.warn("failed to remove extraction temp directory", {
-        jobId: options.jobId,
-        jobDir,
-        error: error instanceof Error ? error.message : String(error),
+    await fs
+      .rm(jobDir, { recursive: true, force: true })
+      .catch((error: unknown) => {
+        logger.warn("failed to remove extraction temp directory", {
+          jobId: options.jobId,
+          jobDir,
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
   }
 }
 
 function countByReason(skipped: ExtractionSkip[]): Record<string, number> {
   const counts: Record<string, number> = {};
-  for (const entry of skipped) counts[entry.reason] = (counts[entry.reason] ?? 0) + 1;
+  for (const entry of skipped)
+    counts[entry.reason] = (counts[entry.reason] ?? 0) + 1;
   return counts;
 }
 
@@ -344,8 +376,14 @@ async function runExtraction(
   // `fetch()`'s `Response.body` (and this function's own signature) use — two nominally
   // distinct declarations of the same runtime type. Both describe a real WHATWG
   // ReadableStream; only the TypeScript declarations disagree.
-  const webStream = gzippedTarball as unknown as import("node:stream/web").ReadableStream<Uint8Array>;
-  const pipelineDone = pipeline(Readable.fromWeb(webStream), gunzip, byteCounter, extract).catch((error: unknown) => {
+  const webStream =
+    gzippedTarball as unknown as import("node:stream/web").ReadableStream<Uint8Array>;
+  const pipelineDone = pipeline(
+    Readable.fromWeb(webStream),
+    gunzip,
+    byteCounter,
+    extract,
+  ).catch((error: unknown) => {
     // Re-thrown (not swallowed) below via `await pipelineDone` — caught here only so an
     // unhandled-rejection warning cannot fire before this function has a chance to await it.
     return error instanceof Error ? error : new Error(String(error));
@@ -364,9 +402,12 @@ async function runExtraction(
 
       if (entryCount > options.maxFileCount) {
         entryStream.destroy();
-        throw new ArchiveTooLargeError(`extraction exceeded the ${options.maxFileCount.toString()}-file cap`, {
-          details: { maxFileCount: options.maxFileCount },
-        });
+        throw new ArchiveTooLargeError(
+          `extraction exceeded the ${options.maxFileCount.toString()}-file cap`,
+          {
+            details: { maxFileCount: options.maxFileCount },
+          },
+        );
       }
 
       // A per-entry sanity cap: no single entry may, alone, exceed the whole job's byte
@@ -375,9 +416,16 @@ async function runExtraction(
       // defense against one entry lying about being reasonable.
       if (declaredSize > options.maxTotalBytes) {
         entryStream.destroy();
-        throw new ArchiveTooLargeError(`a single entry (${header.name}) exceeds the ${options.maxTotalBytes.toString()}-byte cap`, {
-          details: { entryPath: header.name, entrySize: declaredSize, maxTotalBytes: options.maxTotalBytes },
-        });
+        throw new ArchiveTooLargeError(
+          `a single entry (${header.name}) exceeds the ${options.maxTotalBytes.toString()}-byte cap`,
+          {
+            details: {
+              entryPath: header.name,
+              entrySize: declaredSize,
+              maxTotalBytes: options.maxTotalBytes,
+            },
+          },
+        );
       }
 
       // Checked against the RAW entry name, before top-level-stripping — an absolute
@@ -387,13 +435,19 @@ async function runExtraction(
       // traversal: git archive never emits one, so finding one aborts the whole archive.
       if (path.isAbsolute(header.name) || /^[a-zA-Z]:/.test(header.name)) {
         entryStream.destroy();
-        logger.warn("rejected an archive entry with an absolute or drive-letter path", {
-          jobId: options.jobId,
-          entryPath: header.name,
-        });
-        throw new UnsafeArchiveError("the archive contains an entry with an unsafe path", {
-          details: { jobId: options.jobId },
-        });
+        logger.warn(
+          "rejected an archive entry with an absolute or drive-letter path",
+          {
+            jobId: options.jobId,
+            entryPath: header.name,
+          },
+        );
+        throw new UnsafeArchiveError(
+          "the archive contains an entry with an unsafe path",
+          {
+            details: { jobId: options.jobId },
+          },
+        );
       }
 
       const relativePath = stripTopLevelComponent(header.name);
@@ -410,14 +464,23 @@ async function runExtraction(
 
       if (header.type === "symlink" || header.type === "link") {
         await drainEntry(entryStream);
-        skipped.push({ rawPath: header.name, reason: header.type === "symlink" ? "SYMLINK" : "HARDLINK" });
-        logger.debug("skipped archive entry — symlink/hardlink never created", { jobId: options.jobId, entryType: header.type });
+        skipped.push({
+          rawPath: header.name,
+          reason: header.type === "symlink" ? "SYMLINK" : "HARDLINK",
+        });
+        logger.debug("skipped archive entry — symlink/hardlink never created", {
+          jobId: options.jobId,
+          entryType: header.type,
+        });
         continue;
       }
 
       if (header.type !== "file" && header.type !== "directory") {
         await drainEntry(entryStream);
-        skipped.push({ rawPath: header.name, reason: "UNSUPPORTED_ENTRY_TYPE" });
+        skipped.push({
+          rawPath: header.name,
+          reason: "UNSUPPORTED_ENTRY_TYPE",
+        });
         continue;
       }
 
@@ -432,13 +495,19 @@ async function runExtraction(
         entryStream.destroy();
         // Full attack details go to the log; the thrown message is deliberately generic
         // (§12: never surface attack details to the UI).
-        logger.warn("rejected an archive entry whose path escapes the extraction root", {
-          jobId: options.jobId,
-          entryPath: header.name,
-        });
-        throw new UnsafeArchiveError("the archive contains an entry with an unsafe path", {
-          details: { jobId: options.jobId },
-        });
+        logger.warn(
+          "rejected an archive entry whose path escapes the extraction root",
+          {
+            jobId: options.jobId,
+            entryPath: header.name,
+          },
+        );
+        throw new UnsafeArchiveError(
+          "the archive contains an entry with an unsafe path",
+          {
+            details: { jobId: options.jobId },
+          },
+        );
       }
 
       if (header.type === "directory") {
@@ -460,5 +529,10 @@ async function runExtraction(
     throw error;
   }
 
-  return { filesWritten, directoriesWritten, totalBytes: cumulativeBytes, skipped };
+  return {
+    filesWritten,
+    directoriesWritten,
+    totalBytes: cumulativeBytes,
+    skipped,
+  };
 }

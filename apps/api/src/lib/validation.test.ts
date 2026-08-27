@@ -4,7 +4,10 @@ import { ValidationError } from "./errors.js";
 import { parseOrThrow } from "./validation.js";
 
 describe("parseOrThrow", () => {
-  const schema = z.object({ name: z.string().min(1), age: z.number().int().positive() });
+  const schema = z.object({
+    name: z.string().min(1),
+    age: z.number().int().positive(),
+  });
 
   it("returns the parsed value on success", () => {
     const result = parseOrThrow(schema, { name: "Ada", age: 30 });
@@ -20,7 +23,10 @@ describe("parseOrThrow", () => {
       const validationError = err as ValidationError;
       expect(validationError.httpStatus).toBe(400);
       expect(validationError.code).toBe("VALIDATION_ERROR");
-      const fieldErrors = validationError.details.fieldErrors as Record<string, string[]>;
+      const fieldErrors = validationError.details.fieldErrors as Record<
+        string,
+        string[]
+      >;
       expect(Object.keys(fieldErrors).sort()).toEqual(["age", "name"]);
     }
   });
@@ -30,7 +36,8 @@ describe("parseOrThrow", () => {
     try {
       parseOrThrow(schema, {});
     } catch (err) {
-      const fieldErrors = (err as ValidationError).details.fieldErrors as Record<string, string[]>;
+      const fieldErrors = (err as ValidationError).details
+        .fieldErrors as Record<string, string[]>;
       expect(Object.keys(fieldErrors).sort()).toEqual(["age", "name"]);
     }
   });

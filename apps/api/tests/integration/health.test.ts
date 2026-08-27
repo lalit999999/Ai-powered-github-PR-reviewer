@@ -29,13 +29,19 @@ describe("GET /api/health (phase-00 §7/§14)", () => {
     // shares it under vitest.integration.config.ts's fileParallelism:false) — see
     // docs/decisions/phase-01-log.md. Spying one layer up, on this module's own
     // plain async export, reproduces the same failure path without that hazard.
-    vi.spyOn(healthRepository, "pingDatabase").mockRejectedValueOnce(new Error("connection refused"));
+    vi.spyOn(healthRepository, "pingDatabase").mockRejectedValueOnce(
+      new Error("connection refused"),
+    );
 
     const res = await request(app).get("/api/health");
 
     expect(res.status).toBe(503);
     expect(res.body).toEqual({
-      error: { code: "DB_UNAVAILABLE", message: "Database unavailable", details: {} },
+      error: {
+        code: "DB_UNAVAILABLE",
+        message: "Database unavailable",
+        details: {},
+      },
     });
   });
 

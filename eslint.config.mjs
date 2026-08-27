@@ -58,6 +58,19 @@ export default tseslint.config(
       "**/build/**",
       "**/generated/**",
       "**/tests/fixtures/lint/**",
+      // Phase-04 Prompt 2's golden-file parser fixtures (apps/worker/tests/fixtures/
+      // parsing/) are read as raw text by typescript.adapter.golden.test.ts, never
+      // imported or compiled — one is deliberately malformed syntax, and several use
+      // unused type parameters/decorator arguments on purpose to exercise those
+      // constructs. Real source-quality rules do not apply to fixture data.
+      "**/tests/fixtures/parsing/**",
+      // Phase-04 Prompt 5's graph-fixture repository (apps/worker/tests/fixtures/
+      // graph-repo/) — committed source for the precision measurement and structural
+      // graph tests, read as raw text by the parsing pipeline. Deliberately contains
+      // unresolvable imports, an unparseable file, and same-named-export collisions;
+      // real source-quality rules do not apply here either, same reasoning as the
+      // parsing fixtures above.
+      "**/tests/fixtures/graph-repo/**",
       // apps/web has its own complete, Next.js-flavored eslint.config.mjs (react-hooks,
       // react-compiler, etc.) run via `turbo lint` — linting it again here with this
       // generic config would conflict rather than add coverage.
@@ -71,7 +84,10 @@ export default tseslint.config(
     // next) must keep unused params to preserve its 4-arg arity (Express detects
     // error-handling middleware by Function.length).
     rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
   {
@@ -85,7 +101,11 @@ export default tseslint.config(
   {
     // No bare console.log in application source (structured logging only —
     // Architecture Rules). Fixtures/config files are exempt.
-    files: ["apps/**/src/**/*.ts", "apps/**/src/**/*.tsx", "packages/**/src/**/*.ts"],
+    files: [
+      "apps/**/src/**/*.ts",
+      "apps/**/src/**/*.tsx",
+      "packages/**/src/**/*.ts",
+    ],
     ignores: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
       "no-console": "error",
@@ -100,7 +120,14 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["@repo/ai", "@repo/ai/*", "@repo/github", "@repo/github/*", "@repo/embedings", "@repo/embedings/*"],
+              group: [
+                "@repo/ai",
+                "@repo/ai/*",
+                "@repo/github",
+                "@repo/github/*",
+                "@repo/embedings",
+                "@repo/embedings/*",
+              ],
               message:
                 "API routes/controllers may not import the ai/github/embedings (ai/indexing/retrieval) packages directly — go through a module service instead (Rule A, phase-00 §3).",
             },
@@ -153,7 +180,8 @@ export default tseslint.config(
           patterns: [
             {
               group: ["@repo/db/src/generated/*", "**/generated/client*"],
-              message: "Do not deep-import the generated Prisma client — import `prisma` from @repo/db (Rule B).",
+              message:
+                "Do not deep-import the generated Prisma client — import `prisma` from @repo/db (Rule B).",
             },
           ],
         },
@@ -170,13 +198,16 @@ export default tseslint.config(
           patterns: [
             {
               group: ["**/api/src/routes/**", "**/api/src/controllers/**"],
-              message: "Inngest functions (apps/worker) may not import the API layer's routes/controllers directly (Rule C, phase-00 §3).",
+              message:
+                "Inngest functions (apps/worker) may not import the API layer's routes/controllers directly (Rule C, phase-00 §3).",
             },
           ],
         },
       ],
     },
   },
+<<<<<<< HEAD
+=======
   {
     // Rule D
     files: RULE_D_FILES,
@@ -195,4 +226,5 @@ export default tseslint.config(
       ],
     },
   }
+>>>>>>> main
 );

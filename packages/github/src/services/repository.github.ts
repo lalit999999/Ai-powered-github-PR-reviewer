@@ -1,7 +1,14 @@
 import type { Octokit } from "@octokit/core";
 import { createLogger, type Logger } from "@repo/observability";
-import { createInstallationOctokit, GITHUB_CLIENT_COMPONENT } from "../client/octokit-factory.js";
-import { classifyGithubError, statusOf, type GithubResult } from "./github-result.js";
+import {
+  createInstallationOctokit,
+  GITHUB_CLIENT_COMPONENT,
+} from "../client/octokit-factory.js";
+import {
+  classifyGithubError,
+  statusOf,
+  type GithubResult,
+} from "./github-result.js";
 
 /**
  * `GET /repos/{owner}/{repo}` (phase-02 §9), wrapped.
@@ -90,18 +97,25 @@ export async function getRepository(
   options: GetRepositoryOptions = {},
 ): Promise<GithubResult<{ repository: GithubRepositoryMetadata }>> {
   const logger = options.logger ?? defaultLogger;
-  const octokit = options.octokit ?? createInstallationOctokit(installationId, { logger });
+  const octokit =
+    options.octokit ?? createInstallationOctokit(installationId, { logger });
 
   try {
-    const response = await octokit.request("GET /repos/{owner}/{repo}", { owner, repo });
+    const response = await octokit.request("GET /repos/{owner}/{repo}", {
+      owner,
+      repo,
+    });
     const metadata = toMetadata(response.data as RawRepository);
 
     if (!metadata) {
-      logger.warn("github returned a repository body this code does not understand", {
-        installationId: installationId.toString(),
-        endpoint: "GET /repos/{owner}/{repo}",
-        fullName: `${owner}/${repo}`,
-      });
+      logger.warn(
+        "github returned a repository body this code does not understand",
+        {
+          installationId: installationId.toString(),
+          endpoint: "GET /repos/{owner}/{repo}",
+          fullName: `${owner}/${repo}`,
+        },
+      );
       return { ok: false, reason: "UNAVAILABLE" };
     }
 
@@ -162,19 +176,26 @@ export async function getHeadCommit(
   options: GetRepositoryOptions = {},
 ): Promise<GithubResult<{ commit: HeadCommit }>> {
   const logger = options.logger ?? defaultLogger;
-  const octokit = options.octokit ?? createInstallationOctokit(installationId, { logger });
+  const octokit =
+    options.octokit ?? createInstallationOctokit(installationId, { logger });
 
   try {
-    const response = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}", { owner, repo, ref: branch });
+    const response = await octokit.request(
+      "GET /repos/{owner}/{repo}/commits/{ref}",
+      { owner, repo, ref: branch },
+    );
     const sha = (response.data as RawCommit).sha;
 
     if (typeof sha !== "string" || sha.length === 0) {
-      logger.warn("github returned a commit body this code does not understand", {
-        installationId: installationId.toString(),
-        endpoint: "GET /repos/{owner}/{repo}/commits/{ref}",
-        fullName: `${owner}/${repo}`,
-        branch,
-      });
+      logger.warn(
+        "github returned a commit body this code does not understand",
+        {
+          installationId: installationId.toString(),
+          endpoint: "GET /repos/{owner}/{repo}/commits/{ref}",
+          fullName: `${owner}/${repo}`,
+          branch,
+        },
+      );
       return { ok: false, reason: "UNAVAILABLE" };
     }
 
@@ -202,7 +223,12 @@ export async function getHeadCommit(
 
 function toMetadata(raw: RawRepository): GithubRepositoryMetadata | null {
   const owner = raw.owner?.login;
-  if (typeof raw.id !== "number" || typeof raw.name !== "string" || typeof owner !== "string") return null;
+  if (
+    typeof raw.id !== "number" ||
+    typeof raw.name !== "string" ||
+    typeof owner !== "string"
+  )
+    return null;
 
   return {
     githubRepoId: BigInt(raw.id),
@@ -211,7 +237,10 @@ function toMetadata(raw: RawRepository): GithubRepositoryMetadata | null {
     fullName: raw.full_name ?? `${owner}/${raw.name}`,
     // An empty string is normalized to null so callers have one emptiness signal to
     // check rather than two.
-    defaultBranch: raw.default_branch != null && raw.default_branch !== "" ? raw.default_branch : null,
+    defaultBranch:
+      raw.default_branch != null && raw.default_branch !== ""
+        ? raw.default_branch
+        : null,
     isPrivate: raw.private ?? true,
     htmlUrl: raw.html_url ?? `https://github.com/${owner}/${raw.name}`,
     sizeKib: typeof raw.size === "number" ? raw.size : 0,
@@ -219,7 +248,6 @@ function toMetadata(raw: RawRepository): GithubRepositoryMetadata | null {
     disabled: raw.disabled ?? false,
   };
 }
-
 
 // ---------------------------------------------------------------------------
 // GET /repos/{owner}/{repo}/branches/{branch} — the ambiguity breaker
@@ -259,10 +287,15 @@ export async function probeBranch(
   options: GetRepositoryOptions = {},
 ): Promise<BranchProbeResult> {
   const logger = options.logger ?? defaultLogger;
-  const octokit = options.octokit ?? createInstallationOctokit(installationId, { logger });
+  const octokit =
+    options.octokit ?? createInstallationOctokit(installationId, { logger });
 
   try {
-    await octokit.request("GET /repos/{owner}/{repo}/branches/{branch}", { owner, repo, branch });
+    await octokit.request("GET /repos/{owner}/{repo}/branches/{branch}", {
+      owner,
+      repo,
+      branch,
+    });
     logger.info("default branch probe found commits", {
       installationId: installationId.toString(),
       endpoint: "GET /repos/{owner}/{repo}/branches/{branch}",
@@ -273,7 +306,8 @@ export async function probeBranch(
   } catch (error) {
     // A 404 on the *branch* of a repository whose metadata we just read successfully
     // is not an access answer — access was already proved one call ago.
-    const result: BranchProbeResult = statusOf(error) === 404 ? "EMPTY" : "UNKNOWN";
+    const result: BranchProbeResult =
+      statusOf(error) === 404 ? "EMPTY" : "UNKNOWN";
     logger.warn("default branch probe did not find commits", {
       installationId: installationId.toString(),
       endpoint: "GET /repos/{owner}/{repo}/branches/{branch}",

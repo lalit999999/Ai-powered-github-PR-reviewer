@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const redisMock = { incr: vi.fn(), expire: vi.fn(), ttl: vi.fn() };
 vi.mock("./redis.js", () => ({ getRedisClient: () => redisMock }));
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
   return { ...actual, createLogger: () => logSpies };
@@ -69,7 +74,9 @@ describe("checkRateLimit", () => {
 
     await checkRateLimit("repo-index:repo-42", 10);
 
-    expect(redisMock.incr).toHaveBeenCalledWith(expect.stringContaining("repo-index:repo-42"));
+    expect(redisMock.incr).toHaveBeenCalledWith(
+      expect.stringContaining("repo-index:repo-42"),
+    );
   });
 
   it("defaults the window to 3600 seconds when omitted", async () => {

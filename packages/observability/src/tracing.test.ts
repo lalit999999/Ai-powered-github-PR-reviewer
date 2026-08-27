@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { generateTraceId, getTraceContext, getTraceId, runWithTraceContext, setTraceUserId } from "./tracing.js";
+import {
+  generateTraceId,
+  getTraceContext,
+  getTraceId,
+  runWithTraceContext,
+  setTraceUserId,
+} from "./tracing.js";
 
 describe("tracing", () => {
   it("generates ULIDs (26-char Crockford base32, lexicographically sortable)", () => {
@@ -26,7 +32,10 @@ describe("tracing", () => {
 
   it("allows extra fields so userId/projectId can slot in later without changing call sites", () => {
     runWithTraceContext({ traceId: "trace-b", userId: "u1" }, () => {
-      expect(getTraceContext()).toMatchObject({ traceId: "trace-b", userId: "u1" });
+      expect(getTraceContext()).toMatchObject({
+        traceId: "trace-b",
+        userId: "u1",
+      });
     });
   });
 
@@ -34,7 +43,10 @@ describe("tracing", () => {
     runWithTraceContext({ traceId: "trace-c" }, () => {
       expect(getTraceContext()?.userId).toBeUndefined();
       setTraceUserId("user-123");
-      expect(getTraceContext()).toMatchObject({ traceId: "trace-c", userId: "user-123" });
+      expect(getTraceContext()).toMatchObject({
+        traceId: "trace-c",
+        userId: "user-123",
+      });
     });
   });
 

@@ -1,10 +1,16 @@
-import type { OwnerContext, TenantContext } from "../../lib/auth/tenant-access.js";
+import type {
+  OwnerContext,
+  TenantContext,
+} from "../../lib/auth/tenant-access.js";
 import { ConflictError, NotFoundError } from "../../lib/errors.js";
 import { createLogger } from "@repo/observability";
 import { emitProjectDeleted } from "../../inngest/emit.js";
 import * as repositoryService from "../repositories/repository.service.js";
 import * as projectRepository from "./project.repository.js";
-import type { CreateProjectInput, ListProjectsQuery } from "./project.schema.js";
+import type {
+  CreateProjectInput,
+  ListProjectsQuery,
+} from "./project.schema.js";
 import {
   toProjectDto,
   type ProjectDetail,
@@ -66,7 +72,10 @@ function escapeRegExp(value: string): string {
  * Deterministic rather than random so a user who names two projects "API" gets
  * `api` and `api-2`, not `api-7431`.
  */
-export function nextSuffixedSlug(base: string, taken: readonly string[]): string {
+export function nextSuffixedSlug(
+  base: string,
+  taken: readonly string[],
+): string {
   const pattern = new RegExp(`^${escapeRegExp(base)}-(\\d+)$`);
   let highest = 1;
 
@@ -93,20 +102,32 @@ export function nextSuffixedSlug(base: string, taken: readonly string[]): string
  * With enough simultaneous requests the retry itself can lose, and that is precisely
  * when a 409 is the correct answer rather than a third attempt.
  */
-export async function createProject(owner: OwnerContext, input: CreateProjectInput): Promise<ProjectDto> {
+export async function createProject(
+  owner: OwnerContext,
+  input: CreateProjectInput,
+): Promise<ProjectDto> {
   const baseSlug = slugify(input.name);
 
-  const firstAttempt = await projectRepository.create(owner.userId, { name: input.name, slug: baseSlug });
+  const firstAttempt = await projectRepository.create(owner.userId, {
+    name: input.name,
+    slug: baseSlug,
+  });
   if (firstAttempt.ok) {
     return created(owner, firstAttempt.project);
   }
 
   // Includes soft-deleted projects on purpose: they still hold their slug, because
   // `@@unique([userId, slug])` has no `deletedAt` in it (phase-01 §6/§11).
-  const takenSlugs = await projectRepository.findSlugsForUserByPrefix(owner.userId, baseSlug);
+  const takenSlugs = await projectRepository.findSlugsForUserByPrefix(
+    owner.userId,
+    baseSlug,
+  );
   const retrySlug = nextSuffixedSlug(baseSlug, takenSlugs);
 
-  const secondAttempt = await projectRepository.create(owner.userId, { name: input.name, slug: retrySlug });
+  const secondAttempt = await projectRepository.create(owner.userId, {
+    name: input.name,
+    slug: retrySlug,
+  });
   if (secondAttempt.ok) {
     return created(owner, secondAttempt.project);
   }
@@ -137,7 +158,10 @@ function created(owner: OwnerContext, project: ProjectRecord): ProjectDto {
  * `limit + 1` rows; the extra one is the existence proof for `nextCursor`, so an empty
  * last page never happens.
  */
-export async function listProjects(owner: OwnerContext, query: ListProjectsQuery): Promise<ProjectListPage> {
+export async function listProjects(
+  owner: OwnerContext,
+  query: ListProjectsQuery,
+): Promise<ProjectListPage> {
   const rows = await projectRepository.listByUser(owner.userId, {
     limit: query.limit,
     cursor: query.cursor,
@@ -164,8 +188,13 @@ export async function listProjects(owner: OwnerContext, query: ListProjectsQuery
  * from the repositories module's *service*, not its repository layer — this module has
  * no business knowing how repositories are stored, only how to ask for them.
  */
-export async function getProjectDetail(tenant: TenantContext): Promise<ProjectDetail> {
-  const project = await projectRepository.findByIdForUser(tenant.userId, tenant.projectId);
+export async function getProjectDetail(
+  tenant: TenantContext,
+): Promise<ProjectDetail> {
+  const project = await projectRepository.findByIdForUser(
+    tenant.userId,
+    tenant.projectId,
+  );
   if (!project) {
     throw new NotFoundError("Project not found");
   }
@@ -189,7 +218,10 @@ export async function getProjectDetail(tenant: TenantContext): Promise<ProjectDe
  * happened.
  */
 export async function softDeleteProject(tenant: TenantContext): Promise<void> {
-  const changed = await projectRepository.softDeleteForUser(tenant.userId, tenant.projectId);
+  const changed = await projectRepository.softDeleteForUser(
+    tenant.userId,
+    tenant.projectId,
+  );
 
   if (changed === 0) {
     logger.info("project soft-delete no-op (already deleted)", {

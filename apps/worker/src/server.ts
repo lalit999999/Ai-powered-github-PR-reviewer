@@ -5,5 +5,8 @@ import { createLogger } from "@repo/observability";
 const logger = createLogger("server");
 
 app.listen(env.WORKER_PORT, () => {
-  logger.info("worker started", { port: env.WORKER_PORT, nodeEnv: env.NODE_ENV });
+  logger.info("worker started", {
+    port: env.WORKER_PORT,
+    nodeEnv: env.NODE_ENV,
+  });
 });

@@ -23,6 +23,20 @@ export const FileClassification = {
 export type FileClassification = (typeof FileClassification)[keyof typeof FileClassification]
 
 
+export const DependencyKind = {
+  IMPORTS: 'IMPORTS',
+  EXPORTS: 'EXPORTS',
+  CONTAINS: 'CONTAINS',
+  CALLS: 'CALLS',
+  EXTENDS: 'EXTENDS',
+  IMPLEMENTS: 'IMPLEMENTS',
+  REFERENCES: 'REFERENCES',
+  TESTS: 'TESTS'
+} as const
+
+export type DependencyKind = (typeof DependencyKind)[keyof typeof DependencyKind]
+
+
 export const IndexStatus = {
   PENDING: 'PENDING',
   INDEXING: 'INDEXING',

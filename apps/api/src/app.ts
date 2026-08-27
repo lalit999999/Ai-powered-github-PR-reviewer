@@ -45,7 +45,7 @@ app.use(
   cors({
     origin: env.FRONTEND_URL,
     credentials: true,
-  })
+  }),
 );
 // Phase 06 — mounted BEFORE express.json(), and this ordering is load-bearing. GitHub
 // signs the exact bytes it sends; webhook-verification.ts's HMAC must be computed over

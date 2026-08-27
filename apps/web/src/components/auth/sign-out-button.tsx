@@ -18,7 +18,9 @@ export function SignOutButton() {
   async function signOut() {
     setPending(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/csrf`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/api/auth/csrf`, {
+        credentials: "include",
+      });
       const { csrfToken } = (await res.json()) as { csrfToken: string };
 
       const form = document.createElement("form");

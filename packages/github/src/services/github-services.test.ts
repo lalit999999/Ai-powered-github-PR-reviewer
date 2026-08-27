@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Octokit } from "@octokit/core";
 import { classifyGithubError } from "./github-result.js";
-import { MAX_PAGES, listInstallationRepositories, listUserInstallations } from "./installation.github.js";
+import {
+  MAX_PAGES,
+  listInstallationRepositories,
+  listUserInstallations,
+} from "./installation.github.js";
 import { getHeadCommit, getRepository } from "./repository.github.js";
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -11,13 +15,21 @@ const INSTALLATION_ID = 4242n;
 /** A stub standing in for the one method these wrappers use. Cast at the boundary so
  * the tests never have to construct a real Octokit (which would need a token, a
  * private key, and a socket). */
-function stubOctokit(request: (route: string, params?: Record<string, unknown>) => unknown): Octokit {
+function stubOctokit(
+  request: (route: string, params?: Record<string, unknown>) => unknown,
+): Octokit {
   return { request: vi.fn(request) } as unknown as Octokit;
 }
 
 /** Shapes the error Octokit throws: a status plus (optionally) response headers. */
-function githubError(status: number, headers?: Record<string, string>): Error & { status: number } {
-  const error = new Error(`HTTP ${status}`) as Error & { status: number; response?: unknown };
+function githubError(
+  status: number,
+  headers?: Record<string, string>,
+): Error & { status: number } {
+  const error = new Error(`HTTP ${status}`) as Error & {
+    status: number;
+    response?: unknown;
+  };
   error.status = status;
   if (headers) error.response = { headers };
   return error;
@@ -54,8 +66,12 @@ describe("classifyGithubError — 404 means 'cannot see it', which is not the sa
   it("maps a 403 WITH rate-limit headers to UNAVAILABLE, never to a permission answer", () => {
     // Telling a user "the App doesn't have access" because GitHub was busy would send
     // them to reconfigure an installation that is working fine (§12/§14).
-    expect(classifyGithubError(githubError(403, { "x-ratelimit-remaining": "0" }))).toBe("UNAVAILABLE");
-    expect(classifyGithubError(githubError(429, { "retry-after": "60" }))).toBe("UNAVAILABLE");
+    expect(
+      classifyGithubError(githubError(403, { "x-ratelimit-remaining": "0" })),
+    ).toBe("UNAVAILABLE");
+    expect(classifyGithubError(githubError(429, { "retry-after": "60" }))).toBe(
+      "UNAVAILABLE",
+    );
   });
 
   it("maps 401 to UNAUTHENTICATED and 5xx/unknown to UNAVAILABLE", () => {
@@ -74,10 +90,16 @@ describe("listInstallationRepositories — pagination past 100 (§9)", () => {
       2: Array.from({ length: 50 }, (_, i) => rawRepo(i + 101)),
     };
     const octokit = stubOctokit((_route, params) => ({
-      data: { total_count: 150, repositories: pages[Number(params?.page)] ?? [] },
+      data: {
+        total_count: 150,
+        repositories: pages[Number(params?.page)] ?? [],
+      },
     }));
 
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.repositories).toHaveLength(150);
@@ -86,9 +108,14 @@ describe("listInstallationRepositories — pagination past 100 (§9)", () => {
   });
 
   it("stops after one request when the first page is short", async () => {
-    const octokit = stubOctokit(() => ({ data: { total_count: 2, repositories: [rawRepo(1), rawRepo(2)] } }));
+    const octokit = stubOctokit(() => ({
+      data: { total_count: 2, repositories: [rawRepo(1), rawRepo(2)] },
+    }));
 
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
     expect(result.ok && result.repositories).toHaveLength(2);
     expect(octokit.request).toHaveBeenCalledTimes(1);
@@ -99,21 +126,36 @@ describe("listInstallationRepositories — pagination past 100 (§9)", () => {
     // what this listing returns; trusting it either truncates or loops forever.
     const octokit = stubOctokit((_route, params) =>
       Number(params?.page) === 1
-        ? { data: { total_count: 0, repositories: Array.from({ length: 100 }, (_, i) => rawRepo(i + 1)) } }
+        ? {
+            data: {
+              total_count: 0,
+              repositories: Array.from({ length: 100 }, (_, i) =>
+                rawRepo(i + 1),
+              ),
+            },
+          }
         : { data: { total_count: 0, repositories: [rawRepo(101)] } },
     );
 
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
     expect(result.ok && result.repositories).toHaveLength(101);
   });
 
   it("cannot loop forever on an endpoint that never returns a short page", async () => {
     const octokit = stubOctokit(() => ({
-      data: { repositories: Array.from({ length: 100 }, (_, i) => rawRepo(i + 1)) },
+      data: {
+        repositories: Array.from({ length: 100 }, (_, i) => rawRepo(i + 1)),
+      },
     }));
 
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
     expect(result.ok).toBe(true);
     expect(octokit.request).toHaveBeenCalledTimes(MAX_PAGES);
@@ -124,25 +166,44 @@ describe("listInstallationRepositories — pagination past 100 (§9)", () => {
 
     await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
 
-    expect(octokit.request).toHaveBeenCalledWith("GET /installation/repositories", { per_page: 100, page: 1 });
+    expect(octokit.request).toHaveBeenCalledWith(
+      "GET /installation/repositories",
+      { per_page: 100, page: 1 },
+    );
   });
 
   it("keeps a repository with no default branch — emptiness is the validator's call", async () => {
-    const octokit = stubOctokit(() => ({ data: { repositories: [rawRepo(7, { default_branch: null })] } }));
+    const octokit = stubOctokit(() => ({
+      data: { repositories: [rawRepo(7, { default_branch: null })] },
+    }));
 
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
     expect(result.ok && result.repositories[0]?.defaultBranch).toBe("");
   });
 
   it("drops an entry GitHub described without an id or owner", async () => {
     const octokit = stubOctokit(() => ({
-      data: { repositories: [rawRepo(1), { name: "no-id", owner: { login: "octocat" } }, { id: 3 }] },
+      data: {
+        repositories: [
+          rawRepo(1),
+          { name: "no-id", owner: { login: "octocat" } },
+          { id: 3 },
+        ],
+      },
     }));
 
-    const result = await listInstallationRepositories(INSTALLATION_ID, { octokit, logger });
+    const result = await listInstallationRepositories(INSTALLATION_ID, {
+      octokit,
+      logger,
+    });
 
-    expect(result.ok && result.repositories.map((r) => r.githubRepoId)).toEqual([1n]);
+    expect(result.ok && result.repositories.map((r) => r.githubRepoId)).toEqual(
+      [1n],
+    );
   });
 
   it("returns a typed failure instead of throwing", async () => {
@@ -150,7 +211,9 @@ describe("listInstallationRepositories — pagination past 100 (§9)", () => {
       throw githubError(500);
     });
 
-    await expect(listInstallationRepositories(INSTALLATION_ID, { octokit, logger })).resolves.toEqual({
+    await expect(
+      listInstallationRepositories(INSTALLATION_ID, { octokit, logger }),
+    ).resolves.toEqual({
       ok: false,
       reason: "UNAVAILABLE",
     });
@@ -169,10 +232,23 @@ describe("listUserInstallations — the one call using the USER's OAuth token (�
               })),
             },
           }
-        : { data: { installations: [{ id: 101, account: { login: "acct-101", type: "User" }, suspended_at: "x" }] } },
+        : {
+            data: {
+              installations: [
+                {
+                  id: 101,
+                  account: { login: "acct-101", type: "User" },
+                  suspended_at: "x",
+                },
+              ],
+            },
+          },
     );
 
-    const result = await listUserInstallations("gho_token", { octokit, logger });
+    const result = await listUserInstallations("gho_token", {
+      octokit,
+      logger,
+    });
 
     expect(result.ok && result.installations).toHaveLength(101);
     expect(result.ok && result.installations[100]).toEqual({
@@ -185,9 +261,13 @@ describe("listUserInstallations — the one call using the USER's OAuth token (�
 
   it("treats 'user has installed nothing' as an ordinary empty result, not an error", async () => {
     // phase-02 §9's "installation not yet synced (user just installed)" case.
-    const octokit = stubOctokit(() => ({ data: { total_count: 0, installations: [] } }));
+    const octokit = stubOctokit(() => ({
+      data: { total_count: 0, installations: [] },
+    }));
 
-    await expect(listUserInstallations("gho_token", { octokit, logger })).resolves.toEqual({
+    await expect(
+      listUserInstallations("gho_token", { octokit, logger }),
+    ).resolves.toEqual({
       ok: true,
       installations: [],
     });
@@ -198,7 +278,9 @@ describe("listUserInstallations — the one call using the USER's OAuth token (�
       throw githubError(401);
     });
 
-    await expect(listUserInstallations("stale", { octokit, logger })).resolves.toEqual({
+    await expect(
+      listUserInstallations("stale", { octokit, logger }),
+    ).resolves.toEqual({
       ok: false,
       reason: "UNAUTHENTICATED",
     });
@@ -217,7 +299,12 @@ describe("getRepository — one fetch per connect attempt (§21)", () => {
       }),
     }));
 
-    const result = await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      { octokit, logger },
+    );
 
     expect(result).toEqual({
       ok: true,
@@ -242,7 +329,10 @@ describe("getRepository — one fetch per connect attempt (§21)", () => {
     // half, asserted at the source.
     const octokit = stubOctokit(() => ({ data: rawRepo(1) }));
 
-    await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
+    await getRepository(INSTALLATION_ID, "octocat", "hello-world", {
+      octokit,
+      logger,
+    });
 
     expect(octokit.request).toHaveBeenCalledTimes(1);
     expect(octokit.request).toHaveBeenCalledWith("GET /repos/{owner}/{repo}", {
@@ -256,25 +346,41 @@ describe("getRepository — one fetch per connect attempt (§21)", () => {
       throw githubError(404);
     });
 
-    await expect(getRepository(INSTALLATION_ID, "octocat", "secret", { octokit, logger })).resolves.toEqual({
+    await expect(
+      getRepository(INSTALLATION_ID, "octocat", "secret", { octokit, logger }),
+    ).resolves.toEqual({
       ok: false,
       reason: "NOT_ACCESSIBLE",
     });
   });
 
   it("normalizes a missing default_branch to null so 'empty' is checkable", async () => {
-    const octokit = stubOctokit(() => ({ data: rawRepo(1, { default_branch: "", size: 0 }) }));
+    const octokit = stubOctokit(() => ({
+      data: rawRepo(1, { default_branch: "", size: 0 }),
+    }));
 
-    const result = await getRepository(INSTALLATION_ID, "octocat", "brand-new", { octokit, logger });
+    const result = await getRepository(
+      INSTALLATION_ID,
+      "octocat",
+      "brand-new",
+      { octokit, logger },
+    );
 
     expect(result.ok && result.repository.defaultBranch).toBeNull();
     expect(result.ok && result.repository.sizeKib).toBe(0);
   });
 
   it("reports a body it does not understand as UNAVAILABLE, not as a permission answer", async () => {
-    const octokit = stubOctokit(() => ({ data: { message: "something else entirely" } }));
+    const octokit = stubOctokit(() => ({
+      data: { message: "something else entirely" },
+    }));
 
-    await expect(getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger })).resolves.toEqual({
+    await expect(
+      getRepository(INSTALLATION_ID, "octocat", "hello-world", {
+        octokit,
+        logger,
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: "UNAVAILABLE",
     });
@@ -283,7 +389,10 @@ describe("getRepository — one fetch per connect attempt (§21)", () => {
   it("logs installationId on every outcome (§20)", async () => {
     const octokit = stubOctokit(() => ({ data: rawRepo(1) }));
 
-    await getRepository(INSTALLATION_ID, "octocat", "hello-world", { octokit, logger });
+    await getRepository(INSTALLATION_ID, "octocat", "hello-world", {
+      octokit,
+      logger,
+    });
 
     expect(logger.info).toHaveBeenCalledWith(
       "fetched repository metadata",
@@ -296,7 +405,13 @@ describe("getHeadCommit — phase-03 §8 step 2, the second of exactly two GitHu
   it("resolves a branch to its head SHA", async () => {
     const octokit = stubOctokit(() => ({ data: { sha: "abc123def456" } }));
 
-    const result = await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger });
+    const result = await getHeadCommit(
+      INSTALLATION_ID,
+      "octocat",
+      "hello-world",
+      "main",
+      { octokit, logger },
+    );
 
     expect(result).toEqual({ ok: true, commit: { sha: "abc123def456" } });
   });
@@ -304,14 +419,20 @@ describe("getHeadCommit — phase-03 §8 step 2, the second of exactly two GitHu
   it("issues exactly one request against the branch ref", async () => {
     const octokit = stubOctokit(() => ({ data: { sha: "abc123" } }));
 
-    await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger });
+    await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", {
+      octokit,
+      logger,
+    });
 
     expect(octokit.request).toHaveBeenCalledTimes(1);
-    expect(octokit.request).toHaveBeenCalledWith("GET /repos/{owner}/{repo}/commits/{ref}", {
-      owner: "octocat",
-      repo: "hello-world",
-      ref: "main",
-    });
+    expect(octokit.request).toHaveBeenCalledWith(
+      "GET /repos/{owner}/{repo}/commits/{ref}",
+      {
+        owner: "octocat",
+        repo: "hello-world",
+        ref: "main",
+      },
+    );
   });
 
   it("returns NOT_ACCESSIBLE for a 404 — the branch is gone even though the repo metadata call already succeeded", async () => {
@@ -319,22 +440,42 @@ describe("getHeadCommit — phase-03 §8 step 2, the second of exactly two GitHu
       throw githubError(404);
     });
 
-    await expect(getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "deleted-branch", { octokit, logger })).resolves.toEqual({
+    await expect(
+      getHeadCommit(
+        INSTALLATION_ID,
+        "octocat",
+        "hello-world",
+        "deleted-branch",
+        { octokit, logger },
+      ),
+    ).resolves.toEqual({
       ok: false,
       reason: "NOT_ACCESSIBLE",
     });
   });
 
   it("reports a body it does not understand (missing/empty sha) as UNAVAILABLE", async () => {
-    const octokit = stubOctokit(() => ({ data: { message: "something else entirely" } }));
+    const octokit = stubOctokit(() => ({
+      data: { message: "something else entirely" },
+    }));
 
-    await expect(getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger })).resolves.toEqual({
+    await expect(
+      getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", {
+        octokit,
+        logger,
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: "UNAVAILABLE",
     });
 
     const emptySha = stubOctokit(() => ({ data: { sha: "" } }));
-    await expect(getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit: emptySha, logger })).resolves.toEqual({
+    await expect(
+      getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", {
+        octokit: emptySha,
+        logger,
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: "UNAVAILABLE",
     });
@@ -343,7 +484,10 @@ describe("getHeadCommit — phase-03 §8 step 2, the second of exactly two GitHu
   it("logs installationId and the resolved sha on success (§20)", async () => {
     const octokit = stubOctokit(() => ({ data: { sha: "deadbeef" } }));
 
-    await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", { octokit, logger });
+    await getHeadCommit(INSTALLATION_ID, "octocat", "hello-world", "main", {
+      octokit,
+      logger,
+    });
 
     expect(logger.info).toHaveBeenCalledWith(
       "resolved branch head commit",

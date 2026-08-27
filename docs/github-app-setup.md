@@ -5,8 +5,8 @@ introduces. Follow it once per environment (local, staging, production) — see
 [One App per environment](#one-app-per-environment) for why sharing one does not work.
 
 > **This is not the OAuth App.** Phase 01 registered a GitHub **OAuth App**, which
-> answers *who is signed in*. This phase registers a GitHub **App**, which answers *what
-> repository data we may read and where we may publish review comments*. They are two
+> answers _who is signed in_. This phase registers a GitHub **App**, which answers _what
+> repository data we may read and where we may publish review comments_. They are two
 > separate registrations with two separate credential sets and are never interchangeable
 > — `plan.md` §45 names conflating them as a top failure point for this phase. You will
 > end up with both, side by side, in every environment.
@@ -21,6 +21,18 @@ security review — lives in [`github-app-permissions.md`](./github-app-permissi
 Go to **Settings → Developer settings → GitHub Apps → New GitHub App** (under your user
 account for a personal test App, or under the organization that should own it).
 
+<<<<<<< HEAD
+| Field                                | Value                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub App name**                  | Must be globally unique. Suffix it per environment, e.g. `gitprreviewer-staging`.                                                                                                                                                                  |
+| **Homepage URL**                     | The deployed `apps/web` origin (locally: `http://localhost:3000`).                                                                                                                                                                                 |
+| **Callback URL**                     | `$AUTH_URL/api/auth/callback/github` — the _same_ value the OAuth App uses. Only needed if "Request user authorization (OAuth) during installation" is ticked; leave that **unticked**, since sign-in already goes through the Phase 01 OAuth App. |
+| **Setup URL** (optional)             | Where GitHub sends the user after they install. Point it at the projects page, e.g. `$FRONTEND_URL/projects`.                                                                                                                                      |
+| **Webhook → Active**                 | ✅ **Yes.** Configure it now even though nothing receives it yet — see [The webhook 404s until Phase 06](#the-webhook-404s-until-phase-06).                                                                                                        |
+| **Webhook URL**                      | `$API_ORIGIN/api/webhooks/github` (locally, a tunnel URL — see below).                                                                                                                                                                             |
+| **Webhook secret**                   | Generate with `openssl rand -hex 32`. This becomes `GITHUB_APP_WEBHOOK_SECRET`.                                                                                                                                                                    |
+| **Where can this App be installed?** | "Any account" if it will serve other users; "Only on this account" for a personal test App.                                                                                                                                                        |
+=======
 | Field | Value |
 |---|---|
 | **GitHub App name** | Must be globally unique. Suffix it per environment, e.g. `gitprreviewer-staging`. |
@@ -31,19 +43,20 @@ account for a personal test App, or under the organization that should own it).
 | **Webhook URL** | `$API_ORIGIN/api/webhooks/github` (locally, a tunnel URL — see below). |
 | **Webhook secret** | Generate with `openssl rand -hex 32`. This becomes `GITHUB_APP_WEBHOOK_SECRET`. |
 | **Where can this App be installed?** | "Any account" if it will serve other users; "Only on this account" for a personal test App. |
+>>>>>>> main
 
 ## 2. Permissions
 
 Under **Permissions → Repository permissions**, set exactly these and nothing else:
 
-| Permission | Access | Why |
-|---|---|---|
-| **Contents** | **Read-only** | Read source files for indexing and for assembling review context. |
-| **Pull requests** | **Read and write** | Read diffs and PR metadata; publish review comments (Phase 13). |
-| **Metadata** | **Read-only** | Mandatory baseline — GitHub sets this automatically and it cannot be removed. |
+| Permission        | Access             | Why                                                                           |
+| ----------------- | ------------------ | ----------------------------------------------------------------------------- |
+| **Contents**      | **Read-only**      | Read source files for indexing and for assembling review context.             |
+| **Pull requests** | **Read and write** | Read diffs and PR metadata; publish review comments (Phase 13).               |
+| **Metadata**      | **Read-only**      | Mandatory baseline — GitHub sets this automatically and it cannot be removed. |
 
-Leave **every** other repository permission at *No access*, and leave **all**
-organization and account permissions at *No access*. Specifically never grant
+Leave **every** other repository permission at _No access_, and leave **all**
+organization and account permissions at _No access_. Specifically never grant
 `Contents: Read and write`, `Administration`, or `Actions` — a reviewer bot that can
 write to repositories is a supply-chain attack surface (phase-02 §4 Security,
 `plan.md` §35.1). The customer-facing version of this argument is in
@@ -53,12 +66,21 @@ write to repositories is a supply-chain attack surface (phase-02 §4 Security,
 
 Under **Subscribe to events**, tick:
 
+<<<<<<< HEAD
+| Event                         | Needed by   | Notes                                                             |
+| ----------------------------- | ----------- | ----------------------------------------------------------------- |
+| `Installation`                | Phase 06    | App installed, uninstalled, suspended, unsuspended.               |
+| `Installation repositories`   | Phase 06    | Repositories added to / removed from an existing installation.    |
+| `Pull request`                | Phase 06/07 | Opened, synchronize, reopened, closed — the trigger for a review. |
+| `Pull request review comment` | Phase 13    | Needed once the bot participates in review threads.               |
+=======
 | Event | Needed by | Notes |
 |---|---|---|
 | `Installation` | Phase 06 | App installed, uninstalled, suspended, unsuspended — handled live. |
 | `Installation repositories` | Phase 06 | Repositories added to / removed from an existing installation — handled live. |
 | `Pull request` | Phase 06/07 | Opened, synchronize, reopened, closed — Phase 06 dispatches the event, Phase 07 reviews. |
 | `Pull request review comment` | Phase 13 | Subscribed now; not yet handled — see `docs/webhooks.md`'s "deliberately out of scope" section. |
+>>>>>>> main
 
 Every event above except `Pull request review comment` has a live handler as of Phase 06
 — see [`docs/webhooks.md`](./webhooks.md) for the full event/action matrix.
@@ -90,13 +112,13 @@ default download) and `-----BEGIN PRIVATE KEY-----` (PKCS#8).
 
 ## 5. Collect the environment variables
 
-| Variable | Where to find it |
-|---|---|
-| `GITHUB_APP_ID` | App settings → **App ID** (a number; stored as a string — it is the JWT `iss` claim). |
-| `GITHUB_APP_SLUG` | The last path segment of the App's public page, `https://github.com/apps/<slug>`. Used to build the install link `https://github.com/apps/<slug>/installations/new`. |
-| `GITHUB_APP_PRIVATE_KEY` | The base64 from step 4. |
-| `GITHUB_APP_WEBHOOK_SECRET` | The secret from step 1. |
-| `REDIS_URL` | Your Redis instance. Locally `redis://localhost:6379` via `docker compose up -d`. |
+| Variable                    | Where to find it                                                                                                                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_APP_ID`             | App settings → **App ID** (a number; stored as a string — it is the JWT `iss` claim).                                                                                |
+| `GITHUB_APP_SLUG`           | The last path segment of the App's public page, `https://github.com/apps/<slug>`. Used to build the install link `https://github.com/apps/<slug>/installations/new`. |
+| `GITHUB_APP_PRIVATE_KEY`    | The base64 from step 4.                                                                                                                                              |
+| `GITHUB_APP_WEBHOOK_SECRET` | The secret from step 1.                                                                                                                                              |
+| `REDIS_URL`                 | Your Redis instance. Locally `redis://localhost:6379` via `docker compose up -d`.                                                                                    |
 
 Put them in `apps/api/.env` locally (never committed) or the environment's secret store.
 `.env.example` lists the names.
@@ -106,7 +128,7 @@ Put them in `apps/api/.env` locally (never committed) or the environment's secre
 Open `https://github.com/apps/<slug>/installations/new`, pick an account or organization,
 and choose **Only select repositories** with two or three test repositories.
 
-Installing is what creates an *installation*, which is what installation tokens are
+Installing is what creates an _installation_, which is what installation tokens are
 minted against. The App existing is not enough — without an installation there is
 nothing to authenticate as.
 

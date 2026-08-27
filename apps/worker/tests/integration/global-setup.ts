@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 
 /**
  * A worker-owned Testcontainers Postgres, mirroring `apps/api/tests/integration/global-setup.ts`
@@ -14,12 +17,17 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
  * "the worker is a separate deployable" true for its test suite too, not just its
  * runtime.
  */
-const DB_PACKAGE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../packages/db");
+const DB_PACKAGE_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../packages/db",
+);
 
 let container: StartedPostgreSqlContainer | undefined;
 
 export default async function setup(): Promise<() => Promise<void>> {
-  container = await new PostgreSqlContainer("postgres:15").withStartupTimeout(120_000).start();
+  container = await new PostgreSqlContainer("postgres:15")
+    .withStartupTimeout(120_000)
+    .start();
 
   const databaseUrl = container.getConnectionUri();
   process.env.DATABASE_URL = databaseUrl;

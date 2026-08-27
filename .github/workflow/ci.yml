@@ -13,7 +13,7 @@ jobs:
   verify:
     name: lint · typecheck · test · build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     env:
       # Dummy values so the fail-fast config module (phase-00 §19, phase-01 §19)
@@ -23,7 +23,7 @@ jobs:
       # not print resolved env values (phase-00 §13).
       NODE_ENV: test
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci
+      DATABASE_URL: ${{ vars.DATABASE_URL }}
       INNGEST_EVENT_KEY: dummy_event_key
       INNGEST_SIGNING_KEY: dummy_signing_key
       PORT: "4000"
@@ -43,6 +43,15 @@ jobs:
       GITHUB_APP_SLUG: dummy-app-slug
       GITHUB_APP_WEBHOOK_SECRET: dummy_webhook_secret
       REDIS_URL: redis://localhost:6379
+      # Phase 04 Prompt 5: the 10k-file/query-plan/unresolved-ratio perf suites are real
+      # integration tests (apps/worker/tests/integration/), not skipped by a separate CI
+      # job — but SKIP_PERF_TESTS=1 excludes just the two genuinely slow, machine-shape-
+      # sensitive ones (the 5,000-file and 10,000-file synthetic generators) from every
+      # CI run, matching the escape hatch those files already define for local iteration.
+      # Their measured numbers are recorded once, by hand, in
+      # docs/decisions/phase-04-log.md — re-running a wall-clock budget assertion against
+      # a shared, variable-performance CI runner would be a flaky test, not a useful one.
+      SKIP_PERF_TESTS: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -69,8 +78,40 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Format check
+        run: pnpm format:check
+
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      # Prompt 5, sub-task 5.6: this phase's leading named risk (plan.md §45, phase-04
+      # §22) is "tree-sitter WASM vs. native binding differences across environments" —
+      # pinning `web-tree-sitter` locally (Prompt 1) is not a proof it works on the
+      # actual Linux CI/deploy environment, only on one developer's machine. This step
+      # is that proof: load all three grammars and parse a real snippet of each
+      # language, on this runner, right after the real build — failing loudly (a
+      # thrown, uncaught exception exits non-zero) if the binding does not work here.
+      - name: Verify tree-sitter grammars load on this runner
+        working-directory: apps/worker
+        run: |
+          node -e '
+            const { parseFile } = await import("./dist/indexing/parsing/adapters/typescript.adapter.js");
+            const cases = [
+              ["typescript", "check.ts", "export function check(x: number): number { return x + 1; }"],
+              ["tsx", "check.tsx", "export function Check() { return <div>ok</div>; }"],
+              ["javascript", "check.js", "export function check(x) { return x + 1; }"],
+            ];
+            for (const [lang, path, source] of cases) {
+              const parsed = await parseFile(path, lang, source);
+              if (parsed.parseState !== "OK" || parsed.symbols.length === 0) {
+                throw new Error(`grammar check failed for ${lang}: parseState=${parsed.parseState}, symbols=${parsed.symbols.length}`);
+              }
+              console.log(`${lang}: OK (${parsed.symbols.length} symbol(s))`);
+            }
+          ' --input-type=module
 
       # Includes the boundary-fixture assertion (apps/api/src/lib/boundaries.test.ts),
       # which lints the deliberate Rule A/B/C violation fixtures and fails if any of
@@ -79,10 +120,8 @@ jobs:
         run: pnpm test:unit
 
       # Testcontainers starts its own Postgres and runs `prisma migrate deploy`
-      # against it (apps/api/tests/integration/global-setup.ts), proving migrations
-      # apply cleanly from an empty database (phase-00 §15).
+      # against it (apps/api/tests/integration/global-setup.ts, apps/worker's own
+      # equivalent), proving migrations apply cleanly from an empty database
+      # (phase-00 §15). Needs Docker, which ubuntu-latest provides.
       - name: Integration tests
         run: pnpm test:integration
-
-      - name: Build
-        run: pnpm build

@@ -12,6 +12,13 @@ app.use(express.json());
 // `noop-handler` (phase-00/02's diagnostic-only function) is deleted, not kept
 // alongside this one — repository-index now proves the worker is discoverable and
 // wired up better than the noop ever could (docs/decisions/phase-03-log.md).
+<<<<<<< HEAD
+app.use(
+  "/api/inngest",
+  serve({ client: inngest, functions: [repositoryIndex, staleIndexSweeper] }),
+);
+=======
 app.use("/api/inngest", serve({ client: inngest, functions: [repositoryIndex, staleIndexSweeper, webhookSweeper] }));
+>>>>>>> main
 
 export default app;

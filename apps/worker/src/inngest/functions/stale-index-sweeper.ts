@@ -50,7 +50,13 @@ const STALE_THRESHOLD_MS = 15 * 60 * 1000;
  */
 export function buildSweepEvents(stale: readonly StalePendingRepository[]): {
   name: typeof repositoryIndexRequested.name;
-  data: { projectId: string; repositoryId: string; mode: "FULL"; reason: "sweep"; indexJobId: string };
+  data: {
+    projectId: string;
+    repositoryId: string;
+    mode: "FULL";
+    reason: "sweep";
+    indexJobId: string;
+  };
 }[] {
   return stale.map((repository) => ({
     name: repositoryIndexRequested.name,
@@ -74,17 +80,22 @@ export const staleIndexSweeper = inngest.createFunction(
   async ({ step }) => {
     const logger = createLogger("indexing.stale-index-sweeper");
 
-    const stale = await step.run("find-stale-pending", () => repositoryRepository.findStalePending(STALE_THRESHOLD_MS));
+    const stale = await step.run("find-stale-pending", () =>
+      repositoryRepository.findStalePending(STALE_THRESHOLD_MS),
+    );
 
     if (stale.length === 0) {
       logger.info("stale-index-sweeper found nothing to sweep");
       return { swept: 0 };
     }
 
-    logger.warn("stale-index-sweeper re-requesting indexing for repositories stuck PENDING", {
-      count: stale.length,
-      repositoryIds: stale.map((repository) => repository.id),
-    });
+    logger.warn(
+      "stale-index-sweeper re-requesting indexing for repositories stuck PENDING",
+      {
+        count: stale.length,
+        repositoryIds: stale.map((repository) => repository.id),
+      },
+    );
 
     await step.sendEvent("re-request-stale-indexes", buildSweepEvents(stale));
 

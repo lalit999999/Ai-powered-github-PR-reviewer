@@ -41,13 +41,15 @@ export type GithubFailureReason =
    * lost access. */
   | "UNAUTHENTICATED";
 
-export type GithubResult<T> = ({ ok: true } & T) | { ok: false; reason: GithubFailureReason };
+export type GithubResult<T> =
+  ({ ok: true } & T) | { ok: false; reason: GithubFailureReason };
 
 /** Narrow an unknown thrown value to the status Octokit puts on its errors, without
  * importing an error class — the same duck-typing discipline `project.repository.ts`
  * uses for Prisma's `P2002`. */
 export function statusOf(error: unknown): number | undefined {
-  if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
+  if (typeof error !== "object" || error === null || !("status" in error))
+    return undefined;
   const status = (error as { status?: unknown }).status;
   return typeof status === "number" ? status : undefined;
 }
@@ -55,9 +57,14 @@ export function statusOf(error: unknown): number | undefined {
 /** True when GitHub's response carried rate-limit headers, which is how §12 keeps a
  * 403-because-busy from being read as a 403-because-revoked. */
 export function hasRateLimitHeaders(error: unknown): boolean {
-  if (typeof error !== "object" || error === null || !("response" in error)) return false;
-  const headers = (error as { response?: { headers?: Record<string, unknown> } }).response?.headers;
-  return Boolean(headers && ("x-ratelimit-remaining" in headers || "retry-after" in headers));
+  if (typeof error !== "object" || error === null || !("response" in error))
+    return false;
+  const headers = (
+    error as { response?: { headers?: Record<string, unknown> } }
+  ).response?.headers;
+  return Boolean(
+    headers && ("x-ratelimit-remaining" in headers || "retry-after" in headers),
+  );
 }
 
 /**

@@ -152,8 +152,7 @@ account:
 2. Click **Connect repository**. Search the installation's repositories, or switch to
    **Paste URL** and give it `https://github.com/{owner}/{repo}` directly.
 3. On success the dialog closes and a repository card appears showing **Waiting to be
-   indexed**, then — once the worker's `repository-index` function picks it up (Phase
-   03) — a live progress bar through to **Indexed** or a specific failure with a retry
+   indexed**, then — once the worker's `repository-index` function picks it up (Phase 03) — a live progress bar through to **Indexed** or a specific failure with a retry
    action. See [`docs/indexing.md`](docs/indexing.md) for what gets indexed, what gets
    skipped and why, and where the caps are configured.
 4. Each invalid case answers its own way: a malformed URL is a 400 before any GitHub
@@ -175,18 +174,18 @@ unless you deliberately mean to target another database.
 
 ## Scripts
 
-| Command | Does |
-|---|---|
-| `pnpm dev` | Runs every app's dev server (turbo) |
-| `pnpm dev:inngest` | Inngest Dev Server, pointed at the worker's `/api/inngest` |
-| `pnpm build` | Builds every app |
-| `pnpm start` | Starts every app's production build |
-| `pnpm lint` | Per-package lint (turbo) + the repo-wide architectural boundary/no-console rules (`eslint.config.mjs`) |
-| `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm test` | `test:unit` then `test:integration` |
-| `pnpm test:unit` | Fast, no-I/O unit tests (colocated `*.test.ts`) |
-| `pnpm test:integration` | Testcontainers-backed tests against a real, ephemeral Postgres — `apps/api/tests/integration/` and, since Phase 03, `apps/worker/tests/integration/` (each deployable gets its own container, see that directory's `global-setup.ts`) |
-| `pnpm db:generate` / `db:migrate` / `db:deploy` / `db:studio` | Prisma workflow, delegated to `packages/db` |
+| Command                                                       | Does                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                                    | Runs every app's dev server (turbo)                                                                                                                                                                                                   |
+| `pnpm dev:inngest`                                            | Inngest Dev Server, pointed at the worker's `/api/inngest`                                                                                                                                                                            |
+| `pnpm build`                                                  | Builds every app                                                                                                                                                                                                                      |
+| `pnpm start`                                                  | Starts every app's production build                                                                                                                                                                                                   |
+| `pnpm lint`                                                   | Per-package lint (turbo) + the repo-wide architectural boundary/no-console rules (`eslint.config.mjs`)                                                                                                                                |
+| `pnpm typecheck`                                              | `tsc --noEmit` in every package                                                                                                                                                                                                       |
+| `pnpm test`                                                   | `test:unit` then `test:integration`                                                                                                                                                                                                   |
+| `pnpm test:unit`                                              | Fast, no-I/O unit tests (colocated `*.test.ts`)                                                                                                                                                                                       |
+| `pnpm test:integration`                                       | Testcontainers-backed tests against a real, ephemeral Postgres — `apps/api/tests/integration/` and, since Phase 03, `apps/worker/tests/integration/` (each deployable gets its own container, see that directory's `global-setup.ts`) |
+| `pnpm db:generate` / `db:migrate` / `db:deploy` / `db:studio` | Prisma workflow, delegated to `packages/db`                                                                                                                                                                                           |
 
 ## Architecture boundaries (enforced by lint, not just docs)
 
@@ -216,7 +215,7 @@ Inngest function runs get the same envelope from
 GitHub OAuth via Auth.js (`@auth/express`) with **database-backed sessions** through the
 Prisma adapter — deliberately not JWT, so sessions can be revoked (plan.md §35.1,
 phase-01 §1/§22). Requested scopes are `read:user` and `user:email` only; the OAuth
-identity answers *who is signed in* and is never used for repository access — that is the
+identity answers _who is signed in_ and is never used for repository access — that is the
 GitHub App installation identity from Phase 02 (`docs/github-app-setup.md`).
 
 `requireSession(req)` (`apps/api/src/lib/auth/session.ts`) is the single entry point for
@@ -224,7 +223,7 @@ resolving the caller. A missing, invalid, or expired session throws
 `UnauthenticatedError` (401) — it never falls back to a default user.
 
 `requireTenantAccess(session, { projectId })` (`apps/api/src/lib/auth/tenant-access.ts`)
-is the single entry point for resolving *ownership* — no handler queries it directly, in
+is the single entry point for resolving _ownership_ — no handler queries it directly, in
 this phase or any later one. Missing, soft-deleted, and foreign resources all return
 `404`; the difference survives only in a `warn` log line. Later phases extend this
 helper rather than writing their own.

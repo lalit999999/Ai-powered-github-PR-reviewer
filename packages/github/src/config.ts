@@ -45,9 +45,14 @@ export const githubAppPrivateKeySchema = z
   // decodes to garbage and is caught by the PEM shape check below, not by a try/catch.
   .transform((raw) => {
     const value = raw.trim();
-    return PEM_HEADER.test(value) ? value : Buffer.from(value, "base64").toString("utf8");
+    return PEM_HEADER.test(value)
+      ? value
+      : Buffer.from(value, "base64").toString("utf8");
   })
-  .refine((pem) => PEM_HEADER.test(pem) && PEM_FOOTER.test(pem), MALFORMED_KEY_MESSAGE);
+  .refine(
+    (pem) => PEM_HEADER.test(pem) && PEM_FOOTER.test(pem),
+    MALFORMED_KEY_MESSAGE,
+  );
 
 /** Same scheme pin as the original apps/api schema: `new URL("localhost:6379")` parses
  * happily (scheme "localhost:"), so a bare `z.url()` would let the single most likely

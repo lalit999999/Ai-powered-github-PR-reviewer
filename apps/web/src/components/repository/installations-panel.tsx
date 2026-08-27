@@ -5,8 +5,20 @@ import { useTransition } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import type { Installation } from "@/lib/api";
 
 /**
@@ -50,9 +62,16 @@ export function InstallationsPanel({
     <Card>
       <CardHeader>
         <CardTitle>GitHub installations</CardTitle>
-        <CardDescription>The GitHub App installations available to connect a repository from.</CardDescription>
+        <CardDescription>
+          The GitHub App installations available to connect a repository from.
+        </CardDescription>
         <CardAction>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={pending}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={pending}
+          >
             {pending ? "Refreshing…" : "Refresh"}
           </Button>
         </CardAction>
@@ -60,15 +79,29 @@ export function InstallationsPanel({
       <CardContent>
         {unavailable ? (
           <Alert variant="destructive">
-            <AlertDescription>Your GitHub sign-in needs to be refreshed — sign out and back in.</AlertDescription>
+            <AlertDescription>
+              Your GitHub sign-in needs to be refreshed — sign out and back in.
+            </AlertDescription>
           </Alert>
         ) : installations.length === 0 ? (
           <Empty className="border border-dashed py-8">
             <EmptyHeader>
               <EmptyTitle>No installations yet</EmptyTitle>
-              <EmptyDescription>Install the GitHub App to get started.</EmptyDescription>
+              <EmptyDescription>
+                Install the GitHub App to get started.
+              </EmptyDescription>
             </EmptyHeader>
-            <Button render={<a href={installUrl} target="_blank" rel="noopener noreferrer" />}>Install GitHub App</Button>
+            <Button
+              render={
+                <a
+                  href={installUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              Install GitHub App
+            </Button>
           </Empty>
         ) : (
           <div className="flex flex-col gap-3">
@@ -79,10 +112,16 @@ export function InstallationsPanel({
                   className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 text-sm"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{installation.accountLogin}</span>
-                    <Badge variant="secondary">{installation.accountType}</Badge>
+                    <span className="font-medium">
+                      {installation.accountLogin}
+                    </span>
+                    <Badge variant="secondary">
+                      {installation.accountType}
+                    </Badge>
                   </div>
-                  {installation.suspended && <Badge variant="destructive">Suspended</Badge>}
+                  {installation.suspended && (
+                    <Badge variant="destructive">Suspended</Badge>
+                  )}
                 </li>
               ))}
             </ul>

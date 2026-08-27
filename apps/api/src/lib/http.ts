@@ -1,7 +1,11 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { Logger as PinoLogger } from "pino";
 import { AppError, InternalError } from "./errors.js";
-import { createLogger, generateTraceId, runWithTraceContext } from "@repo/observability";
+import {
+  createLogger,
+  generateTraceId,
+  runWithTraceContext,
+} from "@repo/observability";
 
 /**
  * Express equivalent of the phase-00 `withApiRoute` wrapper (see docs/decisions/phase-00-log.md
@@ -16,10 +20,16 @@ import { createLogger, generateTraceId, runWithTraceContext } from "@repo/observ
  * `pinoInstance` is an injection seam (mirrors createLogger's own) so tests can assert on
  * the real emitted line instead of racing pino's stdout internals.
  */
-export function createRequestContext(pinoInstance?: PinoLogger): RequestHandler {
+export function createRequestContext(
+  pinoInstance?: PinoLogger,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const inboundTraceId = req.header("x-trace-id") || req.header("x-request-id") || undefined;
-    const traceId = inboundTraceId && inboundTraceId.length > 0 ? inboundTraceId : generateTraceId();
+    const inboundTraceId =
+      req.header("x-trace-id") || req.header("x-request-id") || undefined;
+    const traceId =
+      inboundTraceId && inboundTraceId.length > 0
+        ? inboundTraceId
+        : generateTraceId();
     const startedAt = performance.now();
 
     runWithTraceContext({ traceId }, () => {
@@ -28,19 +38,25 @@ export function createRequestContext(pinoInstance?: PinoLogger): RequestHandler 
       res.once("finish", () => {
         const durationMs = Math.round(performance.now() - startedAt);
         const failed = res.statusCode >= 400;
-        const component = (res.locals.component as string | undefined) ?? "http";
+        const component =
+          (res.locals.component as string | undefined) ?? "http";
         const errorCode = res.locals.errorCode as string | undefined;
         const errorStack = res.locals.errorStack as string | undefined;
-        const logger = pinoInstance ? createLogger(component, pinoInstance) : createLogger(component);
+        const logger = pinoInstance
+          ? createLogger(component, pinoInstance)
+          : createLogger(component);
 
-        logger[failed ? "error" : "info"](failed ? "request failed" : "request completed", {
-          method: req.method,
-          path: req.originalUrl,
-          statusCode: res.statusCode,
-          durationMs,
-          ...(errorCode ? { code: errorCode } : {}),
-          ...(errorStack ? { stack: errorStack } : {}),
-        });
+        logger[failed ? "error" : "info"](
+          failed ? "request failed" : "request completed",
+          {
+            method: req.method,
+            path: req.originalUrl,
+            statusCode: res.statusCode,
+            durationMs,
+            ...(errorCode ? { code: errorCode } : {}),
+            ...(errorStack ? { stack: errorStack } : {}),
+          },
+        );
       });
 
       next();
@@ -50,14 +66,21 @@ export function createRequestContext(pinoInstance?: PinoLogger): RequestHandler 
 
 export const requestContext = createRequestContext();
 
-type RouteHandler = (req: Request, res: Response, next: NextFunction) => unknown;
+type RouteHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => unknown;
 
 /**
  * Wraps a single route handler: declares its `component` (for the completion log line
  * above) and forwards thrown/rejected errors to the error-handling middleware instead of
  * crashing the process (Express does not auto-catch async handler errors).
  */
-export function withRoute(handler: RouteHandler, options: { component: string }): RequestHandler {
+export function withRoute(
+  handler: RouteHandler,
+  options: { component: string },
+): RequestHandler {
   return (req, res, next) => {
     res.locals.component = options.component;
     Promise.resolve(handler(req, res, next)).catch(next);
@@ -71,9 +94,16 @@ export function withRoute(handler: RouteHandler, options: { component: string })
  * only for the single completion log line in requestContext above — never in the response
  * body (phase-00 §12).
  */
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(
+  err: unknown,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+): void {
   const isAppError = err instanceof AppError;
-  const appError = isAppError ? err : new InternalError("Internal server error");
+  const appError = isAppError
+    ? err
+    : new InternalError("Internal server error");
 
   res.locals.errorCode = appError.code;
   if (!isAppError) {

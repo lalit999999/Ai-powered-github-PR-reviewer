@@ -23,8 +23,21 @@ const REDACT_SUFFIXES = ["_KEY", "_SECRET", "_TOKEN"];
 // design (phase-02 sub-task 1.3 — "log the key, the hit/miss, and the remaining TTL,
 // never the token"), and a cache key is not a secret. `apiKey`/`privateKey` are matched
 // explicitly instead of by a blanket `*key` suffix.
-const REDACT_NORMALIZED_EXACT = new Set(["authorization", "cookie", "setcookie", "credentials", "pem"]);
-const REDACT_NORMALIZED_SUFFIXES = ["token", "secret", "password", "passphrase", "privatekey", "apikey"];
+const REDACT_NORMALIZED_EXACT = new Set([
+  "authorization",
+  "cookie",
+  "setcookie",
+  "credentials",
+  "pem",
+]);
+const REDACT_NORMALIZED_SUFFIXES = [
+  "token",
+  "secret",
+  "password",
+  "passphrase",
+  "privatekey",
+  "apikey",
+];
 
 const REDACTED_VALUE = "[REDACTED]";
 const MAX_REDACT_DEPTH = 10;
@@ -34,15 +47,26 @@ function normalizeKey(key: string): string {
 }
 
 function shouldRedactKey(key: string): boolean {
-  if (REDACT_EXACT.has(key) || REDACT_SUFFIXES.some((suffix) => key.endsWith(suffix))) {
+  if (
+    REDACT_EXACT.has(key) ||
+    REDACT_SUFFIXES.some((suffix) => key.endsWith(suffix))
+  ) {
     return true;
   }
   const normalized = normalizeKey(key);
-  return REDACT_NORMALIZED_EXACT.has(normalized) || REDACT_NORMALIZED_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+  return (
+    REDACT_NORMALIZED_EXACT.has(normalized) ||
+    REDACT_NORMALIZED_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+  );
 }
 
 export function redact(value: unknown, depth = 0): unknown {
-  if (depth >= MAX_REDACT_DEPTH || value === null || typeof value !== "object" || value instanceof Date) {
+  if (
+    depth >= MAX_REDACT_DEPTH ||
+    value === null ||
+    typeof value !== "object" ||
+    value instanceof Date
+  ) {
     return value;
   }
   if (Array.isArray(value)) {
@@ -51,7 +75,9 @@ export function redact(value: unknown, depth = 0): unknown {
   const source = value as Record<string, unknown>;
   const output: Record<string, unknown> = {};
   for (const key of Object.keys(source)) {
-    output[key] = shouldRedactKey(key) ? REDACTED_VALUE : redact(source[key], depth + 1);
+    output[key] = shouldRedactKey(key)
+      ? REDACTED_VALUE
+      : redact(source[key], depth + 1);
   }
   return output;
 }
@@ -92,7 +118,10 @@ export interface Logger {
  * `instance` is injectable (defaults to the shared pino instance) so tests can point a
  * logger at an in-memory stream instead of stdout.
  */
-export function createLogger(component: string, instance: PinoLogger = defaultInstance): Logger {
+export function createLogger(
+  component: string,
+  instance: PinoLogger = defaultInstance,
+): Logger {
   const emit = (level: LogLevel, msg: string, fields?: LogFields) => {
     const record = redact({
       ts: new Date().toISOString(),

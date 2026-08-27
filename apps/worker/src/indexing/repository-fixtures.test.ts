@@ -27,11 +27,63 @@ import type { TarballFetchResult } from "./fetcher/tarball-fetcher.js";
  * silently swallowed by an over-eager glob.
  */
 
-const upsertRepositoryFiles = vi.fn(async (_files: RepositoryFileUpsertInput[]) => undefined);
-const sweepStaleRepositoryFiles = vi.fn(async (_repositoryId: string, _sha: string) => 0);
+const upsertRepositoryFiles = vi.fn(
+  async (_files: RepositoryFileUpsertInput[]) => undefined,
+);
+const sweepStaleRepositoryFiles = vi.fn(
+  async (_repositoryId: string, _sha: string) => 0,
+);
+const updateRepositoryFileGraphMetadata = vi.fn(
+  async (_updates: unknown[]) => undefined,
+);
+// Same synthesized-id approach as indexer.service.test.ts's own mock — see that file's
+// comment for why: `upsertRepositoryFiles` is mocked out, so there is no live row to read
+// a real id back from.
+const findRepositoryFilesByCommit = vi.fn(
+  async (_repositoryId: string, _commitSha: string) => {
+    const lastUpsert = upsertRepositoryFiles.mock.calls.at(-1)?.[0] as
+      RepositoryFileUpsertInput[] | undefined;
+    return (lastUpsert ?? []).map((f) => ({
+      id: `file-${f.path}`,
+      path: f.path,
+      indexState: f.indexState,
+      isTest: f.isTest,
+    }));
+  },
+);
 vi.mock("./persistence/repository-file.repository.js", () => ({
-  upsertRepositoryFiles: (files: RepositoryFileUpsertInput[]) => upsertRepositoryFiles(files),
-  sweepStaleRepositoryFiles: (repositoryId: string, sha: string) => sweepStaleRepositoryFiles(repositoryId, sha),
+  upsertRepositoryFiles: (files: RepositoryFileUpsertInput[]) =>
+    upsertRepositoryFiles(files),
+  sweepStaleRepositoryFiles: (repositoryId: string, sha: string) =>
+    sweepStaleRepositoryFiles(repositoryId, sha),
+  updateRepositoryFileGraphMetadata: (updates: unknown[]) =>
+    updateRepositoryFileGraphMetadata(updates),
+  findRepositoryFilesByCommit: (repositoryId: string, commitSha: string) =>
+    findRepositoryFilesByCommit(repositoryId, commitSha),
+}));
+
+const insertCodeSymbols = vi.fn(async (_rows: unknown[]) => undefined);
+const deleteCodeSymbolsByRepository = vi.fn(async (_repositoryId: string) => 0);
+vi.mock("./persistence/code-symbol.repository.js", () => ({
+  insertCodeSymbols: (rows: unknown[]) => insertCodeSymbols(rows),
+  deleteCodeSymbolsByRepository: (repositoryId: string) =>
+    deleteCodeSymbolsByRepository(repositoryId),
+}));
+
+const insertCodeDependencies = vi.fn(async (_rows: unknown[]) => ({}));
+const deleteCodeDependenciesByRepository = vi.fn(
+  async (_repositoryId: string) => 0,
+);
+const countInboundEdgesByFile = vi.fn(
+  async (_repositoryId: string) =>
+    [] as { fileId: string; inboundEdgeCount: number }[],
+);
+vi.mock("./persistence/code-dependency.repository.js", () => ({
+  insertCodeDependencies: (rows: unknown[]) => insertCodeDependencies(rows),
+  deleteCodeDependenciesByRepository: (repositoryId: string) =>
+    deleteCodeDependenciesByRepository(repositoryId),
+  countInboundEdgesByFile: (repositoryId: string) =>
+    countInboundEdgesByFile(repositoryId),
 }));
 
 const { indexRepository } = await import("./indexer.service.js");
@@ -80,11 +132,17 @@ function file(name: string, content: string | Buffer): FixtureEntry {
 const tempRoots: string[] = [];
 afterEach(async () => {
   vi.clearAllMocks();
-  await Promise.all(tempRoots.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempRoots
+      .splice(0)
+      .map((dir) => fs.rm(dir, { recursive: true, force: true })),
+  );
 });
 
 async function makeTempRoot(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "repository-fixtures-test-"));
+  const dir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "repository-fixtures-test-"),
+  );
   tempRoots.push(dir);
   return dir;
 }
@@ -93,7 +151,10 @@ function fakeFetchTarball(result: TarballFetchResult) {
   return vi.fn(async () => result);
 }
 
-async function runFixture(entries: FixtureEntry[], overrides: Partial<Parameters<typeof indexRepository>[0]> = {}) {
+async function runFixture(
+  entries: FixtureEntry[],
+  overrides: Partial<Parameters<typeof indexRepository>[0]> = {},
+) {
   const buffer = await buildTarballGzip(entries);
   const logger = overrides.logger ?? spyLogger();
   const result = await indexRepository({
@@ -106,11 +167,16 @@ async function runFixture(entries: FixtureEntry[], overrides: Partial<Parameters
     tempRootDir: await makeTempRoot(),
     maxTotalBytes: 50 * 1024 * 1024,
     maxFileCount: 10_000,
+    attempt: 0,
     ...overrides,
     logger: logger as never,
-    fetchTarball: fakeFetchTarball({ ok: true, stream: toWebStream(buffer) }) as never,
+    fetchTarball: fakeFetchTarball({
+      ok: true,
+      stream: toWebStream(buffer),
+    }) as never,
   });
-  const persisted = upsertRepositoryFiles.mock.calls.at(-1)?.[0] as RepositoryFileUpsertInput[] | undefined;
+  const persisted = upsertRepositoryFiles.mock.calls.at(-1)?.[0] as
+    RepositoryFileUpsertInput[] | undefined;
   return { result, persisted: persisted ?? [], logger };
 }
 
@@ -126,7 +192,10 @@ describe("fixture repositories — the ordinary project", () => {
       file("README.md", "# Fixture\n"),
       file("pnpm-lock.yaml", "lockfileVersion: '9.0'\n"),
       file("src/index.ts", "export const main = () => 1;\n"),
-      file("src/index.test.ts", "import { main } from './index.js';\ntest('ok', () => main());\n"),
+      file(
+        "src/index.test.ts",
+        "import { main } from './index.js';\ntest('ok', () => main());\n",
+      ),
     ]);
 
     expect(result.ok).toBe(true);
@@ -136,11 +205,28 @@ describe("fixture repositories — the ordinary project", () => {
     expect(byPath(persisted, "pnpm-lock.yaml")).toBeUndefined();
     expect(persisted).toHaveLength(5);
 
-    expect(byPath(persisted, "package.json")).toMatchObject({ classification: "CONFIG", indexState: "INDEXED" });
-    expect(byPath(persisted, "tsconfig.json")).toMatchObject({ classification: "CONFIG", indexState: "INDEXED" });
-    expect(byPath(persisted, "README.md")).toMatchObject({ classification: "DOCUMENTATION", indexState: "INDEXED" });
-    expect(byPath(persisted, "src/index.ts")).toMatchObject({ classification: "SOURCE", indexState: "INDEXED", isTest: false });
-    expect(byPath(persisted, "src/index.test.ts")).toMatchObject({ classification: "TEST", indexState: "INDEXED", isTest: true });
+    expect(byPath(persisted, "package.json")).toMatchObject({
+      classification: "CONFIG",
+      indexState: "INDEXED",
+    });
+    expect(byPath(persisted, "tsconfig.json")).toMatchObject({
+      classification: "CONFIG",
+      indexState: "INDEXED",
+    });
+    expect(byPath(persisted, "README.md")).toMatchObject({
+      classification: "DOCUMENTATION",
+      indexState: "INDEXED",
+    });
+    expect(byPath(persisted, "src/index.ts")).toMatchObject({
+      classification: "SOURCE",
+      indexState: "INDEXED",
+      isTest: false,
+    });
+    expect(byPath(persisted, "src/index.test.ts")).toMatchObject({
+      classification: "TEST",
+      indexState: "INDEXED",
+      isTest: true,
+    });
 
     expect(result.hardIgnoredCount).toBe(1);
     expect(result.filesTotal).toBe(5);
@@ -154,26 +240,57 @@ describe("fixture repositories — the monorepo with node_modules committed", ()
     // 150 committed node_modules files across 30 packages — the real, observed case
     // (plan.md §43.2) that can be up to 90% of a repository's raw file count.
     for (let pkg = 0; pkg < 30; pkg += 1) {
-      entries.push(file(`node_modules/dep-${pkg.toString()}/package.json`, `{"name":"dep-${pkg.toString()}"}\n`));
-      entries.push(file(`node_modules/dep-${pkg.toString()}/index.js`, "module.exports = {};\n"));
-      entries.push(file(`node_modules/dep-${pkg.toString()}/lib/util.js`, "module.exports.util = 1;\n"));
-      entries.push(file(`node_modules/dep-${pkg.toString()}/lib/helpers.js`, "module.exports.helpers = 1;\n"));
-      entries.push(file(`node_modules/dep-${pkg.toString()}/README.md`, "# dep\n"));
+      entries.push(
+        file(
+          `node_modules/dep-${pkg.toString()}/package.json`,
+          `{"name":"dep-${pkg.toString()}"}\n`,
+        ),
+      );
+      entries.push(
+        file(
+          `node_modules/dep-${pkg.toString()}/index.js`,
+          "module.exports = {};\n",
+        ),
+      );
+      entries.push(
+        file(
+          `node_modules/dep-${pkg.toString()}/lib/util.js`,
+          "module.exports.util = 1;\n",
+        ),
+      );
+      entries.push(
+        file(
+          `node_modules/dep-${pkg.toString()}/lib/helpers.js`,
+          "module.exports.helpers = 1;\n",
+        ),
+      );
+      entries.push(
+        file(`node_modules/dep-${pkg.toString()}/README.md`, "# dep\n"),
+      );
     }
     // 20 genuine application files.
     for (let i = 0; i < 20; i += 1) {
-      entries.push(file(`packages/app/src/module-${i.toString()}.ts`, `export const v${i.toString()} = ${i.toString()};\n`));
+      entries.push(
+        file(
+          `packages/app/src/module-${i.toString()}.ts`,
+          `export const v${i.toString()} = ${i.toString()};\n`,
+        ),
+      );
     }
 
     const logger = spyLogger();
-    const { result, persisted } = await runFixture(entries, { logger: logger as never });
+    const { result, persisted } = await runFixture(entries, {
+      logger: logger as never,
+    });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok result");
 
     // 150 node_modules files never get a row; only the 20 app files do.
     expect(persisted).toHaveLength(20);
-    expect(persisted.every((f) => !f.path.startsWith("node_modules/"))).toBe(true);
+    expect(persisted.every((f) => !f.path.startsWith("node_modules/"))).toBe(
+      true,
+    );
     expect(result.filesTotal).toBe(20);
     expect(result.hardIgnoredCount).toBe(150);
     expect(result.hardIgnoreRatio).toBeCloseTo(150 / 170, 3);
@@ -181,7 +298,9 @@ describe("fixture repositories — the monorepo with node_modules committed", ()
     // §16/§22: the repository-health note — a distinct, greppable warn line, not silently
     // absorbed into the ordinary completion log.
     const warnCalls = logger.warn.mock.calls as [string, ...unknown[]][];
-    const healthNote = warnCalls.find(([message]) => message.includes("repository health note"));
+    const healthNote = warnCalls.find(([message]) =>
+      message.includes("repository health note"),
+    );
     expect(healthNote).toBeDefined();
   });
 });
@@ -193,10 +312,17 @@ describe("fixture repositories — .gitattributes generated/vendored, and the fi
     // .gitattributes stage runs first and short-circuits it. If a future edit reordered
     // the pipeline, this file would come back SKIPPED_BINARY instead of SKIPPED_VENDORED
     // and this assertion would catch it.
-    const vendoredBinaryContent = Buffer.concat([Buffer.from("start"), Buffer.from([0x00]), Buffer.from("rest")]);
+    const vendoredBinaryContent = Buffer.concat([
+      Buffer.from("start"),
+      Buffer.from([0x00]),
+      Buffer.from("rest"),
+    ]);
 
     const { result, persisted } = await runFixture([
-      file(".gitattributes", "vendored/** linguist-vendored\n**/*.pb.go linguist-generated\n"),
+      file(
+        ".gitattributes",
+        "vendored/** linguist-vendored\n**/*.pb.go linguist-generated\n",
+      ),
       file("vendored/blob.dat", vendoredBinaryContent),
       file("api/v1/service.pb.go", "// generated, do not edit\npackage v1\n"),
       file("src/real.go", "package main\nfunc main() {}\n"),
@@ -205,18 +331,29 @@ describe("fixture repositories — .gitattributes generated/vendored, and the fi
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok result");
 
-    expect(byPath(persisted, "vendored/blob.dat")).toMatchObject({ indexState: "SKIPPED", skipReason: "SKIPPED_VENDORED" });
+    expect(byPath(persisted, "vendored/blob.dat")).toMatchObject({
+      indexState: "SKIPPED",
+      skipReason: "SKIPPED_VENDORED",
+    });
     // The bare `**/*.pb.go` pattern must match a nested path (git-attributes anchoring,
     // not just a root-level match) — a real-world regression this codebase already found
     // once (docs/decisions/phase-03-log.md §3 of the Prompt 2 log).
-    expect(byPath(persisted, "api/v1/service.pb.go")).toMatchObject({ indexState: "SKIPPED", skipReason: "SKIPPED_GENERATED" });
-    expect(byPath(persisted, "src/real.go")).toMatchObject({ indexState: "INDEXED" });
+    expect(byPath(persisted, "api/v1/service.pb.go")).toMatchObject({
+      indexState: "SKIPPED",
+      skipReason: "SKIPPED_GENERATED",
+    });
+    expect(byPath(persisted, "src/real.go")).toMatchObject({
+      indexState: "INDEXED",
+    });
   });
 
   it("hard-ignore precedes the size cap: an oversized file under dist/ gets no row, not a SKIPPED_TOO_LARGE one", async () => {
     const oversized = "a".repeat(600 * 1024); // over the 512 KB cap
 
-    const { result, persisted } = await runFixture([file("dist/bundle.js", oversized), file("src/app.ts", "export {};\n")]);
+    const { result, persisted } = await runFixture([
+      file("dist/bundle.js", oversized),
+      file("src/app.ts", "export {};\n"),
+    ]);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok result");
@@ -241,8 +378,15 @@ describe("fixture repositories — near-miss paths that must survive indexing", 
 
     expect(result.hardIgnoredCount).toBe(0);
     expect(persisted).toHaveLength(3);
-    for (const p of ["my-node_modules-helper.ts", "dist-utils.ts", "package-lock-parser.ts"]) {
-      expect(byPath(persisted, p)).toMatchObject({ indexState: "INDEXED", classification: "SOURCE" });
+    for (const p of [
+      "my-node_modules-helper.ts",
+      "dist-utils.ts",
+      "package-lock-parser.ts",
+    ]) {
+      expect(byPath(persisted, p)).toMatchObject({
+        indexState: "INDEXED",
+        classification: "SOURCE",
+      });
     }
   });
 });

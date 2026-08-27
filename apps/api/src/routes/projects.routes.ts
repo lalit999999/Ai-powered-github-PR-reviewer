@@ -16,7 +16,10 @@ const router = Router();
 router.get("/", withRoute(listProjects, { component: "api.projects" }));
 router.post("/", withRoute(createProject, { component: "api.projects" }));
 router.get("/:projectId", withRoute(getProject, { component: "api.projects" }));
-router.delete("/:projectId", withRoute(deleteProject, { component: "api.projects" }));
+router.delete(
+  "/:projectId",
+  withRoute(deleteProject, { component: "api.projects" }),
+);
 
 // POST /api/projects/:projectId/repositories — nested here so the URL shape lives with
 // projects while the handler lives with the repositories module. The child router is

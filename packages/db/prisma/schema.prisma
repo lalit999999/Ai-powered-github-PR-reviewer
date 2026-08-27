@@ -15,6 +15,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -139,7 +140,6 @@ model Repository {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   files   RepositoryFile[]
   indexJobs IndexJob[]
-  pullRequests PullRequest[]
 
   @@unique([projectId, githubRepoId])
   @@index([githubRepoId])
@@ -178,6 +178,10 @@ model RepositoryFile {
   updatedAt        DateTime           @updatedAt
 
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  // Phase 04 — every CodeSymbol extracted from this file (phase-04 §6). Cascades: a
+  // file re-indexed to a new commit or deleted takes its symbols with it; the
+  // graph-builder (Prompt 4) is what re-creates them for the new commit.
+  symbols CodeSymbol[]
 
   @@unique([repositoryId, path])
   @@index([repositoryId, contentHash])
@@ -198,6 +202,116 @@ enum FileClassification {
   DOCUMENTATION
   ASSET
   UNKNOWN
+}
+
+// Phase 04 (phase-04-code-parsing-and-knowledge-graph.md §6). One row per extracted
+// symbol (function, arrow-function-const, class, method, interface, type alias, enum,
+// React component, hook — @repo/shared's SYMBOL_KINDS). `kind` is a plain String, not a
+// Postgres enum — matching the `indexState`/`skipReason`/`parseState` precedent on
+// RepositoryFile above, for the identical reason (docs/decisions/phase-03-log.md §6):
+// the legal values are pinned in @repo/shared instead.
+//
+// `parentSymbolId` — a plain nullable id, deliberately NOT a Prisma self-relation.
+// phase-04 §4 Data Requirements lists "parent symbol" among CodeSymbol's fields; §6's
+// own Prisma block omits it entirely. Added per §4 over the incomplete §6 block — a
+// method needs to point at its enclosing class or the containment information is lost.
+// Not a self-relation because a self-relation's cascade-delete semantics were never
+// asked for here; a plain id column with no FK is enough for `WHERE parentSymbolId = ?`
+// lookups and never risks a surprise cascade through the symbol tree.
+model CodeSymbol {
+  id             String  @id @default(uuid())
+  repositoryId   String
+  fileId         String
+  name           String
+  kind           String // SymbolKind (@repo/shared) — FUNCTION | ARROW_FUNCTION | CLASS | METHOD | INTERFACE | TYPE_ALIAS | ENUM | REACT_COMPONENT | HOOK | VARIABLE
+  startLine      Int
+  endLine        Int
+  isExported     Boolean @default(false)
+  isDefault      Boolean @default(false)
+  signature      String?
+  docComment     String?
+  parentSymbolId String? // the enclosing class/interface's CodeSymbol.id, for methods — see above
+  complexity     Int     @default(0)
+  commitSha      String
+
+  repository Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  file       RepositoryFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  // Symbol identity — the conflict target for Prompt 4's multi-row upsert (phase-04 §8:
+  // "pass 1 writes are upserts on ... symbol identity"). Two symbols cannot share a
+  // file, a name, a kind, and a start line.
+  @@unique([repositoryId, fileId, name, kind, startLine])
+  @@index([fileId])
+  @@index([repositoryId, name]) // used constantly by call resolution (§6's own comment)
+  @@index([repositoryId, isExported])
+}
+
+// Phase 04 §6. The `kind` enum genuinely is a Postgres enum here (unlike CodeSymbol.kind
+// above) — @repo/shared's DEPENDENCY_KINDS mirrors it for the module-load-time
+// DATABASE_URL reason documented there, not because this column itself is a String.
+enum DependencyKind {
+  IMPORTS
+  EXPORTS
+  CONTAINS
+  CALLS
+  EXTENDS
+  IMPLEMENTS
+  REFERENCES
+  TESTS
+}
+
+// Phase 04 §6. One edge table, two granularities (file-level via from/toFileId,
+// symbol-level via from/toSymbolId), filtered by `kind` — plan.md §11.1: "a separate
+// graph database is unnecessary complexity at this scale."
+//
+// Deliberately has NO foreign keys to RepositoryFile or CodeSymbol, despite from/to
+// columns that reference their ids. A real FK would force `fromFileId`/`toFileId` and
+// `fromSymbolId`/`toSymbolId` to always agree on which pair is populated for a given
+// row's granularity, which Postgres FK constraints cannot express conditionally, and
+// would cascade-delete edges the instant a single endpoint's symbol is deleted — which
+// is exactly backwards for a two-pass graph-builder that deletes and rebuilds all of a
+// file's symbols on every re-parse (Prompt 4's write order: edges deleted before
+// symbols, precisely because a dangling toSymbolId is expected and harmless between
+// those two steps, never queried mid-rebuild). Consumers must treat from/toSymbolId as
+// "may point at a since-deleted symbol" rather than a referential guarantee.
+//
+// The composite uniqueness constraint below (repositoryId, kind, fromFileId, toFileId,
+// fromSymbolId, toSymbolId) needs Postgres's NULLS NOT DISTINCT, which Prisma's schema
+// language cannot express (no @@unique syntax for it) — every file-level edge has two
+// NULL symbol columns, and without NULLS NOT DISTINCT, Postgres treats every NULL as
+// distinct, so a plain @@unique would let the same file-level edge be inserted an
+// unbounded number of times. Declared instead as raw SQL appended to this model's
+// migration (packages/db/prisma/migrations/*_add_code_symbol_and_code_dependency/
+// migration.sql) — NOT declared as @@unique here. Do not `prisma db push` against this
+// schema without also applying that migration; db push would silently drop the
+// constraint since nothing in this file describes it. For the same reason, `prisma
+// migrate dev` (no --name) will prompt to create a NEW migration that DROPS this
+// constraint, because its shadow-database drift check has no schema.prisma declaration
+// to reconcile the constraint against — do not accept that prompt. Use `prisma migrate
+// status` to check and `prisma migrate deploy` to apply (docs/decisions/phase-04-log.md).
+model CodeDependency {
+  id              String         @id @default(uuid())
+  repositoryId    String
+  kind            DependencyKind
+  fromFileId      String?
+  toFileId        String?
+  fromSymbolId    String?
+  toSymbolId      String?
+  externalPackage String?
+  rawSpecifier    String?
+  resolution      String         @default("RESOLVED") // DependencyResolution (@repo/shared) — RESOLVED | EXTERNAL | UNRESOLVED
+  confidence      Float          @default(1.0)
+  commitSha       String
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId, toSymbolId, kind])
+  @@index([repositoryId, fromFileId, kind])
+  @@index([repositoryId, toFileId, kind])
+  // Phase 04 prompt-1 §2.7 — outbound symbol traversal (plan.md §9: "Traversed outbound
+  // gives dependencies the changed code relies on"). None of the three indexes above
+  // serve `WHERE repositoryId = ? AND fromSymbolId = ANY(...) AND kind = ?`.
+  @@index([repositoryId, fromSymbolId, kind])
 }
 
 // Phase 03 §6. One row per indexing run — Postgres mirror of Inngest's execution state,

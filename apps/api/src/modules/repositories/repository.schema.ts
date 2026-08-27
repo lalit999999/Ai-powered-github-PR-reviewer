@@ -29,7 +29,9 @@ import { z } from "zod";
  * IDNA-normalized, so `GitHub.COM` and its punycode spellings match without a second
  * normalization pass here.
  */
-export const GITHUB_ALLOWED_HOSTS: ReadonlySet<string> = new Set(["github.com"]);
+export const GITHUB_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
+  "github.com",
+]);
 
 /**
  * Hard length ceiling applied **before** the URL parser runs. GitHub's own limits are
@@ -76,7 +78,8 @@ export type GithubRepoUrlResult =
   | { ok: false; reason: GithubRepoUrlRejection };
 
 /** phase-02 §12's exact wording for the invalid-URL case. */
-export const GITHUB_REPO_URL_MESSAGE = "That doesn't look like a GitHub repository URL";
+export const GITHUB_REPO_URL_MESSAGE =
+  "That doesn't look like a GitHub repository URL";
 
 /**
  * Parses a user-supplied GitHub repository URL under an allow-list, returning the
@@ -115,7 +118,10 @@ export function parseGithubRepoUrl(input: string): GithubRepoUrlResult {
   // surrounding whitespace, and rejecting that would be hostile for no security gain.
   const candidate = input.trim();
   if (candidate.length === 0 || candidate.length > MAX_REPO_URL_LENGTH) {
-    return { ok: false, reason: candidate.length === 0 ? "NOT_A_URL" : "TOO_LONG" };
+    return {
+      ok: false,
+      reason: candidate.length === 0 ? "NOT_A_URL" : "TOO_LONG",
+    };
   }
 
   let url: URL;
@@ -234,7 +240,10 @@ export const connectRepositoryBodySchema = z
     githubRepoId: githubIdSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    const provided = [value.repoUrl !== undefined, value.githubRepoId !== undefined].filter(Boolean).length;
+    const provided = [
+      value.repoUrl !== undefined,
+      value.githubRepoId !== undefined,
+    ].filter(Boolean).length;
 
     if (provided !== 1) {
       const message =
@@ -248,7 +257,11 @@ export const connectRepositoryBodySchema = z
     }
 
     if (value.repoUrl !== undefined && !parseGithubRepoUrl(value.repoUrl).ok) {
-      ctx.addIssue({ code: "custom", message: GITHUB_REPO_URL_MESSAGE, path: ["repoUrl"] });
+      ctx.addIssue({
+        code: "custom",
+        message: GITHUB_REPO_URL_MESSAGE,
+        path: ["repoUrl"],
+      });
     }
   });
 
@@ -287,9 +300,14 @@ export const listInstallationReposQuerySchema = z.object({
   q: z
     .string()
     .trim()
-    .max(REPO_SEARCH_QUERY_MAX_LENGTH, `q must be at most ${REPO_SEARCH_QUERY_MAX_LENGTH} characters`)
+    .max(
+      REPO_SEARCH_QUERY_MAX_LENGTH,
+      `q must be at most ${REPO_SEARCH_QUERY_MAX_LENGTH} characters`,
+    )
     .optional()
-    .transform((value) => (value !== undefined && value.length > 0 ? value : undefined)),
+    .transform((value) =>
+      value !== undefined && value.length > 0 ? value : undefined,
+    ),
 });
 
 /**
@@ -301,20 +319,30 @@ export const listInstallationReposQuerySchema = z.object({
  * §2.1/§47). This is an explicit, tested branch (`repository.schema.test.ts`), not an
  * accident of `z.literal("FULL")` happening to reject everything else.
  */
-export const INCREMENTAL_NOT_SUPPORTED_MESSAGE = 'Incremental indexing is not yet supported — use mode: "FULL"';
+export const INCREMENTAL_NOT_SUPPORTED_MESSAGE =
+  'Incremental indexing is not yet supported — use mode: "FULL"';
 
 export const triggerIndexBodySchema = z
   .object({
-    mode: z.enum(["FULL", "INCREMENTAL"], 'mode must be "FULL" or "INCREMENTAL"'),
+    mode: z.enum(
+      ["FULL", "INCREMENTAL"],
+      'mode must be "FULL" or "INCREMENTAL"',
+    ),
   })
   .superRefine((value, ctx) => {
     if (value.mode === "INCREMENTAL") {
-      ctx.addIssue({ code: "custom", message: INCREMENTAL_NOT_SUPPORTED_MESSAGE, path: ["mode"] });
+      ctx.addIssue({
+        code: "custom",
+        message: INCREMENTAL_NOT_SUPPORTED_MESSAGE,
+        path: ["mode"],
+      });
     }
   });
 
 export type ConnectRepositoryBody = z.infer<typeof connectRepositoryBodySchema>;
 export type RepositoryIdParam = z.infer<typeof repositoryIdParamSchema>;
 export type InstallationIdParam = z.infer<typeof installationIdParamSchema>;
-export type ListInstallationReposQuery = z.infer<typeof listInstallationReposQuerySchema>;
+export type ListInstallationReposQuery = z.infer<
+  typeof listInstallationReposQuerySchema
+>;
 export type TriggerIndexBody = z.infer<typeof triggerIndexBodySchema>;

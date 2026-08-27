@@ -169,7 +169,9 @@ const ATTRIBUTE_NAMES: Record<string, GitattributesFlag> = {
  * repository root.
  */
 function toAnchoredGlob(pattern: string): string {
-  const withoutTrailingSlash = pattern.endsWith("/") ? pattern.slice(0, -1) : pattern;
+  const withoutTrailingSlash = pattern.endsWith("/")
+    ? pattern.slice(0, -1)
+    : pattern;
   return withoutTrailingSlash.includes("/") ? pattern : `**/${pattern}`;
 }
 
@@ -200,7 +202,9 @@ export function parseGitattributes(content: string): GitattributesRule[] {
       if (!flag) continue; // not an attribute this module tracks
 
       const value = negated ? false : rawValue !== "false";
-      const regex = micromatch.makeRe(toAnchoredGlob(pattern), { dot: true }) as RegExp;
+      const regex = micromatch.makeRe(toAnchoredGlob(pattern), {
+        dot: true,
+      }) as RegExp;
       rules.push({ regex, flag, value });
     }
   }
@@ -218,7 +222,10 @@ export function parseGitattributes(content: string): GitattributesRule[] {
  * the common case, since most repositories have no `.gitattributes` at all (an empty
  * `rules` array is the fast path: the loop below simply never runs).
  */
-export function classifyGitattributes(relativePath: string, rules: readonly GitattributesRule[]): GitattributesFlag | null {
+export function classifyGitattributes(
+  relativePath: string,
+  rules: readonly GitattributesRule[],
+): GitattributesFlag | null {
   let generated: boolean | null = null;
   let vendored: boolean | null = null;
 
@@ -250,11 +257,15 @@ export type IgnoreDecision =
  * `KEEP` means "pass to file-classifier.ts's size/binary/minified stages" — this
  * function has no opinion on those.
  */
-export function classifyIgnore(relativePath: string, gitattributesRules: readonly GitattributesRule[]): IgnoreDecision {
+export function classifyIgnore(
+  relativePath: string,
+  gitattributesRules: readonly GitattributesRule[],
+): IgnoreDecision {
   if (isHardIgnored(relativePath)) return { kind: "HARD_IGNORE" };
 
   const flag = classifyGitattributes(relativePath, gitattributesRules);
-  if (flag === "GENERATED") return { kind: "SKIP", reason: "SKIPPED_GENERATED" };
+  if (flag === "GENERATED")
+    return { kind: "SKIP", reason: "SKIPPED_GENERATED" };
   if (flag === "VENDORED") return { kind: "SKIP", reason: "SKIPPED_VENDORED" };
 
   return { kind: "KEEP" };

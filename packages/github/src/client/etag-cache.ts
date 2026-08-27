@@ -42,7 +42,11 @@ export interface EtagStore {
  * so a key without the installation in it would let one tenant's installation serve
  * another's cached response. That would be a data-leak bug, not a cache-tuning detail.
  */
-export function etagCacheKey(scope: string, method: string, url: string): string {
+export function etagCacheKey(
+  scope: string,
+  method: string,
+  url: string,
+): string {
   return `gh:etag:${scope}:${method.toUpperCase()}:${url}`;
 }
 
@@ -63,7 +67,11 @@ export class TokenCacheEtagStore implements EtagStore {
     }
   }
 
-  async set(key: string, entry: EtagCacheEntry, ttlSeconds: number): Promise<void> {
+  async set(
+    key: string,
+    entry: EtagCacheEntry,
+    ttlSeconds: number,
+  ): Promise<void> {
     await this.cache.set(key, JSON.stringify(entry), ttlSeconds);
   }
 
@@ -111,30 +119,46 @@ export function createEtagCachePlugin(options: EtagCachePluginOptions) {
       const cached = await options.store.get(key);
 
       if (cached) {
-        requestOptions.headers = { ...requestOptions.headers, "if-none-match": cached.etag };
+        requestOptions.headers = {
+          ...requestOptions.headers,
+          "if-none-match": cached.etag,
+        };
       }
 
       try {
         const response = await request(requestOptions);
         const etag = response.headers?.etag;
         if (typeof etag === "string" && etag.length > 0) {
-          await options.store.set(key, { etag, data: response.data }, ttlSeconds);
+          await options.store.set(
+            key,
+            { etag, data: response.data },
+            ttlSeconds,
+          );
         }
         return response;
       } catch (error) {
         if (cached && (error as MaybeRequestError)?.status === 304) {
-          logger.debug("github etag cache hit — 304, response served from cache", {
-            endpoint: parsed.url,
-            method: parsed.method,
-            status: 304,
-            cacheKey: key,
-            cache: "hit",
-          });
+          logger.debug(
+            "github etag cache hit — 304, response served from cache",
+            {
+              endpoint: parsed.url,
+              method: parsed.method,
+              status: 304,
+              cacheKey: key,
+              cache: "hit",
+            },
+          );
           // A 304 carries no body. Serve the cached one and present it as the 200 the
           // caller would have received, so no call site has to know caching exists.
           // `retryCount` is required on OctokitResponse once @octokit/plugin-throttling
           // is installed (it augments the type) — a cache hit made zero attempts.
-          return { status: 200, url: parsed.url, headers: { etag: cached.etag }, data: cached.data, retryCount: 0 };
+          return {
+            status: 200,
+            url: parsed.url,
+            headers: { etag: cached.etag },
+            data: cached.data,
+            retryCount: 0,
+          };
         }
         throw error;
       }

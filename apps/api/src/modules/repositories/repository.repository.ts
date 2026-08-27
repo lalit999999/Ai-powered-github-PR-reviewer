@@ -1,5 +1,8 @@
 import { prisma } from "@repo/db";
-import type { RepositoryOwnership, RepositoryRecord } from "./repository.types.js";
+import type {
+  RepositoryOwnership,
+  RepositoryRecord,
+} from "./repository.types.js";
 
 /**
  * Prisma queries only — no business logic, no logging, no error translation beyond
@@ -93,7 +96,9 @@ const ACCESS_LOST = "ACCESS_LOST";
  * check to say which. The caller-visible answer is 404 either way, so nothing leaks:
  * the row never leaves the tenancy check, only the four columns it decides from.
  */
-export async function findOwnershipById(repositoryId: string): Promise<RepositoryOwnership | null> {
+export async function findOwnershipById(
+  repositoryId: string,
+): Promise<RepositoryOwnership | null> {
   const row = await prisma.repository.findUnique({
     where: { id: repositoryId },
     select: {
@@ -116,7 +121,10 @@ export async function findOwnershipById(repositoryId: string): Promise<Repositor
 /** Project-scoped detail read. Keyed on the primary key **and** `projectId`, so a
  * repository id belonging to another project cannot be read through a project the
  * caller does own. */
-export async function findByIdForProject(projectId: string, repositoryId: string): Promise<RepositoryRecord | null> {
+export async function findByIdForProject(
+  projectId: string,
+  repositoryId: string,
+): Promise<RepositoryRecord | null> {
   return prisma.repository.findFirst({
     where: { id: repositoryId, projectId },
     select: REPOSITORY_SELECT,
@@ -130,7 +138,9 @@ export async function findByIdForProject(projectId: string, repositoryId: string
  * still the user's, they just cannot be reached right now, and hiding them would
  * remove the only place the user could see the problem.
  */
-export async function listByProject(projectId: string): Promise<RepositoryRecord[]> {
+export async function listByProject(
+  projectId: string,
+): Promise<RepositoryRecord[]> {
   return prisma.repository.findMany({
     where: { projectId, connectionStatus: { not: DISCONNECTED } },
     select: REPOSITORY_SELECT,
@@ -178,7 +188,12 @@ export type CreateRepositoryResult =
  * `project.repository.ts`'s helper, deliberately — a shared "prisma-errors.ts" would
  * be a third file both repositories import for six lines. */
 function isUniqueConstraintViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "P2002";
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2002"
+  );
 }
 
 /**
@@ -198,7 +213,9 @@ function isUniqueConstraintViolation(err: unknown): boolean {
  * written here: phase-02 §11 says PENDING is the only status this phase can produce,
  * and passing them explicitly would make it look like a choice a caller could vary.
  */
-export async function create(input: CreateRepositoryInput): Promise<CreateRepositoryResult> {
+export async function create(
+  input: CreateRepositoryInput,
+): Promise<CreateRepositoryResult> {
   try {
     const repository = await prisma.repository.create({
       data: {
@@ -237,9 +254,16 @@ export async function create(input: CreateRepositoryInput): Promise<CreateReposi
  * caller owns this project, and re-asserting it in the `where` closes the window where
  * the two disagree.
  */
-export async function markDisconnected(projectId: string, repositoryId: string): Promise<number> {
+export async function markDisconnected(
+  projectId: string,
+  repositoryId: string,
+): Promise<number> {
   const result = await prisma.repository.updateMany({
-    where: { id: repositoryId, projectId, connectionStatus: { not: DISCONNECTED } },
+    where: {
+      id: repositoryId,
+      projectId,
+      connectionStatus: { not: DISCONNECTED },
+    },
     data: { connectionStatus: DISCONNECTED },
   });
   return result.count;
@@ -260,7 +284,10 @@ export async function markDisconnected(projectId: string, repositoryId: string):
  * Only `ACTIVE` rows transition: a `DISCONNECTED` repository the user already
  * disconnected must not be resurrected into `ACCESS_LOST` by a background job.
  */
-export async function markAccessLost(projectId: string, repositoryId: string): Promise<number> {
+export async function markAccessLost(
+  projectId: string,
+  repositoryId: string,
+): Promise<number> {
   const result = await prisma.repository.updateMany({
     where: { id: repositoryId, projectId, connectionStatus: ACTIVE },
     data: { connectionStatus: ACCESS_LOST },

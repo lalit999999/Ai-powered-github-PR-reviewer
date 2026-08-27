@@ -31,7 +31,11 @@ describe("createLogger", () => {
     logger.info("hello world");
 
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatchObject({ level: "info", msg: "hello world", component: "test.component" });
+    expect(lines[0]).toMatchObject({
+      level: "info",
+      msg: "hello world",
+      component: "test.component",
+    });
     expect(typeof lines[0]?.ts).toBe("string");
     expect(() => new Date(lines[0]?.ts as string).toISOString()).not.toThrow();
   });
@@ -70,7 +74,9 @@ describe("createLogger", () => {
     expect(line.SESSION_SECRET).toBe("[REDACTED]");
     expect(line.INNGEST_SIGNING_KEY).toBe("[REDACTED]");
     expect(line.ACCESS_TOKEN).toBe("[REDACTED]");
-    expect((line.nested as Record<string, unknown>).STRIPE_SECRET).toBe("[REDACTED]");
+    expect((line.nested as Record<string, unknown>).STRIPE_SECRET).toBe(
+      "[REDACTED]",
+    );
     expect((line.nested as Record<string, unknown>).safe).toBe("kept");
     expect(line.safeValue).toBe("kept-too");
   });
@@ -87,8 +93,13 @@ describe("redact (pure function)", () => {
 
     expect(output.DATABASE_URL).toBe("[REDACTED]");
     expect(output.ok).toBe("fine");
-    expect((output.deep as never as { deeper: Record<string, unknown> }).deeper.AUTH_TOKEN).toBe("[REDACTED]");
-    expect((output.deep as never as { deeper: Record<string, unknown> }).deeper.ok).toBe("fine");
+    expect(
+      (output.deep as never as { deeper: Record<string, unknown> }).deeper
+        .AUTH_TOKEN,
+    ).toBe("[REDACTED]");
+    expect(
+      (output.deep as never as { deeper: Record<string, unknown> }).deeper.ok,
+    ).toBe("fine");
     const list = output.list as Record<string, unknown>[];
     expect(list[0]?.CLIENT_SECRET).toBe("[REDACTED]");
     expect(list[1]?.ok).toBe("fine");
@@ -120,7 +131,9 @@ describe("redact (pure function)", () => {
     expect(output.GITHUB_APP_WEBHOOK_SECRET).toBe("[REDACTED]");
     expect(output["access-token"]).toBe("[REDACTED]");
     expect(output.authorization).toBe("[REDACTED]");
-    expect((output.nested as Record<string, unknown>).installationToken).toBe("[REDACTED]");
+    expect((output.nested as Record<string, unknown>).installationToken).toBe(
+      "[REDACTED]",
+    );
 
     expect(output.cacheKey).toBe("gh:install-token:12345");
     expect(output.installationId).toBe("12345");

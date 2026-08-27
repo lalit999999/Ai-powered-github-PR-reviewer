@@ -25,17 +25,26 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
   const session = await requireSession(req);
   const query = parseOrThrow(listProjectsQuerySchema, req.query);
 
-  const page = await projectService.listProjects({ userId: session.user.id }, query);
+  const page = await projectService.listProjects(
+    { userId: session.user.id },
+    query,
+  );
 
   res.status(200).json(page);
 }
 
 /** POST /api/projects — 400 invalid name, 409 slug taken, 401 no session. */
-export async function createProject(req: Request, res: Response): Promise<void> {
+export async function createProject(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const body = parseOrThrow(createProjectBodySchema, req.body);
 
-  const project = await projectService.createProject({ userId: session.user.id }, body);
+  const project = await projectService.createProject(
+    { userId: session.user.id },
+    body,
+  );
 
   res.status(201).json({ project });
 }
@@ -62,11 +71,18 @@ export async function getProject(req: Request, res: Response): Promise<void> {
  * asynchronous — it is a no-op today only because there are no jobs to cancel yet
  * (§7, §8).
  */
-export async function deleteProject(req: Request, res: Response): Promise<void> {
+export async function deleteProject(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const { projectId } = parseOrThrow(projectIdParamSchema, req.params);
 
-  const tenant = await requireTenantAccess(session, { projectId }, { allowDeleted: true });
+  const tenant = await requireTenantAccess(
+    session,
+    { projectId },
+    { allowDeleted: true },
+  );
   await projectService.softDeleteProject(tenant);
 
   res.status(202).json({ projectId: tenant.projectId });

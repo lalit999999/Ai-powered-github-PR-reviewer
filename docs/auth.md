@@ -11,12 +11,12 @@ its own ownership check.** If you are adding a route and reaching for
 
 ## 1. The two credentials, never conflated
 
-| | OAuth session (this phase) | GitHub App installation (Phase 02) |
-|---|---|---|
-| Answers | *Who is logged in?* | *What repository data may we read?* |
-| Obtained by | GitHub OAuth sign-in | Installing the GitHub App on an org/account |
-| Scopes | `read:user`, `user:email` — nothing repository-related | Repository contents, PRs, checks |
-| Stored as | `User` + `Session` rows | `GithubInstallation` rows (empty until Phase 02) |
+|             | OAuth session (this phase)                             | GitHub App installation (Phase 02)               |
+| ----------- | ------------------------------------------------------ | ------------------------------------------------ |
+| Answers     | _Who is logged in?_                                    | _What repository data may we read?_              |
+| Obtained by | GitHub OAuth sign-in                                   | Installing the GitHub App on an org/account      |
+| Scopes      | `read:user`, `user:email` — nothing repository-related | Repository contents, PRs, checks                 |
+| Stored as   | `User` + `Session` rows                                | `GithubInstallation` rows (empty until Phase 02) |
 
 The OAuth token is **never** used to call repository-scoped GitHub APIs (phase-01 §13,
 plan.md Assumption A3). They are separate credentials with separate lifetimes; treating
@@ -53,12 +53,12 @@ Three pieces of that are non-obvious and are wired deliberately:
   `githubUserId`/`githubLogin`/`avatarUrl` land without a backfill hook. `githubUserId`
   — not `email` — is the stable identity key, because a GitHub email can change
   (phase-01 §22).
-- **`callbacks.session` re-attaches `user.id`.** @auth/core's *default* session callback
+- **`callbacks.session` re-attaches `user.id`.** @auth/core's _default_ session callback
   reduces the session to `{name, email, image, expires}` and drops the id. Every
   authenticated route depends on `session.user.id`, so this override is load-bearing,
   not decoration.
 - **`callbacks.redirect` allow-lists the frontend origin.** The default resolves relative
-  callback URLs against the *API* origin, which would land a successful sign-in on the
+  callback URLs against the _API_ origin, which would land a successful sign-in on the
   API instead of the UI. The override accepts the frontend origin and the API's own
   origin and falls back to the frontend root — a permissive version of this callback is
   an open redirect.
@@ -90,12 +90,12 @@ row (`sessionToken`, `userId`, `expires`) plus a cookie holding the token.
 **Cookie flags** come from @auth/core's unconditional defaults and are asserted on real
 `Set-Cookie` headers in `tests/integration/auth-cookies.test.ts`:
 
-| Flag | Value | Note |
-|---|---|---|
-| `httpOnly` | always | |
-| `sameSite` | `Lax` | see the same-site deployment constraint in `docs/deployment.md` |
-| `secure` | follows the request scheme | on for https, off for `http://localhost`; `app.set("trust proxy", true)` is what makes this correct behind a TLS-terminating load balancer |
-| name | `authjs.session-token` / `__Secure-authjs.session-token` | the prefix appears with `secure` |
+| Flag       | Value                                                    | Note                                                                                                                                       |
+| ---------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `httpOnly` | always                                                   |                                                                                                                                            |
+| `sameSite` | `Lax`                                                    | see the same-site deployment constraint in `docs/deployment.md`                                                                            |
+| `secure`   | follows the request scheme                               | on for https, off for `http://localhost`; `app.set("trust proxy", true)` is what makes this correct behind a TLS-terminating load balancer |
+| name       | `authjs.session-token` / `__Secure-authjs.session-token` | the prefix appears with `secure`                                                                                                           |
 
 ### Reading a session
 
@@ -125,10 +125,10 @@ branch on signed-in-ness rather than require it.
 import { requireTenantAccess } from "../lib/auth/tenant-access.js";
 
 export async function getProject(req: Request, res: Response): Promise<void> {
-  const session = await requireSession(req);                          // 1. authenticate
+  const session = await requireSession(req); // 1. authenticate
   const { projectId } = parseOrThrow(projectIdParamSchema, req.params);
-  const tenant = await requireTenantAccess(session, { projectId });   // 2. resolve tenancy
-  const detail = await projectService.getProjectDetail(tenant);       // 3. delegate
+  const tenant = await requireTenantAccess(session, { projectId }); // 2. resolve tenancy
+  const detail = await projectService.getProjectDetail(tenant); // 3. delegate
   res.status(200).json(detail);
 }
 ```
@@ -145,7 +145,7 @@ requireTenantAccess(
 
 1. **Every failure is a 404.** Missing, soft-deleted, and foreign all return the same
    404 with the same body. phase-01 §7 lists a 403 for "not owner", but §12 says a 403
-   that reveals a resource *exists* is itself an information leak — §12 wins, because a
+   that reveals a resource _exists_ is itself an information leak — §12 wins, because a
    403 turns id-guessing into tenant enumeration. `ForbiddenError` stays in the error
    hierarchy for later resource types where the caller provably already knows the
    resource exists.
@@ -164,7 +164,7 @@ requireTenantAccess(
 
 Exactly one caller sets it: `DELETE /api/projects/:id`. phase-01 §4 requires the delete
 to be idempotent, which is impossible if the tenancy check 404s on the second call.
-Ownership is still enforced — a *foreign* soft-deleted project is still 404 — and every
+Ownership is still enforced — a _foreign_ soft-deleted project is still 404 — and every
 read path leaves it off, so soft-deleted projects stay invisible everywhere else.
 
 ### How to extend it in a later phase
@@ -175,11 +175,11 @@ Add a resolution branch, do not add a second function:
 // Phase 02, sketch
 export interface TenantResource {
   projectId?: string;
-  repositoryId?: string;   // ← new
+  repositoryId?: string; // ← new
 }
 export interface TenantContext extends OwnerContext {
   projectId: string;
-  repositoryId?: string;   // ← new
+  repositoryId?: string; // ← new
 }
 ```
 
@@ -193,15 +193,15 @@ is written as a template and says so.
 
 ## 5. The layering this enforces
 
-| Layer | Rule |
-|---|---|
-| Route handler | authenticate → `requireTenantAccess` → `parseOrThrow` → delegate. No business logic, no ownership query, no raw input parsing. |
-| Service | Takes the tenant context as a **required first argument** — `OwnerContext` for collection operations, `TenantContext` for a specific resource. Never optional, never derived from a request. |
-| Repository | Every `where` carries the owner scope. Every read excludes `deletedAt != null` unless the function name says otherwise. Only `*.repository.ts` (and `packages/db/**`) may import Prisma. |
+| Layer         | Rule                                                                                                                                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route handler | authenticate → `requireTenantAccess` → `parseOrThrow` → delegate. No business logic, no ownership query, no raw input parsing.                                                               |
+| Service       | Takes the tenant context as a **required first argument** — `OwnerContext` for collection operations, `TenantContext` for a specific resource. Never optional, never derived from a request. |
+| Repository    | Every `where` carries the owner scope. Every read excludes `deletedAt != null` unless the function name says otherwise. Only `*.repository.ts` (and `packages/db/**`) may import Prisma.     |
 
 Row-Level Security is the eventual backstop for a missing `where` (plan.md §34.2), and
 is deliberately deferred to a post-MVP phase. Until then, the service-layer scoping above
-*is* the control, which is why the cross-tenant test is not optional.
+_is_ the control, which is why the cross-tenant test is not optional.
 
 ---
 
