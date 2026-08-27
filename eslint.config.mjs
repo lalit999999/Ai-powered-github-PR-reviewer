@@ -57,6 +57,13 @@ export default tseslint.config(
       // unused type parameters/decorator arguments on purpose to exercise those
       // constructs. Real source-quality rules do not apply to fixture data.
       "**/tests/fixtures/parsing/**",
+      // Phase-04 Prompt 5's graph-fixture repository (apps/worker/tests/fixtures/
+      // graph-repo/) — committed source for the precision measurement and structural
+      // graph tests, read as raw text by the parsing pipeline. Deliberately contains
+      // unresolvable imports, an unparseable file, and same-named-export collisions;
+      // real source-quality rules do not apply here either, same reasoning as the
+      // parsing fixtures above.
+      "**/tests/fixtures/graph-repo/**",
       // apps/web has its own complete, Next.js-flavored eslint.config.mjs (react-hooks,
       // react-compiler, etc.) run via `turbo lint` — linting it again here with this
       // generic config would conflict rather than add coverage.

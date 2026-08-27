@@ -9,5 +9,8 @@
   // type-checkable TypeScript — one is intentionally malformed syntax, and none of them
   // are meant to compile as part of this project; they are read as raw text by
   // typescript.adapter.golden.test.ts, never imported. tsc must not attempt to check them.
-  "exclude": ["tests/fixtures/parsing/**"]
+  // Prompt 5's graph-fixture repository (tests/fixtures/graph-repo/**) is the same story —
+  // unresolvable imports and an unparseable file by design, read as raw text by
+  // graph-fixture.test.ts / call-precision.test.ts, never imported or compiled.
+  "exclude": ["tests/fixtures/parsing/**", "tests/fixtures/graph-repo/**"]
 }

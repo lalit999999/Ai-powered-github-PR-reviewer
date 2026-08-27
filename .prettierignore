@@ -5,3 +5,5 @@ build
 coverage
 .turbo
 .env*
+apps/worker/tests/fixtures/parsing
+apps/worker/tests/fixtures/graph-repo
