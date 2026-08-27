@@ -29,9 +29,35 @@ import type { TarballFetchResult } from "./fetcher/tarball-fetcher.js";
 
 const upsertRepositoryFiles = vi.fn(async (_files: RepositoryFileUpsertInput[]) => undefined);
 const sweepStaleRepositoryFiles = vi.fn(async (_repositoryId: string, _sha: string) => 0);
+const updateRepositoryFileGraphMetadata = vi.fn(async (_updates: unknown[]) => undefined);
+// Same synthesized-id approach as indexer.service.test.ts's own mock — see that file's
+// comment for why: `upsertRepositoryFiles` is mocked out, so there is no live row to read
+// a real id back from.
+const findRepositoryFilesByCommit = vi.fn(async (_repositoryId: string, _commitSha: string) => {
+  const lastUpsert = upsertRepositoryFiles.mock.calls.at(-1)?.[0] as RepositoryFileUpsertInput[] | undefined;
+  return (lastUpsert ?? []).map((f) => ({ id: `file-${f.path}`, path: f.path, indexState: f.indexState, isTest: f.isTest }));
+});
 vi.mock("./persistence/repository-file.repository.js", () => ({
   upsertRepositoryFiles: (files: RepositoryFileUpsertInput[]) => upsertRepositoryFiles(files),
   sweepStaleRepositoryFiles: (repositoryId: string, sha: string) => sweepStaleRepositoryFiles(repositoryId, sha),
+  updateRepositoryFileGraphMetadata: (updates: unknown[]) => updateRepositoryFileGraphMetadata(updates),
+  findRepositoryFilesByCommit: (repositoryId: string, commitSha: string) => findRepositoryFilesByCommit(repositoryId, commitSha),
+}));
+
+const insertCodeSymbols = vi.fn(async (_rows: unknown[]) => undefined);
+const deleteCodeSymbolsByRepository = vi.fn(async (_repositoryId: string) => 0);
+vi.mock("./persistence/code-symbol.repository.js", () => ({
+  insertCodeSymbols: (rows: unknown[]) => insertCodeSymbols(rows),
+  deleteCodeSymbolsByRepository: (repositoryId: string) => deleteCodeSymbolsByRepository(repositoryId),
+}));
+
+const insertCodeDependencies = vi.fn(async (_rows: unknown[]) => ({}));
+const deleteCodeDependenciesByRepository = vi.fn(async (_repositoryId: string) => 0);
+const countInboundEdgesByFile = vi.fn(async (_repositoryId: string) => [] as { fileId: string; inboundEdgeCount: number }[]);
+vi.mock("./persistence/code-dependency.repository.js", () => ({
+  insertCodeDependencies: (rows: unknown[]) => insertCodeDependencies(rows),
+  deleteCodeDependenciesByRepository: (repositoryId: string) => deleteCodeDependenciesByRepository(repositoryId),
+  countInboundEdgesByFile: (repositoryId: string) => countInboundEdgesByFile(repositoryId),
 }));
 
 const { indexRepository } = await import("./indexer.service.js");
@@ -106,6 +132,7 @@ async function runFixture(entries: FixtureEntry[], overrides: Partial<Parameters
     tempRootDir: await makeTempRoot(),
     maxTotalBytes: 50 * 1024 * 1024,
     maxFileCount: 10_000,
+    attempt: 0,
     ...overrides,
     logger: logger as never,
     fetchTarball: fakeFetchTarball({ ok: true, stream: toWebStream(buffer) }) as never,

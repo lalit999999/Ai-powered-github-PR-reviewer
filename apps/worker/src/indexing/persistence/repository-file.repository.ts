@@ -155,6 +155,34 @@ export async function sweepStaleRepositoryFiles(repositoryId: string, targetComm
   return result.count;
 }
 
+export interface RepositoryFileGraphInput {
+  id: string;
+  path: string;
+  indexState: IndexState;
+  isTest: boolean;
+}
+
+/**
+ * Phase 04 (sub-task 4.6): reads back every `RepositoryFile` row just written for
+ * `commitSha` — the `{id, path, indexState, isTest}` shape `graph-builder.ts`'s
+ * `GraphBuilderFileInput` needs. Read back rather than carried forward from the caller's
+ * own `upsertRepositoryFiles` input on purpose: that function's upsert deliberately
+ * discards a conflicting row's freshly-generated id in favor of the existing row's own
+ * (see that function's header comment), so the id an existing file ends up with is not
+ * knowable to the caller without asking Postgres after the upsert has committed.
+ */
+export async function findRepositoryFilesByCommit(repositoryId: string, commitSha: string): Promise<RepositoryFileGraphInput[]> {
+  const rows = await prisma.repositoryFile.findMany({
+    where: { repositoryId, commitSha },
+    select: { id: true, path: true, indexState: true, isTest: true },
+  });
+  // `RepositoryFile.indexState` is a plain `String` column (like `classification` — see
+  // this file's own upsert header comment), so Prisma's generated type is `string`, not
+  // the app-level `IndexState` union; narrowed here at the one place this table's rows
+  // become a typed `GraphBuilderFileInput`.
+  return rows.map((row) => ({ ...row, indexState: row.indexState as IndexState }));
+}
+
 // ---------------------------------------------------------------------------
 // Phase 04 — the RepositoryFile graph-metadata update pass (sub-task 4.4)
 // ---------------------------------------------------------------------------

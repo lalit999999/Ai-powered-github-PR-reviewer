@@ -155,8 +155,14 @@ export async function updateProgress(jobId: string, update: ProgressUpdate): Pro
 
 /** Terminal success — `progressPercent` is forced to 100 rather than trusting whatever
  * the last `updateProgress` call left it at, so a rounding gap in an intermediate
- * cadence can never leave a `SUCCEEDED` job visibly stuck below 100% in the UI. */
-export async function markSucceeded(jobId: string, finalCounts: { filesTotal: number; filesProcessed: number; filesSkipped: number }): Promise<void> {
+ * cadence can never leave a `SUCCEEDED` job visibly stuck below 100% in the UI.
+ * `symbolsCreated`/`edgesCreated` (Phase 04, sub-task 4.6) are optional so the no-op
+ * path (`markSucceededNoOp`, below) and any other caller with nothing to report can omit
+ * them without writing `0` over a value that was never actually computed this run. */
+export async function markSucceeded(
+  jobId: string,
+  finalCounts: { filesTotal: number; filesProcessed: number; filesSkipped: number; symbolsCreated?: number; edgesCreated?: number },
+): Promise<void> {
   await prisma.indexJob.update({
     where: { id: jobId },
     data: {
@@ -167,6 +173,8 @@ export async function markSucceeded(jobId: string, finalCounts: { filesTotal: nu
       filesTotal: finalCounts.filesTotal,
       filesProcessed: finalCounts.filesProcessed,
       filesSkipped: finalCounts.filesSkipped,
+      ...(finalCounts.symbolsCreated !== undefined ? { symbolsCreated: finalCounts.symbolsCreated } : {}),
+      ...(finalCounts.edgesCreated !== undefined ? { edgesCreated: finalCounts.edgesCreated } : {}),
     },
   });
 }

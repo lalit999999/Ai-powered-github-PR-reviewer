@@ -70,12 +70,24 @@ export function parseCode(message: string): { code: IndexErrorCode | "UNKNOWN"; 
 
 type SlimIndexResult = Pick<
   Extract<IndexRepositoryResult, { ok: true }>,
-  "filesTotal" | "filesIndexed" | "filesProcessed" | "filesFailed" | "filesSkipped" | "hardIgnoredCount" | "staleRowsRemoved"
+  | "filesTotal"
+  | "filesIndexed"
+  | "filesProcessed"
+  | "filesFailed"
+  | "filesSkipped"
+  | "hardIgnoredCount"
+  | "staleRowsRemoved"
+  | "symbolsCreated"
+  | "edgesCreated"
+  | "parseFailureCount"
+  | "unresolvedImportRatio"
 >;
 
 /** plan.md §27.5 rule 3: step outputs are serialized into Inngest's state and must stay
  * small. `IndexRepositoryResult`'s `extraction.skipped` array can hold one entry per
- * rejected archive entry — never returned from a step; only these scalar counts are. */
+ * rejected archive entry — never returned from a step; only these scalar counts are.
+ * Phase 04 (sub-task 4.6) adds the four graph-builder scalars — still just counts/ratios,
+ * never the `fileGraphMetadata` array `buildKnowledgeGraph` itself returns. */
 function slim(result: Extract<IndexRepositoryResult, { ok: true }>): SlimIndexResult {
   return {
     filesTotal: result.filesTotal,
@@ -85,6 +97,10 @@ function slim(result: Extract<IndexRepositoryResult, { ok: true }>): SlimIndexRe
     filesSkipped: result.filesSkipped,
     hardIgnoredCount: result.hardIgnoredCount,
     staleRowsRemoved: result.staleRowsRemoved,
+    symbolsCreated: result.symbolsCreated,
+    edgesCreated: result.edgesCreated,
+    parseFailureCount: result.parseFailureCount,
+    unresolvedImportRatio: result.unresolvedImportRatio,
   };
 }
 
@@ -97,6 +113,12 @@ interface FetchExtractArgs {
   sha: string;
   repositoryId: string;
   jobId: string;
+  /** Inngest's own `attempt` (the function handler's parameter) — threaded straight
+   * through to `indexRepository`, which threads it to `buildKnowledgeGraph`'s
+   * attempt-aware batch sizing. A fresh step id per real retry (see `record-attempt-N`
+   * below) means this is the same number on every re-invocation of this step for a given
+   * attempt. */
+  attempt: number;
 }
 
 /**
@@ -134,6 +156,7 @@ export async function runFetchExtractPersist(args: FetchExtractArgs): Promise<Fe
       tempRootDir: env.WORKER_TEMP_DIR ?? os.tmpdir(),
       maxTotalBytes: env.INDEX_MAX_TOTAL_BYTES,
       maxFileCount: env.INDEX_MAX_FILE_COUNT,
+      attempt: args.attempt,
       logger,
     });
 
@@ -317,6 +340,7 @@ export const repositoryIndex = inngest.createFunction(
       sha: targetCommitSha,
       repositoryId,
       jobId: job.id,
+      attempt,
     };
 
     let outcome = await step.run("fetch-extract-persist", () => runFetchExtractPersist(fetchArgs));
@@ -371,6 +395,8 @@ export const repositoryIndex = inngest.createFunction(
         filesTotal: indexResult.filesTotal,
         filesProcessed: indexResult.filesProcessed,
         filesSkipped: indexResult.filesSkipped,
+        symbolsCreated: indexResult.symbolsCreated,
+        edgesCreated: indexResult.edgesCreated,
       }),
     );
 
@@ -398,6 +424,10 @@ export const repositoryIndex = inngest.createFunction(
       filesSkipped: indexResult.filesSkipped,
       hardIgnoredCount: indexResult.hardIgnoredCount,
       staleRowsRemoved: indexResult.staleRowsRemoved,
+      symbolsCreated: indexResult.symbolsCreated,
+      edgesCreated: indexResult.edgesCreated,
+      parseFailureCount: indexResult.parseFailureCount,
+      unresolvedImportRatio: indexResult.unresolvedImportRatio,
     });
 
     return { skipped: false as const, commitSha: targetCommitSha, ...indexResult };

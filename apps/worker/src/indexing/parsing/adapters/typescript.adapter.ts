@@ -996,34 +996,55 @@ export function isParseRefusal(result: ParseFileResult): result is ParseRefusal 
   return (result as Partial<ParseRefusal>).refused === true;
 }
 
+/**
+ * Phase 04 (sub-task 4.6 perf finding): compiling a tree-sitter `Query` pattern is
+ * significantly more expensive than parsing the handful of lines a typical source file
+ * contains — recompiling {@link LANGUAGE_QUERY}'s combined
+ * symbols/imports/exports/heritage/calls pattern on every single call to
+ * `buildParsedFile` measured at roughly 35-45ms/file against a synthetic 5,000-file
+ * fixture (`repository-index-performance.test.ts`), on track to miss this phase's own
+ * §15 acceptance criterion ("a 10,000-file repository completes parsing in under 5
+ * minutes"). One `Query` object is safe to reuse across every parse for a given
+ * language — it is a pure pattern matched against whatever tree `.matches()` is handed,
+ * with no per-parse state — exactly the same one-per-language, process-lifetime
+ * memoization `parser-pool.ts` already applies to `Parser`/`Language`. Never `.delete()`d
+ * for the same reason those two are not: it needs to outlive every individual parse, not
+ * just one.
+ */
+const queryCache = new Map<ParserLanguage, Query>();
+
+function getQuery(language: ParserLanguage, tree: Tree): Query {
+  const existing = queryCache.get(language);
+  if (existing) return existing;
+  const query = new Query(tree.language, LANGUAGE_QUERY[language]);
+  queryCache.set(language, query);
+  return query;
+}
+
 function buildParsedFile(filePath: string, language: ParserLanguage, sourceText: string, tree: Tree): ParsedFile {
   const rootNode = tree.rootNode;
-  const query = new Query(tree.language, LANGUAGE_QUERY[language]);
-  try {
-    const matches = query.matches(rootNode);
-    const flat = flatByName(matches);
+  const query = getQuery(language, tree);
+  const matches = query.matches(rootNode);
+  const flat = flatByName(matches);
 
-    const imports = extractImports(matches, flat);
-    const { exports, exportedLocalNames, reExportImports } = extractExports(matches, flat);
-    const records = extractSymbolRecords(matches, sourceText, language, exportedLocalNames);
-    attachHeritage(flat, records);
-    attachCalls(matches, records);
+  const imports = extractImports(matches, flat);
+  const { exports, exportedLocalNames, reExportImports } = extractExports(matches, flat);
+  const records = extractSymbolRecords(matches, sourceText, language, exportedLocalNames);
+  attachHeritage(flat, records);
+  attachCalls(matches, records);
 
-    const { errorNodeCount } = getParseErrorInfo(tree);
-    const totalNodeCount = countTotalNodes(rootNode);
+  const { errorNodeCount } = getParseErrorInfo(tree);
+  const totalNodeCount = countTotalNodes(rootNode);
 
-    return {
-      filePath,
-      language,
-      imports: [...imports, ...reExportImports],
-      exports,
-      symbols: records.map((record) => record.symbol),
-      parseErrors: errorNodeCount,
-      parseState: isTrustworthyParse(errorNodeCount, totalNodeCount) ? "OK" : "FAILED",
-    };
-  } finally {
-    query.delete();
-  }
+  return {
+    filePath,
+    language,
+    imports: [...imports, ...reExportImports],
+    exports,
+    symbols: records.map((record) => record.symbol),
+    parseErrors: errorNodeCount,
+    parseState: isTrustworthyParse(errorNodeCount, totalNodeCount) ? "OK" : "FAILED",
+  };
 }
 
 /**

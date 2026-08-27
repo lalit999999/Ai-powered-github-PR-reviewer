@@ -23,6 +23,10 @@ function okResult(overrides: Partial<Extract<IndexRepositoryResult, { ok: true }
     hardIgnoreRatio: 0.1,
     staleRowsRemoved: 0,
     extraction: { filesWritten: 10, directoriesWritten: 2, totalBytes: 1000, skipped: [] },
+    symbolsCreated: 20,
+    edgesCreated: 15,
+    parseFailureCount: 0,
+    unresolvedImportRatio: 0.05,
     ...overrides,
   };
 }
@@ -34,6 +38,7 @@ const ARGS = {
   sha: "abc123",
   repositoryId: "repo-1",
   jobId: "job-1",
+  attempt: 0,
 };
 
 beforeEach(() => {
@@ -76,6 +81,10 @@ describe("runFetchExtractPersist", () => {
         filesSkipped: 1,
         hardIgnoredCount: 3,
         staleRowsRemoved: 0,
+        symbolsCreated: 20,
+        edgesCreated: 15,
+        parseFailureCount: 0,
+        unresolvedImportRatio: 0.05,
       },
     });
     // The extraction.skipped array (unbounded) must never appear in what a step returns.

@@ -250,6 +250,7 @@ describe("repository-index — an interrupted job never produces duplicate rows 
         tempRootDir: await makeTempDir(),
         maxTotalBytes: 50 * 1024 * 1024,
         maxFileCount: 10_000,
+        attempt: 0,
         fetchTarball: async () => ({ ok: true, stream: toWebStream(buffer) }),
       });
 
@@ -351,6 +352,7 @@ describe("repository-index — §12's failure modes, coded correctly and persist
         tempRootDir: await makeTempDir(),
         maxTotalBytes: 50 * 1024 * 1024,
         maxFileCount: 1, // the fixture has 3 files — trips the cap during extraction
+        attempt: 0,
         fetchTarball: async () => ({ ok: true, stream: toWebStream(buffer) }),
       }),
     ).rejects.toBeInstanceOf(ArchiveTooLargeError);
@@ -374,6 +376,7 @@ describe("repository-index — §12's failure modes, coded correctly and persist
         tempRootDir: await makeTempDir(),
         maxTotalBytes: 50 * 1024 * 1024,
         maxFileCount: 10_000,
+        attempt: 0,
         fetchTarball: async () => ({ ok: true, stream: toWebStream(truncated) }),
       }),
     ).rejects.toThrow();

@@ -1,7 +1,17 @@
 import { createLogger, type Logger } from "@repo/observability";
 import { extractRepositoryArchive, type ExtractionSummary } from "./fetcher/archive-extractor.js";
 import { fetchTarballStream, type TarballFetchOptions } from "./fetcher/tarball-fetcher.js";
-import { sweepStaleRepositoryFiles, upsertRepositoryFiles, type RepositoryFileUpsertInput } from "./persistence/repository-file.repository.js";
+import { buildKnowledgeGraph } from "./graph/graph-builder.js";
+import { buildRepoContext } from "./graph/repo-context.js";
+import { countInboundEdgesByFile } from "./persistence/code-dependency.repository.js";
+import {
+  findRepositoryFilesByCommit,
+  sweepStaleRepositoryFiles,
+  updateRepositoryFileGraphMetadata,
+  upsertRepositoryFiles,
+  type RepositoryFileGraphMetadataUpdate,
+  type RepositoryFileUpsertInput,
+} from "./persistence/repository-file.repository.js";
 import { walkTree, type WalkSummary } from "./walk-tree.js";
 
 /**
@@ -31,6 +41,16 @@ import { walkTree, type WalkSummary } from "./walk-tree.js";
  * doc comment). Two owners of the same cleanup responsibility is how a directory either
  * leaks or gets removed out from under a still-running read; there is one owner here on
  * purpose.
+ *
+ * **Phase 04 addendum (sub-task 4.6): `upsertRepositoryFiles`/`sweepStaleRepositoryFiles`
+ * moved inside `onExtracted`.** Prompt 3 ran them *after* `extractRepositoryArchive`
+ * returned, which was fine while nothing downstream needed the live filesystem. Building
+ * the knowledge graph needs both the persisted `RepositoryFile` ids (to stamp as
+ * `CodeSymbol.fileId`/edge endpoints) *and* the still-live `rootDir` to read source text
+ * from — and `rootDir` is removed the instant `onExtracted` returns (this module's own
+ * previous paragraph). So the persist step, the repo-context build, and the graph build
+ * all now run inside the same callback, in that order; nothing outside it may assume the
+ * extracted tree still exists.
  */
 
 export interface IndexRepositoryOptions {
@@ -43,6 +63,11 @@ export interface IndexRepositoryOptions {
   tempRootDir: string;
   maxTotalBytes: number;
   maxFileCount: number;
+  /** Inngest's `attempt` — threaded through to {@link buildKnowledgeGraph}'s
+   * `batchSizeForAttempt`. `0` for a fresh run (`repository-index.ts`'s own handler
+   * parameter, passed straight through, matching how `attempt` already flows into
+   * `record-attempt-N`). */
+  attempt: number;
   logger?: Logger;
   /**
    * Invoked at a handful of coarse checkpoints (download start, extraction/walk done,
@@ -82,6 +107,13 @@ export type IndexRepositoryResult =
       hardIgnoreRatio: number;
       staleRowsRemoved: number;
       extraction: ExtractionSummary;
+      /** Phase 04 (sub-task 4.6) — `buildKnowledgeGraph`'s own result, passed through
+       * verbatim rather than re-shaped; `repository-index.ts`'s `slim()` is what narrows
+       * this to scalars before it ever reaches Inngest step state. */
+      symbolsCreated: number;
+      edgesCreated: number;
+      parseFailureCount: number;
+      unresolvedImportRatio: number;
     }
   // Reuses fetchTarballStream's own result vocabulary verbatim rather than wrapping it —
   // repository-index.ts's error handling should see the identical shape it would get by
@@ -137,7 +169,7 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
   const logger = options.logger ?? createLogger("indexing.indexer-service");
   const fetchTarball = options.fetchTarball ?? fetchTarballStream;
 
-  await options.onProgress?.({ currentStep: "download-tarball", progressPercent: 15 });
+  await options.onProgress?.({ currentStep: "download-tarball", progressPercent: 10 });
 
   const fetchOptions: TarballFetchOptions = { logger };
   const fetched = await fetchTarball(options.installationId, options.owner, options.repo, options.sha, fetchOptions);
@@ -147,9 +179,9 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     return fetched;
   }
 
-  await options.onProgress?.({ currentStep: "extract-filter-hash", progressPercent: 35 });
+  await options.onProgress?.({ currentStep: "extract-filter-hash", progressPercent: 25 });
 
-  const { walkSummary, extraction } = await extractRepositoryArchive(
+  const { walkSummary, extraction, staleRowsRemoved, graphResult } = await extractRepositoryArchive(
     fetched.stream,
     {
       tempRootDir: options.tempRootDir,
@@ -160,19 +192,56 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     },
     async (rootDir, summary) => {
       const walked = await walkTree(rootDir, { logger });
-      return { walkSummary: walked, extraction: summary };
+
+      const upsertInputs = walked.files.map((file) => toUpsertInput(options.repositoryId, options.sha, file));
+      await upsertRepositoryFiles(upsertInputs);
+      const staleRemoved = await sweepStaleRepositoryFiles(options.repositoryId, options.sha);
+
+      await options.onProgress?.({ currentStep: "persist-repository-files", progressPercent: 40, filesTotal: walked.files.length });
+
+      // The graph builder needs real ids, and an upsert conflict discards the caller's
+      // generated id in favor of the existing row's own (repository-file.repository.ts's
+      // own comment) — the only honest way to learn them is to ask, after the upsert
+      // commits, scoped to this run's own commitSha.
+      const persistedFiles = await findRepositoryFilesByCommit(options.repositoryId, options.sha);
+      const repoContext = await buildRepoContext(
+        rootDir,
+        walked.files.map((file) => file.path),
+      );
+
+      await options.onProgress?.({ currentStep: "build-graph", progressPercent: 55 });
+
+      const graph = await buildKnowledgeGraph({
+        rootDir,
+        files: persistedFiles,
+        repoContext,
+        repositoryId: options.repositoryId,
+        commitSha: options.sha,
+        attempt: options.attempt,
+        logger,
+      });
+
+      const inboundCounts = await countInboundEdgesByFile(options.repositoryId);
+      const inboundByFileId = new Map(inboundCounts.map((row) => [row.fileId, row.inboundEdgeCount]));
+      const metadataUpdates: RepositoryFileGraphMetadataUpdate[] = graph.fileGraphMetadata.map((meta) => ({
+        fileId: meta.fileId,
+        symbolCount: meta.symbolCount,
+        inboundEdgeCount: inboundByFileId.get(meta.fileId) ?? 0,
+        parseState: meta.parseState,
+        packageName: meta.packageName,
+        isTest: meta.isTest,
+      }));
+      await updateRepositoryFileGraphMetadata(metadataUpdates);
+
+      await options.onProgress?.({ currentStep: "graph-built", progressPercent: 85 });
+
+      return { walkSummary: walked, extraction: summary, staleRowsRemoved: staleRemoved, graphResult: graph };
     },
   );
 
   const { filesIndexed, filesFailed, filesSkipped } = countByBucket(walkSummary.files);
   const filesProcessed = filesIndexed + filesFailed;
   const filesTotal = walkSummary.files.length;
-
-  await options.onProgress?.({ currentStep: "persist-repository-files", progressPercent: 70, filesTotal });
-
-  const upsertInputs = walkSummary.files.map((file) => toUpsertInput(options.repositoryId, options.sha, file));
-  await upsertRepositoryFiles(upsertInputs);
-  const staleRowsRemoved = await sweepStaleRepositoryFiles(options.repositoryId, options.sha);
 
   logger.info("indexRepository completed", {
     repositoryId: options.repositoryId,
@@ -183,9 +252,13 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     filesSkipped,
     hardIgnoredCount: walkSummary.hardIgnoredCount,
     staleRowsRemoved,
+    symbolsCreated: graphResult.symbolsCreated,
+    edgesCreated: graphResult.edgesCreated,
+    parseFailureCount: graphResult.parseFailureCount,
+    unresolvedImportRatio: Number(graphResult.unresolvedImportRatio.toFixed(3)),
   });
 
-  await options.onProgress?.({ currentStep: "persisted", progressPercent: 90, filesProcessed, filesSkipped });
+  await options.onProgress?.({ currentStep: "persisted", progressPercent: 95, filesProcessed, filesSkipped });
 
   return {
     ok: true,
@@ -198,5 +271,9 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     hardIgnoreRatio: walkSummary.hardIgnoreRatio,
     staleRowsRemoved,
     extraction,
+    symbolsCreated: graphResult.symbolsCreated,
+    edgesCreated: graphResult.edgesCreated,
+    parseFailureCount: graphResult.parseFailureCount,
+    unresolvedImportRatio: graphResult.unresolvedImportRatio,
   };
 }

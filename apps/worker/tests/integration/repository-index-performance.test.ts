@@ -94,6 +94,7 @@ describe.skipIf(process.env.SKIP_PERF_TESTS === "1")("repository-index — perfo
       tempRootDir,
       maxTotalBytes: 200 * 1024 * 1024,
       maxFileCount: 20_000,
+      attempt: 0,
       fetchTarball: async () => ({ ok: true, stream: toWebStream(buffer) }),
     });
 
@@ -114,11 +115,18 @@ describe.skipIf(process.env.SKIP_PERF_TESTS === "1")("repository-index — perfo
     // recorded baseline is not enough to catch a regression.
     expect(durationMs).toBeLessThan(60_000);
 
-    // Batching — persistence issues ceil(n / 1000) statements, not n. Counted at the
-    // repository-layer seam (Prisma.join, called exactly once per batched INSERT ...
-    // ON CONFLICT statement) rather than assumed from reading the source.
-    const expectedBatches = Math.ceil(FILE_COUNT / 1000);
-    expect(joinSpy).toHaveBeenCalledTimes(expectedBatches);
+    // Batching — persistence issues ceil(n / 1000)-shaped statement counts, not one
+    // per row. Counted at the repository-layer seam (Prisma.join, called exactly once
+    // per batched INSERT/UPDATE statement) rather than assumed from reading the source.
+    // Phase 04 (sub-task 4.6) added several more batched writers behind the same call —
+    // RepositoryFile upsert, CodeSymbol insert, CodeDependency insert (one batch group
+    // per (kind, resolution) pair actually produced), and the RepositoryFile
+    // graph-metadata update — so the exact count is no longer a single ceil(n/1000); the
+    // bound below stays generous on purpose (proving "batched, not per-row" without
+    // pinning today's exact writer count, which a future edge kind would otherwise make
+    // this test brittle against for no real regression).
+    expect(joinSpy.mock.calls.length).toBeGreaterThan(0);
+    expect(joinSpy.mock.calls.length).toBeLessThan(FILE_COUNT / 50);
 
     // Streaming — a coarse, honest bound. This does not prove O(1) memory scaling on
     // its own (that is archive-extractor.test.ts's dedicated compressed-vs-decompressed
