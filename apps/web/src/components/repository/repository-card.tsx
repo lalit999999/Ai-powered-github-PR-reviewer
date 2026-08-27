@@ -9,7 +9,11 @@ import {
 } from "@/components/ui/card";
 import { DisconnectRepositoryButton } from "@/components/repository/disconnect-repository-button";
 import { IndexStatusPoller } from "@/components/repository/index-status-poller";
+<<<<<<< HEAD
 import { KnowledgePanel } from "@/components/repository/knowledge-panel";
+=======
+import { WebhookStatusPanel } from "@/components/repository/webhook-status-panel";
+>>>>>>> main
 import type { IndexStatus, Repository } from "@/lib/api";
 
 /**
@@ -20,6 +24,11 @@ import type { IndexStatus, Repository } from "@/lib/api";
  * `index-status-poller.tsx` (it now needs to react to *live*, polled status, not just
  * this page-load snapshot), and the one line that used to render a plain `Badge` here
  * now renders `IndexStatusPoller` instead. Nothing else in this file changed.
+ *
+ * The card grows the same way a second time for Phase 06: `WebhookStatusPanel` is added
+ * to `CardContent` alongside `IndexStatusPoller`, collapsed by default, rather than a new
+ * page or route (phase-06 Prompt 4 sub-task 4.4) — the same "the card should not need
+ * restructuring to grow" property phase-02 predicted, holding a second time.
  *
  * `initialStatus` is deliberately just `repository.indexStatus` plus safe zero/`null`
  * defaults for the fields this list endpoint doesn't carry (`currentStep`,
@@ -68,6 +77,7 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
           <DisconnectRepositoryButton repositoryId={repository.id} />
         </CardAction>
       </CardHeader>
+<<<<<<< HEAD
       <CardContent className="flex flex-col gap-4">
         <IndexStatusPoller
           repositoryId={repository.id}
@@ -77,6 +87,11 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
           repositoryId={repository.id}
           indexStatus={repository.indexStatus}
         />
+=======
+      <CardContent>
+        <IndexStatusPoller repositoryId={repository.id} initialStatus={toInitialStatus(repository)} />
+        <WebhookStatusPanel repositoryId={repository.id} />
+>>>>>>> main
       </CardContent>
     </Card>
   );

@@ -126,16 +126,34 @@ export async function triggerIndex(req: Request, res: Response): Promise<void> {
 }
 
 /**
+<<<<<<< HEAD
  * GET /api/repositories/:repositoryId/knowledge — phase-04 §7. Internal/debug read path;
  * same 404-for-missing/foreign/deleted-parent convention as every other route in this
  * file (`requireTenantAccess`'s own doc comment) — never 403 (§1 non-negotiable rule 1).
  */
 export async function getKnowledge(req: Request, res: Response): Promise<void> {
+=======
+ * POST /api/repositories/:repositoryId/webhook-test — phase-06 §7. **Reads, does not
+ * send.** The name is §7's own and is misleading on its face — this returns the
+ * repository's recent `WebhookEvent` deliveries; it does not dispatch a synthetic
+ * webhook. §7 specifies `POST`, so this is `POST` — no `GET` alias is added (see the
+ * phase report for the reasoning: this endpoint has no side effects, so `GET` would be
+ * the more honest verb, but the spec is explicit and a second route for one read is not
+ * worth the divergence).
+ */
+export async function getRecentWebhookDeliveries(req: Request, res: Response): Promise<void> {
+>>>>>>> main
   const session = await requireSession(req);
   const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
 
   const tenant = await requireTenantAccess(session, { repositoryId });
+<<<<<<< HEAD
   const knowledge = await repositoryService.getKnowledge(tenant);
 
   res.status(200).json(knowledge);
+=======
+  const recentDeliveries = await repositoryService.listRecentWebhookDeliveries(tenant);
+
+  res.status(200).json({ recentDeliveries });
+>>>>>>> main
 }

@@ -68,6 +68,61 @@ export async function upsertInstallation(
   });
 }
 
+export interface UpdateInstallationMetadataInput {
+  installationId: bigint;
+  accountLogin: string;
+  accountType: string;
+  suspendedAt: Date | null;
+}
+
+export type UpdateInstallationMetadataResult = { updated: true } | { updated: false; reason: "NOT_FOUND" };
+
+/**
+ * Phase 06's `installation.created` sync (webhooks/installation-sync.ts) — **update
+ * only, never create**. `upsertInstallation`'s own header comment above explains why
+ * `userId` is always in its write set: a webhook payload carries the
+ * GitHub *account* the App was installed on, never which of this product's users is
+ * signed in, so there is no `userId` this function could possibly invent for a new row.
+ * `userId` is therefore absent from this function's `data` entirely — an existing row's
+ * attribution survives untouched, and a missing row is left missing (see
+ * `installation-sync.ts`'s own header comment for the fuller argument and phase-06 §2).
+ *
+ * `updateMany` rather than `update`, so a missing row is a `{ updated: false }` result
+ * instead of a thrown `P2025` — `installationId` is `@unique`, so `count` is always 0 or
+ * 1, never more.
+ */
+export async function updateInstallationMetadataIfExists(
+  input: UpdateInstallationMetadataInput,
+): Promise<UpdateInstallationMetadataResult> {
+  const result = await prisma.githubInstallation.updateMany({
+    where: { installationId: input.installationId },
+    data: {
+      accountLogin: input.accountLogin,
+      accountType: input.accountType,
+      suspendedAt: input.suspendedAt,
+    },
+  });
+  return result.count === 1 ? { updated: true } : { updated: false, reason: "NOT_FOUND" };
+}
+
+/**
+ * `installation.suspend`/`unsuspend` (webhooks/installation-sync.ts). A narrower sibling
+ * of `updateInstallationMetadataIfExists` above — those two actions only ever touch
+ * `suspendedAt`, never `accountLogin`/`accountType`, so this does not disturb them.
+ * Returns the row count rather than a result union: unlike `installation.created`, a
+ * suspend/unsuspend for an installation this system has never seen is not expected to
+ * happen (GitHub only sends it for an installation that already exists), so there is no
+ * distinct "log at info and ignore" branch to report — 0 rows changed is simply logged
+ * by the caller alongside every other outcome.
+ */
+export async function setInstallationSuspendedAt(installationId: bigint, suspendedAt: Date | null): Promise<number> {
+  const result = await prisma.githubInstallation.updateMany({
+    where: { installationId },
+    data: { suspendedAt },
+  });
+  return result.count;
+}
+
 /** Every installation attributed to this user. Owner-scoped in the `where`. */
 export async function listInstallationsForUser(
   userId: string,

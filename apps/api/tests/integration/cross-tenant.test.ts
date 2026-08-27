@@ -594,3 +594,42 @@ describe("cross-tenant access — the dual-project case (plan.md §45's named fa
     expect(bReadsA.status).toBe(404);
   });
 });
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *  PHASE 06 EXTENSION — the recent-webhook-deliveries route, same three-part pattern.
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * `repository.service.ts`'s `listRecentWebhookDeliveries` is explicit that
+ * `webhookEventRepository.listRecentByRepositoryFullName` is not owner-scoped by
+ * design — the tenancy proof is `requireTenantAccess` establishing, one step earlier,
+ * that the caller owns *a* repository with this `fullName`. This is the check that
+ * exactly that proof is still enforced: user B, who owns no repository at all here,
+ * must not be able to reach user A's repository's deliveries by naming its id.
+ */
+describe("cross-tenant access — user B cannot read user A's repository's recent webhook deliveries", () => {
+  it("POST /api/repositories/:id/webhook-test — 404, not 403, not the deliveries", async () => {
+    const res = await request(app).post(`/api/repositories/${repositoryOfA.id}/webhook-test`).set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("recentDeliveries");
+  });
+
+  it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await request(app).post(`/api/repositories/${repositoryOfA.id}/webhook-test`).set("Cookie", userB.cookie);
+    const nonexistent = await request(app)
+      .post("/api/repositories/00000000-0000-0000-0000-000000000000/webhook-test")
+      .set("Cookie", userB.cookie);
+
+    expect(foreign.status).toBe(nonexistent.status);
+    expect(foreign.body).toEqual(nonexistent.body);
+  });
+
+  it("user A can read their own repository's recent webhook deliveries — not a blanket deny", async () => {
+    const res = await request(app).post(`/api/repositories/${repositoryOfA.id}/webhook-test`).set("Cookie", userA.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("recentDeliveries");
+    expect(Array.isArray(res.body.recentDeliveries)).toBe(true);
+  });
+});

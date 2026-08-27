@@ -1,0 +1,43 @@
+{
+  "action": "edited",
+  "number": 42,
+  "changes": {
+    "title": { "from": "Add webhook ingestin" },
+    "body": { "from": "This PR adds webhook ingestion." }
+  },
+  "pull_request": {
+    "id": 1911415577,
+    "number": 42,
+    "state": "open",
+    "locked": false,
+    "title": "Add webhook ingestion",
+    "user": { "login": "octocat", "id": 1 },
+    "body": "This PR adds webhook ingestion for pull_request events.",
+    "draft": false,
+    "head": {
+      "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5",
+      "ref": "feature/webhook-ingestion",
+      "repo": { "id": 1296269, "full_name": "octocat/hello-world" }
+    },
+    "base": {
+      "sha": "6dcb09b5b57875f334f61aebed695e2e4193db4",
+      "ref": "main",
+      "repo": { "id": 1296269, "full_name": "octocat/hello-world" }
+    },
+    "html_url": "https://github.com/octocat/hello-world/pull/42",
+    "created_at": "2026-08-20T10:00:00Z",
+    "updated_at": "2026-08-20T10:10:00Z"
+  },
+  "repository": {
+    "id": 1296269,
+    "node_id": "MDEwOlJlcG9zaXRvcnkxMjk2MjY5",
+    "name": "hello-world",
+    "full_name": "octocat/hello-world",
+    "private": false,
+    "owner": { "login": "octocat", "id": 1, "type": "User" },
+    "html_url": "https://github.com/octocat/hello-world",
+    "default_branch": "main"
+  },
+  "installation": { "id": 60123456, "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNjAxMjM0NTY=" },
+  "sender": { "login": "octocat", "id": 1, "type": "User" }
+}

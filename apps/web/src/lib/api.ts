@@ -246,6 +246,7 @@ export async function getIndexStatus(
 }
 
 /**
+<<<<<<< HEAD
  * `GET /api/repositories/:id/knowledge` response body (phase-04 §7), mirroring
  * `RepositoryKnowledgeDto` (apps/api) field-for-field. Only the *type* lives here —
  * `knowledge-panel.tsx` does its own `credentials: "include"` client-side fetch, the same
@@ -273,4 +274,29 @@ export interface RepositoryKnowledge {
   edgeCountByKind: Record<string, number>;
   parseStateCounts: Record<string, number>;
   topUnresolvedSpecifiers: TopUnresolvedSpecifier[];
+=======
+ * A `WebhookEvent` row as `POST /api/repositories/:id/webhook-test` returns it
+ * (phase-06 §7) — despite the route's name, this reads recorded deliveries; nothing is
+ * sent. Mirrors `WebhookDeliveryDto` (apps/api). No bigint fields: unlike `Repository`/
+ * `Installation` above, `installationId` is not part of this DTO at all — the API's own
+ * `WEBHOOK_EVENT_SELECT` doesn't select it for this read.
+ *
+ * No server-side fetcher is added here for this one, unlike `getRepository`/
+ * `getIndexStatus` above — `webhook-status-panel.tsx`'s own live fetch runs client-side
+ * (`credentials: "include"`, matching `index-status-poller.tsx`'s established pattern)
+ * and cannot use `apiFetch`, which reads `next/headers` cookies and only works in a
+ * Server Component. Only the type is shared here; the fetch itself lives with the
+ * component that uses it, exactly as `index-status-poller.tsx`'s own header comment
+ * explains for `IndexStatus`.
+ */
+export interface WebhookDelivery {
+  id: string;
+  deliveryId: string;
+  eventType: string;
+  action: string | null;
+  status: string;
+  dispatchedAt: string | null;
+  error: unknown;
+  createdAt: string;
+>>>>>>> main
 }

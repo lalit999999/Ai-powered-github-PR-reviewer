@@ -3,7 +3,11 @@ import {
   connectRepository,
   disconnectRepository,
   getIndexStatus,
+<<<<<<< HEAD
   getKnowledge,
+=======
+  getRecentWebhookDeliveries,
+>>>>>>> main
   getRepository,
   triggerIndex,
 } from "../controllers/repositories.controller.js";
@@ -12,6 +16,7 @@ import { withRoute } from "../lib/http.js";
 /** Mounted at `/api/repositories` (see routes/index.ts). */
 const router = Router();
 
+<<<<<<< HEAD
 router.get(
   "/:repositoryId",
   withRoute(getRepository, { component: "api.repositories" }),
@@ -32,6 +37,13 @@ router.get(
   "/:repositoryId/knowledge",
   withRoute(getKnowledge, { component: "api.repositories" }),
 );
+=======
+router.get("/:repositoryId", withRoute(getRepository, { component: "api.repositories" }));
+router.delete("/:repositoryId", withRoute(disconnectRepository, { component: "api.repositories" }));
+router.get("/:repositoryId/index-status", withRoute(getIndexStatus, { component: "api.repositories" }));
+router.post("/:repositoryId/index", withRoute(triggerIndex, { component: "api.repositories" }));
+router.post("/:repositoryId/webhook-test", withRoute(getRecentWebhookDeliveries, { component: "api.repositories" }));
+>>>>>>> main
 
 export default router;
 

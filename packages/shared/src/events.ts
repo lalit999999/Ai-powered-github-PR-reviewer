@@ -109,6 +109,58 @@ export type RepositoryIndexedData = {
 };
 
 /**
+ * Phase 06 (phase-06-webhook-ingestion.md §8). Emitted by
+ * `POST /api/webhooks/github` (Prompt 2) once a delivery has been verified, allow-listed,
+ * and resolved to one or more (project, repository) tenants. This is the **only** event
+ * this phase produces, and it is the first event in the system with a real consumer at
+ * the moment it is defined — Phase 07 registers the function that reviews the PR.
+ *
+ * `installationId` is a `string`, not a `bigint`, and this is the one field in this file
+ * that needs its own comment rather than reusing `RepositoryIndexRequestedData`'s. Every
+ * Inngest event payload is serialized with `JSON.stringify`, which **throws** on a
+ * bigint (`TypeError: Do not know how to serialize a BigInt`) — the exact failure
+ * `repository.types.ts`'s `toRepositoryDto` already documents and guards against at the
+ * HTTP DTO boundary (phase-01-log §4: convert explicitly, field by field, never a global
+ * `BigInt.prototype.toJSON` monkey-patch). The same rule applies here, and the failure
+ * mode is sharper: an HTTP response with an unserializable field fails loudly, in front
+ * of a caller, on the request that produced it. An Inngest event with the same problem
+ * fails inside `inngest.send()`, inside a background job, where the only person watching
+ * is whoever reads the log line afterward — so the field is converted to its decimal
+ * `string` form at the same producer boundary `toRepositoryDto` already established.
+ *
+ * `trigger` includes `"sweep"` even though the sweeper (Prompt 4) re-sends the resolved
+ * `WebhookEvent.dispatchPayload` verbatim rather than constructing a fresh payload with
+ * that value — so no code path assigns `trigger: "sweep"` in this phase. It is declared
+ * as a literal union member anyway, for the same forcing-function reason
+ * `RepositoryIndexRequestedData.reason` already includes `"sweep"` ahead of Phase 03's
+ * sweeper actually using it: a future change to the sweeper that *does* re-derive the
+ * trigger, rather than replay it, becomes a compile error at every `switch` over this
+ * field instead of a silent fallthrough into whatever `default` case happens to exist.
+ *
+ * `prKey` exists because the debounce Phase 07 builds on top of this event (multiple
+ * `synchronize` deliveries for the same push) needs a single string to key on that is
+ * cheaper to compare than three separate fields, and because a log line naming just
+ * `prKey` already says everything a human needs without joining back to the database.
+ */
+export const PULL_REQUEST_REVIEW_REQUESTED = "pull-request/review.requested";
+
+export type PullRequestReviewRequestedData = {
+  projectId: string;
+  repositoryId: string;
+  /** `bigint` in Postgres (`WebhookEvent.installationId`) — a decimal string here. See
+   * this constant's own doc comment for why. */
+  installationId: string;
+  pullRequestNumber: number;
+  headSha: string;
+  baseSha: string;
+  /** `"sweep"` is a declared, not-yet-reachable member — see the doc comment above. */
+  trigger: "opened" | "reopened" | "synchronize" | "ready_for_review" | "sweep";
+  traceId: string;
+  /** `${repositoryId}:${number}:${headSha}` — see the doc comment above. */
+  prKey: string;
+};
+
+/**
  * Every product event this system defines, keyed by event name. Later phases append
  * their own. Kept as a plain type
  * registry because Inngest v4 has no client-level `schemas` option — typing is
@@ -120,6 +172,7 @@ export type EventRegistry = {
   "project/deleted": { data: ProjectDeletedData };
   "repository/index.requested": { data: RepositoryIndexRequestedData };
   "repository/indexed": { data: RepositoryIndexedData };
+  "pull-request/review.requested": { data: PullRequestReviewRequestedData };
 };
 
 /** Event names as a union — useful anywhere a name must be one of the declared events. */

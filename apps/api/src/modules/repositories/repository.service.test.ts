@@ -33,12 +33,21 @@ vi.mock("./installation.repository.js", () => ({
   findInstallationForUser: vi.fn(),
   findGithubAccessToken: vi.fn(),
 }));
+<<<<<<< HEAD
 vi.mock("./index-job.repository.js", () => ({
   findLatestForRepository: vi.fn(),
 }));
 vi.mock("./knowledge.repository.js", () => ({
   getKnowledgeAggregates: vi.fn(),
 }));
+=======
+vi.mock("./index-job.repository.js", () => ({ findLatestForRepository: vi.fn() }));
+// Prompt 4 sub-task 4.3's listRecentWebhookDeliveries is the only function in this file
+// that touches the webhooks module's own repository — stubbed here purely so the module
+// graph resolves without a real @repo/db import; its own behavior is covered by this
+// file's "listRecentWebhookDeliveries" describe block below.
+vi.mock("../webhooks/webhook-event.repository.js", () => ({ listRecentByRepositoryFullName: vi.fn() }));
+>>>>>>> main
 vi.mock("../../lib/rate-limit.js", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@repo/github", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@repo/github")>()),
@@ -69,7 +78,11 @@ vi.mock("@repo/observability", async (importOriginal) => {
 const repositoryRepository = await import("./repository.repository.js");
 const installationRepository = await import("./installation.repository.js");
 const indexJobRepository = await import("./index-job.repository.js");
+<<<<<<< HEAD
 const knowledgeRepository = await import("./knowledge.repository.js");
+=======
+const webhookEventRepository = await import("../webhooks/webhook-event.repository.js");
+>>>>>>> main
 const { checkRateLimit } = await import("../../lib/rate-limit.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { emitRepositoryIndexRequested } = await import("../../inngest/emit.js");
@@ -89,6 +102,7 @@ const {
   getKnowledge,
   getRepositoryDetail,
   listInstallationRepositories,
+  listRecentWebhookDeliveries,
   syncInstallations,
   triggerIndex,
 } = await import("./repository.service.js");
@@ -607,6 +621,61 @@ describe("getRepositoryDetail", () => {
     ).rejects.toMatchObject({
       httpStatus: 404,
     });
+  });
+});
+
+describe("listRecentWebhookDeliveries (phase-06 §7 — POST /webhook-test, despite the name)", () => {
+  it("resolves the repository's fullName then reads by it, not by repositoryId", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow({ fullName: "octocat/hello-world" }));
+    vi.mocked(webhookEventRepository.listRecentByRepositoryFullName).mockResolvedValue([]);
+
+    await listRecentWebhookDeliveries({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(webhookEventRepository.listRecentByRepositoryFullName).toHaveBeenCalledWith(
+      "octocat/hello-world",
+      expect.any(Number),
+    );
+  });
+
+  it("maps rows through toWebhookDeliveryDto — no bigint, dates as ISO strings", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow());
+    vi.mocked(webhookEventRepository.listRecentByRepositoryFullName).mockResolvedValue([
+      {
+        id: "event-1",
+        deliveryId: "d-1",
+        eventType: "pull_request",
+        action: "opened",
+        status: "DISPATCHED",
+        dispatchedAt: new Date("2026-01-01T00:00:00.000Z"),
+        error: null,
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    ]);
+
+    const result = await listRecentWebhookDeliveries({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(result).toEqual([
+      {
+        id: "event-1",
+        deliveryId: "d-1",
+        eventType: "pull_request",
+        action: "opened",
+        status: "DISPATCHED",
+        dispatchedAt: "2026-01-01T00:00:00.000Z",
+        error: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    expect(() => JSON.stringify(result)).not.toThrow();
+  });
+
+  it("404s if the repository vanished between the tenancy check and the read", async () => {
+    mockedFindByIdForProject.mockResolvedValue(null);
+
+    await expect(listRecentWebhookDeliveries({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({
+      httpStatus: 404,
+    });
+    expect(webhookEventRepository.listRecentByRepositoryFullName).not.toHaveBeenCalled();
   });
 });
 

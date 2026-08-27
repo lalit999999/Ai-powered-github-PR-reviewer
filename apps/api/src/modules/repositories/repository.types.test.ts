@@ -3,6 +3,7 @@ import {
   isConnectionStatus,
   toInstallationDto,
   toRepositoryDto,
+  toWebhookDeliveryDto,
   type InstallationRecord,
   type RepositoryRecord,
 } from "./repository.types.js";
@@ -138,6 +139,42 @@ describe("toInstallationDto", () => {
     expect(Object.keys(toInstallationDto(installationRow()))).not.toContain(
       "userId",
     );
+  });
+});
+
+describe("toWebhookDeliveryDto", () => {
+  function deliveryRow(overrides: Partial<Parameters<typeof toWebhookDeliveryDto>[0]> = {}) {
+    return {
+      id: "event-1",
+      deliveryId: "01234567-89ab-cdef-0123-456789abcdef",
+      eventType: "pull_request",
+      action: "opened",
+      status: "DISPATCHED",
+      dispatchedAt: new Date("2026-01-01T00:00:05.000Z"),
+      error: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      ...overrides,
+    };
+  }
+
+  it("renders dates as ISO strings and a null dispatchedAt as null", () => {
+    const dto = toWebhookDeliveryDto(deliveryRow());
+    expect(dto.createdAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(dto.dispatchedAt).toBe("2026-01-01T00:00:05.000Z");
+
+    expect(toWebhookDeliveryDto(deliveryRow({ dispatchedAt: null })).dispatchedAt).toBeNull();
+  });
+
+  it("survives JSON.stringify", () => {
+    const json = JSON.stringify(toWebhookDeliveryDto(deliveryRow()));
+    expect(() => JSON.parse(json)).not.toThrow();
+    expect(JSON.parse(json)).toMatchObject({ status: "DISPATCHED", eventType: "pull_request" });
+  });
+
+  it("carries no bigint on any field", () => {
+    for (const [key, value] of Object.entries(toWebhookDeliveryDto(deliveryRow()))) {
+      expect(typeof value, `field ${key}`).not.toBe("bigint");
+    }
   });
 });
 

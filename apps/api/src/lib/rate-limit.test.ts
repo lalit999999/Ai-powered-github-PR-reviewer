@@ -78,4 +78,39 @@ describe("checkRateLimit", () => {
       expect.stringContaining("repo-index:repo-42"),
     );
   });
+
+  it("defaults the window to 3600 seconds when omitted", async () => {
+    redisMock.incr.mockResolvedValue(11);
+    redisMock.ttl.mockResolvedValue(-1);
+
+    const result = await checkRateLimit("repo-index:repo-1", 10);
+
+    // The TTL fallback is only reached via the default window — proves 3600 is still
+    // the value in play when the caller passes nothing.
+    expect(result).toEqual({ allowed: false, retryAfterSeconds: 3600 });
+  });
+
+  it("a custom window produces a different Redis key bucket than the default window", async () => {
+    redisMock.incr.mockResolvedValue(1);
+
+    await checkRateLimit("webhook:installation:999", 100, 60);
+    const customWindowKey = redisMock.incr.mock.calls[0]?.[0] as string;
+
+    redisMock.incr.mockClear();
+    await checkRateLimit("webhook:installation:999", 100);
+    const defaultWindowKey = redisMock.incr.mock.calls[0]?.[0] as string;
+
+    expect(customWindowKey).not.toBe(defaultWindowKey);
+    expect(customWindowKey).toContain(":60:");
+    expect(defaultWindowKey).toContain(":3600:");
+  });
+
+  it("enforces the limit within a custom window", async () => {
+    redisMock.incr.mockResolvedValue(101);
+    redisMock.ttl.mockResolvedValue(45);
+
+    const result = await checkRateLimit("webhook:installation:999", 100, 60);
+
+    expect(result).toEqual({ allowed: false, retryAfterSeconds: 45 });
+  });
 });

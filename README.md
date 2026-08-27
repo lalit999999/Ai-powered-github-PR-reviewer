@@ -126,14 +126,15 @@ select, the events to subscribe to, and how to encode the private key
 customer-legible terms, is in
 [`docs/github-app-permissions.md`](docs/github-app-permissions.md).
 
-Two things that look broken but are not:
+One thing that looks broken but is not:
 
-- The App's webhook deliveries will 404 until **Phase 06** builds the receiving
-  endpoint. `GITHUB_APP_WEBHOOK_SECRET` is required and set now, but no code reads it
-  before Phase 06. GitHub retries; nothing in Phases 02–05 depends on delivery
-  succeeding — see `docs/github-app-setup.md`'s "The webhook 404s until Phase 06".
 - If Redis is down, `apps/api` logs a warning and keeps working off an in-memory token
   cache. It is a cache, not a database.
+
+Phase 06 built the webhook-receiving endpoint (`POST /api/webhooks/github`) — point the
+App's webhook URL at `<API origin>/api/webhooks/github` and `GITHUB_APP_WEBHOOK_SECRET`'s
+deliveries stop 404ing. See [`docs/webhooks.md`](docs/webhooks.md) for the full event
+matrix, the `WebhookEvent` audit ledger, and how to add a new triggering action.
 
 #### Connecting a repository
 
@@ -142,8 +143,12 @@ account:
 
 1. Sign in, open a project, and the **GitHub installations** panel syncs from
    `GET /user/installations` on page load. Nothing there yet? Click **Install GitHub
-   App**, finish GitHub's flow, and come back to this tab — click **Refresh** rather
-   than waiting; nothing pushes the update to you until Phase 06's webhooks exist (§10).
+   App**, finish GitHub's flow, and come back to this tab — click **Refresh**.
+   Page-load sync is no longer standing in for a missing webhook receiver (Phase 06
+   built one); it is the **attribution** path — the one place that knows which signed-in
+   user just proved they can see this installation. Ongoing installation/repository
+   *staleness* (suspended, uninstalled, renamed, archived) is now kept current by
+   webhooks on their own — see `docs/webhooks.md`.
 2. Click **Connect repository**. Search the installation's repositories, or switch to
    **Paste URL** and give it `https://github.com/{owner}/{repo}` directly.
 3. On success the dialog closes and a repository card appears showing **Waiting to be

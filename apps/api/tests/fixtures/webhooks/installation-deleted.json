@@ -1,0 +1,17 @@
+{
+  "action": "deleted",
+  "installation": {
+    "id": 60123456,
+    "account": { "login": "octocat", "id": 1, "type": "User" },
+    "repository_selection": "all",
+    "app_id": 987654,
+    "target_id": 1,
+    "target_type": "User",
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-08-20T14:00:00Z",
+    "suspended_at": null,
+    "suspended_by": null
+  },
+  "repositories": [{ "id": 1296269, "name": "hello-world", "full_name": "octocat/hello-world", "private": false }],
+  "sender": { "login": "octocat", "id": 1, "type": "User" }
+}

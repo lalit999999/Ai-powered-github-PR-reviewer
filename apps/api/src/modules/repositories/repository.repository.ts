@@ -25,8 +25,19 @@ import type {
  * test, and quietly return *another tenant's* row. The standalone
  * `@@index([githubRepoId])` in the schema is not a licence to do that: it exists for
  * Phase 06's webhook fan-out, which must find **all** matching repositories across
- * projects to route one incoming event. That is the single legitimate
- * `githubRepoId`-only query in the system, and it does not exist yet.
+ * projects to route one incoming event.
+ *
+ * That fan-out is now four functions, all deliberately `githubRepoId`-only and all
+ * living at the bottom of this file, grouped under their own header:
+ * `findConnectedByGithubRepoId` (the read that resolves one delivery to every tenant it
+ * affects), `markAccessLostByGithubRepoId`, `renameByGithubRepoId`, and
+ * `restoreActiveByGithubRepoId` (the three writes a `repository` webhook event drives —
+ * GitHub's own copy of a repository is one thing shared by every project connected to
+ * it, so an "archived"/"deleted", "renamed", or "unarchived" notification about it is
+ * correctly applied to all of them at once). **Every other lookup or mutation in this
+ * file keys on `(projectId, githubRepoId)` or on the primary key `id`.** The rule is not
+ * weakened by Phase 06; it is given its four documented exceptions, and a fifth should
+ * not be added without adding a fifth line here.
  *
  * The other invariant, matching `project.repository.ts`: **every query is scoped by
  * its owner in the `where`**, never filtered afterwards in the service. The one
@@ -280,6 +291,183 @@ export async function markAccessLost(
   const result = await prisma.repository.updateMany({
     where: { id: repositoryId, projectId, connectionStatus: ACTIVE },
     data: { connectionStatus: ACCESS_LOST },
+  });
+  return result.count;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 06 — webhook tenant fan-out and installation/repository-scoped transitions.
+// See this file's header comment for why the three `githubRepoId`-only functions below
+// are the system's only sanctioned exceptions to the (projectId, githubRepoId) rule.
+// ---------------------------------------------------------------------------
+
+/** One tenant's view of an incoming webhook delivery — everything `event-router.ts`
+ * needs to decide that tenant's outcome, resolved in the same query that found it. */
+export interface WebhookTenantTarget {
+  repositoryId: string;
+  projectId: string;
+  installationId: bigint;
+  fullName: string;
+  /** Raw `Project.settings` JSON, parsed by the caller via `@repo/shared`'s
+   * `parseProjectReviewSettings` — passed through unparsed for the same reason
+   * `findOwnershipById` passes through raw columns: this file has no opinion on the
+   * shape, only on which rows qualify. */
+  projectSettings: unknown;
+  /** Always `null` on a returned row — the query below excludes soft-deleted projects
+   * via the join, so this can never be non-null in practice. Kept on the type anyway,
+   * rather than dropped, so the exclusion is a checkable invariant (an integration test
+   * can assert every returned row has `projectDeletedAt === null`) instead of a fact
+   * that only lives in this comment. */
+  projectDeletedAt: Date | null;
+}
+
+/**
+ * Every repository connected to this GitHub repository, across **all** projects — the
+ * one read this file's header names as the fan-out's legitimate `githubRepoId`-only
+ * query (plan.md §45, §34.3: "the same GitHub repository connected to two different
+ * projects must produce two fully independent events from one delivery").
+ *
+ * **Excludes `DISCONNECTED` repositories** — a user who disconnected a repository must
+ * not keep getting reviews for it, the same rule `listByProject` already enforces for
+ * the UI.
+ *
+ * **Includes `ACCESS_LOST` repositories, deliberately.** The alternative — excluding
+ * them, on the theory that a lost-access repository can't be reviewed anyway — was
+ * considered and rejected: a `pull_request` webhook delivery *arriving* for a
+ * repository is itself evidence GitHub still has this App's webhook wired up for it,
+ * which means the `ACCESS_LOST` status is more likely stale than the delivery is wrong.
+ * Excluding it would silently drop reviews for a repository that has actually recovered
+ * until Prompt 4's installation sync happens to catch up — a silent, unbounded gap with
+ * no user-facing signal, since this fan-out has no HTTP response to carry one. Including
+ * it costs nothing worse than Phase 07's own install-token mint failing and logging an
+ * error it already has to handle for other reasons. Matches `listByProject`'s "still
+ * connected, still the user's" reasoning for the identical status.
+ *
+ * **Excludes repositories whose parent project is soft-deleted**, resolved through the
+ * `project` relation in this same query via `project: { deletedAt: null }` — one round
+ * trip, not a per-tenant follow-up read, matching `findOwnershipById`'s single-query
+ * discipline.
+ *
+ * Returns `Project.settings` raw rather than requiring a second query per tenant: the
+ * draft-PR gate (`event-router.ts`) needs it for every tenant in the fan-out, and a
+ * per-tenant round trip inside this latency-sensitive path would be wasted work for
+ * data already sitting on the row this query already joined to.
+ */
+export async function findConnectedByGithubRepoId(githubRepoId: bigint): Promise<WebhookTenantTarget[]> {
+  const rows = await prisma.repository.findMany({
+    where: {
+      githubRepoId,
+      connectionStatus: { not: DISCONNECTED },
+      project: { deletedAt: null },
+    },
+    select: {
+      id: true,
+      projectId: true,
+      installationId: true,
+      fullName: true,
+      project: { select: { settings: true, deletedAt: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    repositoryId: row.id,
+    projectId: row.projectId,
+    installationId: row.installationId,
+    fullName: row.fullName,
+    projectSettings: row.project.settings,
+    projectDeletedAt: row.project.deletedAt,
+  }));
+}
+
+/**
+ * `ACTIVE → ACCESS_LOST` for every repository under an installation (an `installation`
+ * webhook's `suspend`/`deleted` actions — Prompt 4). Phase 02's `markAccessLost` is
+ * project-scoped and cannot express "every repository this installation touches,
+ * regardless of which project"; this is that missing installation-wide transition.
+ *
+ * **Only `ACTIVE` rows transition** — following `markAccessLost`'s own `connectionStatus:
+ * ACTIVE` guard exactly: a `DISCONNECTED` repository the user already disconnected must
+ * never be resurrected into `ACCESS_LOST` by a background webhook.
+ */
+export async function markAccessLostByInstallation(installationId: bigint): Promise<number> {
+  const result = await prisma.repository.updateMany({
+    where: { installationId, connectionStatus: ACTIVE },
+    data: { connectionStatus: ACCESS_LOST },
+  });
+  return result.count;
+}
+
+/**
+ * `ACCESS_LOST → ACTIVE` for every repository under an installation (an `installation`
+ * webhook's `unsuspend`/re-`created` actions — Prompt 4).
+ *
+ * **Only `ACCESS_LOST` rows transition** — the mirror image of `markAccessLostByInstallation`'s
+ * guard. An `ACTIVE` row has nothing to restore, and — the case that actually matters —
+ * a `DISCONNECTED` row must never be swept back into `ACTIVE` just because its
+ * installation came back; the user's explicit disconnect has to survive an installation
+ * lifecycle event it had nothing to do with.
+ */
+export async function restoreActiveByInstallation(installationId: bigint): Promise<number> {
+  const result = await prisma.repository.updateMany({
+    where: { installationId, connectionStatus: ACCESS_LOST },
+    data: { connectionStatus: ACTIVE },
+  });
+  return result.count;
+}
+
+/**
+ * `ACTIVE → ACCESS_LOST` for every repository row sharing this `githubRepoId`, across
+ * every project — a `repository` webhook's `archived`/`deleted` actions (Prompt 4): the
+ * underlying GitHub repository itself became unusable, which is true for every project
+ * connected to it, not just one. The second of this file's `githubRepoId`-only
+ * exceptions (see the header comment); **only `ACTIVE` rows transition**, for the same
+ * reason `markAccessLostByInstallation` restricts itself.
+ */
+export async function markAccessLostByGithubRepoId(githubRepoId: bigint): Promise<number> {
+  const result = await prisma.repository.updateMany({
+    where: { githubRepoId, connectionStatus: ACTIVE },
+    data: { connectionStatus: ACCESS_LOST },
+  });
+  return result.count;
+}
+
+/**
+ * Renames every repository row sharing this `githubRepoId` — a `repository` webhook's
+ * `renamed` action (Prompt 4). The third of this file's `githubRepoId`-only exceptions.
+ *
+ * **Deliberately not filtered by `connectionStatus`.** Unlike the two `markAccessLost*`
+ * functions above, a rename does not resurrect anything — it does not touch
+ * `connectionStatus` at all — so there is no "a disconnected repository must not be
+ * reactivated" hazard here to guard against. A `DISCONNECTED` row keeping an accurate
+ * `fullName`/`htmlUrl` is the same choice already made for every other descriptive
+ * column on a disconnected row (the row survives a disconnect specifically so its
+ * history stays legible; a stale name after a rename would undermine that).
+ */
+export async function renameByGithubRepoId(
+  githubRepoId: bigint,
+  next: { owner: string; name: string; fullName: string; htmlUrl: string },
+): Promise<number> {
+  const result = await prisma.repository.updateMany({
+    where: { githubRepoId },
+    data: { owner: next.owner, name: next.name, fullName: next.fullName, htmlUrl: next.htmlUrl },
+  });
+  return result.count;
+}
+
+/**
+ * `ACCESS_LOST → ACTIVE` for every repository row sharing this `githubRepoId` — a
+ * `repository` webhook's `unarchived` action (Prompt 4). The fourth of this file's
+ * `githubRepoId`-only exceptions (see the header comment).
+ *
+ * **Only `ACCESS_LOST` rows transition**, mirroring `restoreActiveByInstallation`'s own
+ * guard for the identical reason: a `DISCONNECTED` repository the user already
+ * disconnected must never be resurrected into `ACTIVE` just because GitHub's own copy
+ * came back out of the archive.
+ */
+export async function restoreActiveByGithubRepoId(githubRepoId: bigint): Promise<number> {
+  const result = await prisma.repository.updateMany({
+    where: { githubRepoId, connectionStatus: ACCESS_LOST },
+    data: { connectionStatus: ACTIVE },
   });
   return result.count;
 }

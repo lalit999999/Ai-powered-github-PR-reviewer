@@ -576,6 +576,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.12)(yaml@2.9.0)
 
 packages:
 
