@@ -23,7 +23,7 @@ jobs:
       # not print resolved env values (phase-00 §13).
       NODE_ENV: test
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci
+      DATABASE_URL: ${{ vars.DATABASE_URL }}
       INNGEST_EVENT_KEY: dummy_event_key
       INNGEST_SIGNING_KEY: dummy_signing_key
       PORT: "4000"
