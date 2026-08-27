@@ -77,7 +77,10 @@ export default tseslint.config(
     // next) must keep unused params to preserve its 4-arg arity (Express detects
     // error-handling middleware by Function.length).
     rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
   {
@@ -91,7 +94,11 @@ export default tseslint.config(
   {
     // No bare console.log in application source (structured logging only —
     // Architecture Rules). Fixtures/config files are exempt.
-    files: ["apps/**/src/**/*.ts", "apps/**/src/**/*.tsx", "packages/**/src/**/*.ts"],
+    files: [
+      "apps/**/src/**/*.ts",
+      "apps/**/src/**/*.tsx",
+      "packages/**/src/**/*.ts",
+    ],
     ignores: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
       "no-console": "error",
@@ -106,7 +113,14 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["@repo/ai", "@repo/ai/*", "@repo/github", "@repo/github/*", "@repo/embedings", "@repo/embedings/*"],
+              group: [
+                "@repo/ai",
+                "@repo/ai/*",
+                "@repo/github",
+                "@repo/github/*",
+                "@repo/embedings",
+                "@repo/embedings/*",
+              ],
               message:
                 "API routes/controllers may not import the ai/github/embedings (ai/indexing/retrieval) packages directly — go through a module service instead (Rule A, phase-00 §3).",
             },
@@ -159,7 +173,8 @@ export default tseslint.config(
           patterns: [
             {
               group: ["@repo/db/src/generated/*", "**/generated/client*"],
-              message: "Do not deep-import the generated Prisma client — import `prisma` from @repo/db (Rule B).",
+              message:
+                "Do not deep-import the generated Prisma client — import `prisma` from @repo/db (Rule B).",
             },
           ],
         },
@@ -176,11 +191,12 @@ export default tseslint.config(
           patterns: [
             {
               group: ["**/api/src/routes/**", "**/api/src/controllers/**"],
-              message: "Inngest functions (apps/worker) may not import the API layer's routes/controllers directly (Rule C, phase-00 §3).",
+              message:
+                "Inngest functions (apps/worker) may not import the API layer's routes/controllers directly (Rule C, phase-00 §3).",
             },
           ],
         },
       ],
     },
-  }
+  },
 );

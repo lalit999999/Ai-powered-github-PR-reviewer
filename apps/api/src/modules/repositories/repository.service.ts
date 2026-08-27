@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { installationGithub, repositoryGithub } from "@repo/github";
 import { emitRepositoryIndexRequested } from "../../inngest/emit.js";
-import type { OwnerContext, TenantContext } from "../../lib/auth/tenant-access.js";
+import type {
+  OwnerContext,
+  TenantContext,
+} from "../../lib/auth/tenant-access.js";
 import {
   ConflictError,
   ForbiddenError,
@@ -16,7 +19,10 @@ import { createLogger } from "@repo/observability";
 import * as indexJobRepository from "./index-job.repository.js";
 import * as installationRepository from "./installation.repository.js";
 import { getKnowledgeAggregates } from "./knowledge.repository.js";
-import { toRepositoryKnowledgeDto, type RepositoryKnowledgeDto } from "./knowledge.types.js";
+import {
+  toRepositoryKnowledgeDto,
+  type RepositoryKnowledgeDto,
+} from "./knowledge.types.js";
 import {
   NO_ACCESS_MESSAGE,
   assertNotAlreadyConnected,
@@ -25,7 +31,12 @@ import {
   resolveRepoRefFromUrl,
 } from "./repository-validation.service.js";
 import * as repositoryRepository from "./repository.repository.js";
-import type { ConnectRepositoryBody, GithubRepoRef, ListInstallationReposQuery, TriggerIndexBody } from "./repository.schema.js";
+import type {
+  ConnectRepositoryBody,
+  GithubRepoRef,
+  ListInstallationReposQuery,
+  TriggerIndexBody,
+} from "./repository.schema.js";
 import {
   toIndexJobSummaryDto,
   toRepositoryDto,
@@ -88,30 +99,45 @@ const BYTES_PER_KIB = 1024;
  * Uses the **user's OAuth token**, the only call in the phase that does. See
  * `installation.github.ts`'s header for why.
  */
-export async function syncInstallations(owner: OwnerContext): Promise<InstallationDto[]> {
-  const accessToken = await installationRepository.findGithubAccessToken(owner.userId);
+export async function syncInstallations(
+  owner: OwnerContext,
+): Promise<InstallationDto[]> {
+  const accessToken = await installationRepository.findGithubAccessToken(
+    owner.userId,
+  );
 
   if (!accessToken) {
     // Every user in this system signed in through GitHub OAuth, so a missing token
     // means the Account row predates token storage or the grant was revoked on
     // GitHub's side. A 401 is the honest answer *and* the actionable one: signing in
     // again is exactly what fixes it.
-    logger.warn("installation sync failed: no stored GitHub OAuth token", { userId: owner.userId });
-    throw new UnauthenticatedError("Your GitHub sign-in needs to be refreshed — sign out and back in");
+    logger.warn("installation sync failed: no stored GitHub OAuth token", {
+      userId: owner.userId,
+    });
+    throw new UnauthenticatedError(
+      "Your GitHub sign-in needs to be refreshed — sign out and back in",
+    );
   }
 
   const result = await installationGithub.listUserInstallations(accessToken);
 
   if (!result.ok) {
     if (result.reason === "UNAUTHENTICATED") {
-      logger.warn("installation sync failed: GitHub rejected the stored OAuth token", { userId: owner.userId });
-      throw new UnauthenticatedError("Your GitHub sign-in needs to be refreshed — sign out and back in");
+      logger.warn(
+        "installation sync failed: GitHub rejected the stored OAuth token",
+        { userId: owner.userId },
+      );
+      throw new UnauthenticatedError(
+        "Your GitHub sign-in needs to be refreshed — sign out and back in",
+      );
     }
     logger.warn("installation sync failed: GitHub unavailable", {
       userId: owner.userId,
       reason: result.reason,
     });
-    throw new ServiceUnavailableError("GitHub is temporarily unavailable, try again");
+    throw new ServiceUnavailableError(
+      "GitHub is temporarily unavailable, try again",
+    );
   }
 
   const rows = [];
@@ -140,8 +166,12 @@ export async function syncInstallations(owner: OwnerContext): Promise<Installati
 
 /** The stored view, without a GitHub round trip. What `GET /api/github/installations`
  * returns after a sync. */
-export async function listInstallations(owner: OwnerContext): Promise<InstallationDto[]> {
-  const rows = await installationRepository.listInstallationsForUser(owner.userId);
+export async function listInstallations(
+  owner: OwnerContext,
+): Promise<InstallationDto[]> {
+  const rows = await installationRepository.listInstallationsForUser(
+    owner.userId,
+  );
   return rows.map(toInstallationDto);
 }
 
@@ -172,7 +202,8 @@ export async function listInstallationRepositories(
 ): Promise<InstallationRepositoryDto[]> {
   await requireInstallationOwnership(owner, installationId);
 
-  const result = await installationGithub.listInstallationRepositories(installationId);
+  const result =
+    await installationGithub.listInstallationRepositories(installationId);
 
   if (!result.ok) {
     logger.warn("installation repository listing failed", {
@@ -186,12 +217,16 @@ export async function listInstallationRepositories(
       // with yet. Phase 06's webhooks close this window.
       throw new ForbiddenError(NO_ACCESS_MESSAGE);
     }
-    throw new ServiceUnavailableError("GitHub is temporarily unavailable, try again");
+    throw new ServiceUnavailableError(
+      "GitHub is temporarily unavailable, try again",
+    );
   }
 
   const needle = query.q?.toLowerCase();
   const matches = needle
-    ? result.repositories.filter((repo) => repo.fullName.toLowerCase().includes(needle))
+    ? result.repositories.filter((repo) =>
+        repo.fullName.toLowerCase().includes(needle),
+      )
     : result.repositories;
 
   logger.info("listed installation repositories", {
@@ -210,8 +245,14 @@ export async function listInstallationRepositories(
   }));
 }
 
-async function requireInstallationOwnership(owner: OwnerContext, installationId: bigint): Promise<void> {
-  const installation = await installationRepository.findInstallationForUser(owner.userId, installationId);
+async function requireInstallationOwnership(
+  owner: OwnerContext,
+  installationId: bigint,
+): Promise<void> {
+  const installation = await installationRepository.findInstallationForUser(
+    owner.userId,
+    installationId,
+  );
 
   if (!installation) {
     logger.warn("installation access denied", {
@@ -221,7 +262,9 @@ async function requireInstallationOwnership(owner: OwnerContext, installationId:
       // findInstallationForUser puts both halves of the key in the WHERE.
       reason: "NOT_OWNED",
     });
-    throw new ForbiddenError("That GitHub installation is not available to your account");
+    throw new ForbiddenError(
+      "That GitHub installation is not available to your account",
+    );
   }
 }
 
@@ -257,7 +300,11 @@ export async function connectRepository(
   const { installationId, ref } = await resolveConnectTarget(tenant, input);
 
   // ---- The single GET /repos/{o}/{r} for this connect attempt (§21). ----
-  const fetched = await repositoryGithub.getRepository(installationId, ref.owner, ref.repo);
+  const fetched = await repositoryGithub.getRepository(
+    installationId,
+    ref.owner,
+    ref.repo,
+  );
 
   // Step 2 — access.
   const metadata = assertRepositoryAccessible(fetched, {
@@ -269,7 +316,10 @@ export async function connectRepository(
   // Step 3 — already connected to THIS project. Keyed on the composite, never on
   // githubRepoId alone: the same repository under a different project is not a
   // conflict (§4/§15).
-  const existing = await repositoryRepository.findByProjectAndGithubRepoId(tenant.projectId, metadata.githubRepoId);
+  const existing = await repositoryRepository.findByProjectAndGithubRepoId(
+    tenant.projectId,
+    metadata.githubRepoId,
+  );
   assertNotAlreadyConnected(existing, {
     projectId: tenant.projectId,
     userId: tenant.userId,
@@ -282,7 +332,12 @@ export async function connectRepository(
     projectId: tenant.projectId,
     userId: tenant.userId,
     probeDefaultBranch: () =>
-      repositoryGithub.probeBranch(installationId, metadata.owner, metadata.name, metadata.defaultBranch ?? ""),
+      repositoryGithub.probeBranch(
+        installationId,
+        metadata.owner,
+        metadata.name,
+        metadata.defaultBranch ?? "",
+      ),
   });
 
   const created = await repositoryRepository.create({
@@ -309,7 +364,9 @@ export async function connectRepository(
       installationId: installationId.toString(),
       githubRepoId: metadata.githubRepoId.toString(),
     });
-    throw new ConflictError("That repository is already connected to this project");
+    throw new ConflictError(
+      "That repository is already connected to this project",
+    );
   }
 
   const repository = created.repository;
@@ -342,7 +399,9 @@ export async function connectRepository(
 /** For log lines and error details: what the caller actually asked for, before
  * anything was resolved. */
 function describeTarget(input: ConnectRepositoryBody): string {
-  return input.repoUrl ?? `githubRepoId:${input.githubRepoId?.toString() ?? "?"}`;
+  return (
+    input.repoUrl ?? `githubRepoId:${input.githubRepoId?.toString() ?? "?"}`
+  );
 }
 
 /**
@@ -374,14 +433,19 @@ async function resolveConnectTarget(
   tenant: TenantContext,
   input: ConnectRepositoryBody,
 ): Promise<{ installationId: bigint; ref: GithubRepoRef }> {
-  const installations = await installationRepository.listInstallationsForUser(tenant.userId);
+  const installations = await installationRepository.listInstallationsForUser(
+    tenant.userId,
+  );
 
   if (installations.length === 0) {
-    logger.warn("repository connect rejected: user has no synced installations", {
-      projectId: tenant.projectId,
-      userId: tenant.userId,
-      target: describeTarget(input),
-    });
+    logger.warn(
+      "repository connect rejected: user has no synced installations",
+      {
+        projectId: tenant.projectId,
+        userId: tenant.userId,
+        target: describeTarget(input),
+      },
+    );
     throw new ForbiddenError(NO_ACCESS_MESSAGE);
   }
 
@@ -389,15 +453,20 @@ async function resolveConnectTarget(
     // Step 1 of the chain. Re-parsed here even though the request schema already did —
     // see resolveRepoRefFromUrl's doc comment.
     const ref = resolveRepoRefFromUrl(input.repoUrl);
-    const match = installations.find((row) => row.accountLogin.toLowerCase() === ref.owner.toLowerCase());
+    const match = installations.find(
+      (row) => row.accountLogin.toLowerCase() === ref.owner.toLowerCase(),
+    );
 
     if (!match) {
-      logger.warn("repository connect rejected: no installation on that account", {
-        projectId: tenant.projectId,
-        userId: tenant.userId,
-        repoUrl: input.repoUrl,
-        owner: ref.owner,
-      });
+      logger.warn(
+        "repository connect rejected: no installation on that account",
+        {
+          projectId: tenant.projectId,
+          userId: tenant.userId,
+          repoUrl: input.repoUrl,
+          owner: ref.owner,
+        },
+      );
       throw new ForbiddenError(NO_ACCESS_MESSAGE);
     }
 
@@ -409,14 +478,20 @@ async function resolveConnectTarget(
     // The schema enforces exactly-one, so this is unreachable over HTTP. A 500 rather
     // than a guess: a caller that got here has a bug, and picking a branch for them
     // would hide it.
-    throw new InternalError("connectRepository called with neither repoUrl nor githubRepoId");
+    throw new InternalError(
+      "connectRepository called with neither repoUrl nor githubRepoId",
+    );
   }
 
   for (const installation of installations) {
-    const listed = await installationGithub.listInstallationRepositories(installation.installationId);
+    const listed = await installationGithub.listInstallationRepositories(
+      installation.installationId,
+    );
     if (!listed.ok) continue;
 
-    const match = listed.repositories.find((repo) => repo.githubRepoId === githubRepoId);
+    const match = listed.repositories.find(
+      (repo) => repo.githubRepoId === githubRepoId,
+    );
     if (match) {
       return {
         installationId: installation.installationId,
@@ -425,12 +500,15 @@ async function resolveConnectTarget(
     }
   }
 
-  logger.warn("repository connect rejected: id not visible to any of this user's installations", {
-    projectId: tenant.projectId,
-    userId: tenant.userId,
-    githubRepoId: githubRepoId.toString(),
-    installationCount: installations.length,
-  });
+  logger.warn(
+    "repository connect rejected: id not visible to any of this user's installations",
+    {
+      projectId: tenant.projectId,
+      userId: tenant.userId,
+      githubRepoId: githubRepoId.toString(),
+      installationCount: installations.length,
+    },
+  );
   throw new ForbiddenError(NO_ACCESS_MESSAGE);
 }
 
@@ -446,7 +524,9 @@ async function resolveConnectTarget(
  * closes the window where the repository is removed between the tenancy check and this
  * read. Same discipline as `getProjectDetail`.
  */
-export async function getRepositoryDetail(tenant: TenantContext): Promise<RepositoryDetail> {
+export async function getRepositoryDetail(
+  tenant: TenantContext,
+): Promise<RepositoryDetail> {
   const repositoryId = requireRepositoryId(tenant);
   const [repository, job] = await Promise.all([
     repositoryRepository.findByIdForProject(tenant.projectId, repositoryId),
@@ -461,7 +541,10 @@ export async function getRepositoryDetail(tenant: TenantContext): Promise<Reposi
   // widening was a compile error at every call site rather than a silent no-op — see
   // RepositoryDetail. `null` remains a real value: a freshly-connected repository has no
   // IndexJob row yet.
-  return { repository: toRepositoryDto(repository), indexJob: job ? toIndexJobSummaryDto(job) : null };
+  return {
+    repository: toRepositoryDto(repository),
+    indexJob: job ? toIndexJobSummaryDto(job) : null,
+  };
 }
 
 /**
@@ -477,7 +560,9 @@ export async function getRepositoryDetail(tenant: TenantContext): Promise<Reposi
  * meaningful to show; with it, the client sees `PENDING` immediately, which is honest —
  * that is genuinely the repository's state at that moment.
  */
-export async function getIndexStatus(tenant: TenantContext): Promise<IndexStatusDto> {
+export async function getIndexStatus(
+  tenant: TenantContext,
+): Promise<IndexStatusDto> {
   const repositoryId = requireRepositoryId(tenant);
   const [repository, job] = await Promise.all([
     repositoryRepository.findByIdForProject(tenant.projectId, repositoryId),
@@ -522,9 +607,14 @@ export async function getIndexStatus(tenant: TenantContext): Promise<IndexStatus
  * answers with real (zero) counts rather than a 404 or an error; the client decides what
  * to do with a knowledge summary that's all zeroes.
  */
-export async function getKnowledge(tenant: TenantContext): Promise<RepositoryKnowledgeDto> {
+export async function getKnowledge(
+  tenant: TenantContext,
+): Promise<RepositoryKnowledgeDto> {
   const repositoryId = requireRepositoryId(tenant);
-  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+  const repository = await repositoryRepository.findByIdForProject(
+    tenant.projectId,
+    repositoryId,
+  );
 
   if (!repository) {
     throw new NotFoundError("Project not found");
@@ -555,7 +645,10 @@ const TRIGGER_INDEX_RATE_LIMIT_PER_HOUR = 10;
  * consequence, since neither this route nor `/index-status` requires the client to poll
  * *by* this id.
  */
-export async function triggerIndex(tenant: TenantContext, input: TriggerIndexBody): Promise<{ indexJobId: string }> {
+export async function triggerIndex(
+  tenant: TenantContext,
+  input: TriggerIndexBody,
+): Promise<{ indexJobId: string }> {
   const repositoryId = requireRepositoryId(tenant);
 
   if (input.mode !== "FULL") {
@@ -565,7 +658,10 @@ export async function triggerIndex(tenant: TenantContext, input: TriggerIndexBod
     throw new InternalError("triggerIndex called with a mode other than FULL");
   }
 
-  const rate = await checkRateLimit(`repo-index:${repositoryId}`, TRIGGER_INDEX_RATE_LIMIT_PER_HOUR);
+  const rate = await checkRateLimit(
+    `repo-index:${repositoryId}`,
+    TRIGGER_INDEX_RATE_LIMIT_PER_HOUR,
+  );
   if (!rate.allowed) {
     logger.warn("repository index trigger rate-limited", {
       repositoryId,
@@ -573,12 +669,18 @@ export async function triggerIndex(tenant: TenantContext, input: TriggerIndexBod
       userId: tenant.userId,
       retryAfterSeconds: rate.retryAfterSeconds,
     });
-    throw new TooManyRequestsError("Too many index requests for this repository — try again later", {
-      details: { retryAfterSeconds: rate.retryAfterSeconds },
-    });
+    throw new TooManyRequestsError(
+      "Too many index requests for this repository — try again later",
+      {
+        details: { retryAfterSeconds: rate.retryAfterSeconds },
+      },
+    );
   }
 
-  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+  const repository = await repositoryRepository.findByIdForProject(
+    tenant.projectId,
+    repositoryId,
+  );
   if (!repository) {
     throw new NotFoundError("Project not found");
   }
@@ -619,7 +721,9 @@ export async function triggerIndex(tenant: TenantContext, input: TriggerIndexBod
 /** The project's active repositories, for `GET /api/projects/:id`. `DISCONNECTED` rows
  * are excluded by the repository layer; `ACCESS_LOST` ones are not, because they are
  * still connected and the user needs to see the problem. */
-export async function listProjectRepositories(tenant: TenantContext): Promise<RepositoryDto[]> {
+export async function listProjectRepositories(
+  tenant: TenantContext,
+): Promise<RepositoryDto[]> {
   const rows = await repositoryRepository.listByProject(tenant.projectId);
   return rows.map(toRepositoryDto);
 }
@@ -646,9 +750,14 @@ export async function listProjectRepositories(tenant: TenantContext): Promise<Re
  * not deleted, so a completed index is not wasted if the user reconnects) but is not the
  * same guarantee project-deletion now has. See docs/decisions/phase-03-log.md.
  */
-export async function disconnectRepository(tenant: TenantContext): Promise<void> {
+export async function disconnectRepository(
+  tenant: TenantContext,
+): Promise<void> {
   const repositoryId = requireRepositoryId(tenant);
-  const changed = await repositoryRepository.markDisconnected(tenant.projectId, repositoryId);
+  const changed = await repositoryRepository.markDisconnected(
+    tenant.projectId,
+    repositoryId,
+  );
 
   if (changed === 0) {
     logger.info("repository disconnect no-op (already disconnected)", {
@@ -675,7 +784,9 @@ export async function disconnectRepository(tenant: TenantContext): Promise<void>
  */
 function requireRepositoryId(tenant: TenantContext): string {
   if (!tenant.repositoryId) {
-    throw new InternalError("repository service called with a TenantContext that names no repository");
+    throw new InternalError(
+      "repository service called with a TenantContext that names no repository",
+    );
   }
   return tenant.repositoryId;
 }

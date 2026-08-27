@@ -13,7 +13,10 @@ describe("JobTrackingMiddleware", () => {
 
     await runWithTraceContext({ traceId: "trace-1" }, async () => {
       await middleware.wrapFunctionHandler({
-        ctx: ctxWithEventData({ repositoryId: "repo-1", projectId: "proj-1" }) as never,
+        ctx: ctxWithEventData({
+          repositoryId: "repo-1",
+          projectId: "proj-1",
+        }) as never,
         fn: {} as never,
         next: async () => {
           observed = getTraceContext();
@@ -21,7 +24,11 @@ describe("JobTrackingMiddleware", () => {
       });
     });
 
-    expect(observed).toMatchObject({ traceId: "trace-1", repositoryId: "repo-1", projectId: "proj-1" });
+    expect(observed).toMatchObject({
+      traceId: "trace-1",
+      repositoryId: "repo-1",
+      projectId: "proj-1",
+    });
   });
 
   it("wrapStepHandler re-derives the same fields independently (the dual-hook requirement)", async () => {
@@ -30,7 +37,10 @@ describe("JobTrackingMiddleware", () => {
 
     await runWithTraceContext({ traceId: "trace-2" }, async () => {
       await middleware.wrapStepHandler({
-        ctx: ctxWithEventData({ repositoryId: "repo-2", projectId: "proj-2" }) as never,
+        ctx: ctxWithEventData({
+          repositoryId: "repo-2",
+          projectId: "proj-2",
+        }) as never,
         fn: {} as never,
         next: async () => {
           observed = getTraceContext();
@@ -39,7 +49,11 @@ describe("JobTrackingMiddleware", () => {
       });
     });
 
-    expect(observed).toMatchObject({ traceId: "trace-2", repositoryId: "repo-2", projectId: "proj-2" });
+    expect(observed).toMatchObject({
+      traceId: "trace-2",
+      repositoryId: "repo-2",
+      projectId: "proj-2",
+    });
   });
 
   it("preserves an already-established traceId rather than generating a second one", async () => {
@@ -67,7 +81,11 @@ describe("JobTrackingMiddleware", () => {
     });
 
     await runWithTraceContext({ traceId: "trace-4" }, async () => {
-      await middleware.wrapFunctionHandler({ ctx: ctxWithEventData({}) as never, fn: {} as never, next });
+      await middleware.wrapFunctionHandler({
+        ctx: ctxWithEventData({}) as never,
+        fn: {} as never,
+        next,
+      });
     });
 
     expect(next).toHaveBeenCalledOnce();

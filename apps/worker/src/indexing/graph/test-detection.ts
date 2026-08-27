@@ -40,11 +40,21 @@ export interface TestDetectionResult {
  * repositories actually import) — both are listed so neither the library-only nor the
  * test-runner-only import shape is missed.
  */
-const EXACT_TEST_FRAMEWORK_PACKAGES = new Set(["vitest", "jest", "mocha", "playwright", "@playwright/test", "ts-jest"]);
+const EXACT_TEST_FRAMEWORK_PACKAGES = new Set([
+  "vitest",
+  "jest",
+  "mocha",
+  "playwright",
+  "@playwright/test",
+  "ts-jest",
+]);
 const TEST_FRAMEWORK_PREFIX = "@testing-library/";
 
 function isTestFrameworkSpecifier(specifier: string): boolean {
-  return EXACT_TEST_FRAMEWORK_PACKAGES.has(specifier) || specifier.startsWith(TEST_FRAMEWORK_PREFIX);
+  return (
+    EXACT_TEST_FRAMEWORK_PACKAGES.has(specifier) ||
+    specifier.startsWith(TEST_FRAMEWORK_PREFIX)
+  );
 }
 
 /**
@@ -56,12 +66,17 @@ function isTestFrameworkSpecifier(specifier: string): boolean {
  * shaped is correctly `isTest: false` — this function adds a signal, it does not loosen
  * `detectIsTest`'s own already-tested conventions.
  */
-export function detectTestFile(relativePath: string, parsedFile: Pick<ParsedFile, "imports">): TestDetectionResult {
+export function detectTestFile(
+  relativePath: string,
+  parsedFile: Pick<ParsedFile, "imports">,
+): TestDetectionResult {
   if (detectIsTest(relativePath)) {
     return { isTest: true, signal: "PATH_CONVENTION" };
   }
 
-  const frameworkImport = parsedFile.imports.some((imp) => isTestFrameworkSpecifier(imp.specifier));
+  const frameworkImport = parsedFile.imports.some((imp) =>
+    isTestFrameworkSpecifier(imp.specifier),
+  );
   if (frameworkImport) {
     return { isTest: true, signal: "FRAMEWORK_IMPORT" };
   }

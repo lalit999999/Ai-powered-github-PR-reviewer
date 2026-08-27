@@ -62,7 +62,10 @@ export type FileClassification = (typeof FILE_CLASSIFICATIONS)[number];
 export const INDEX_STATES = ["INDEXED", "SKIPPED", "FAILED"] as const;
 export type IndexState = (typeof INDEX_STATES)[number];
 export function isIndexState(value: unknown): value is IndexState {
-  return typeof value === "string" && (INDEX_STATES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (INDEX_STATES as readonly string[]).includes(value)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +121,10 @@ export type SkipReason = (typeof SKIP_REASONS)[number];
 export const PARSE_STATES = ["OK", "FAILED", "NOT_PARSED"] as const;
 export type ParseState = (typeof PARSE_STATES)[number];
 export function isParseState(value: unknown): value is ParseState {
-  return typeof value === "string" && (PARSE_STATES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (PARSE_STATES as readonly string[]).includes(value)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +152,10 @@ export const SYMBOL_KINDS = [
 ] as const;
 export type SymbolKind = (typeof SYMBOL_KINDS)[number];
 export function isSymbolKind(value: unknown): value is SymbolKind {
-  return typeof value === "string" && (SYMBOL_KINDS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (SYMBOL_KINDS as readonly string[]).includes(value)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -160,10 +169,19 @@ export function isSymbolKind(value: unknown): value is SymbolKind {
  * un-typed default string for the same producer/consumer reason as every other union in
  * this file.
  */
-export const DEPENDENCY_RESOLUTIONS = ["RESOLVED", "EXTERNAL", "UNRESOLVED"] as const;
+export const DEPENDENCY_RESOLUTIONS = [
+  "RESOLVED",
+  "EXTERNAL",
+  "UNRESOLVED",
+] as const;
 export type DependencyResolution = (typeof DEPENDENCY_RESOLUTIONS)[number];
-export function isDependencyResolution(value: unknown): value is DependencyResolution {
-  return typeof value === "string" && (DEPENDENCY_RESOLUTIONS as readonly string[]).includes(value);
+export function isDependencyResolution(
+  value: unknown,
+): value is DependencyResolution {
+  return (
+    typeof value === "string" &&
+    (DEPENDENCY_RESOLUTIONS as readonly string[]).includes(value)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +213,10 @@ export const DEPENDENCY_KINDS = [
 ] as const;
 export type DependencyKind = (typeof DEPENDENCY_KINDS)[number];
 export function isDependencyKind(value: unknown): value is DependencyKind {
-  return typeof value === "string" && (DEPENDENCY_KINDS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (DEPENDENCY_KINDS as readonly string[]).includes(value)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +224,12 @@ export function isDependencyKind(value: unknown): value is DependencyKind {
 // ---------------------------------------------------------------------------
 
 /** phase-03 §6/§11. */
-export const INDEX_JOB_STATUSES = ["PENDING", "RUNNING", "SUCCEEDED", "FAILED"] as const;
+export const INDEX_JOB_STATUSES = [
+  "PENDING",
+  "RUNNING",
+  "SUCCEEDED",
+  "FAILED",
+] as const;
 export type IndexJobStatus = (typeof INDEX_JOB_STATUSES)[number];
 
 /**

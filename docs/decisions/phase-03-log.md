@@ -3,7 +3,7 @@
 Records the judgment calls made implementing **Prompt 1** of Phase 03 (foundation, worker
 deployable, tarball fetcher, archive extractor). Same convention as
 `phase-00-log.md`/`phase-01-log.md`/`phase-02-log.md`: this file records what was decided
-*and* what could not be verified from this environment. Prompt 2 and Prompt 3 build on
+_and_ what could not be verified from this environment. Prompt 2 and Prompt 3 build on
 this; entries here are binding for that work.
 
 ## 0. Inherited baseline (verified before writing any Phase 03 code)
@@ -11,16 +11,16 @@ this; entries here are binding for that work.
 Every command run against the tree as inherited from `main` (`d3e97f7`, the merge of
 `phase-02-git-repo-integration`), before a single line was changed:
 
-| Command | Result |
-|---|---|
-| `pnpm install` | Clean — "Already up to date", 6 workspace projects |
-| `pnpm db:generate` | Prisma Client 7.9.1 generated to `packages/db/src/generated` |
-| `pnpm lint` | Pass, 0 errors (`turbo lint` + the root boundary/no-console config) |
-| `pnpm typecheck` | Pass — 3 tasks (`api`, `web`, `worker`) |
-| `pnpm test:unit` | Pass — **20 files, 377 tests** |
+| Command                 | Result                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `pnpm install`          | Clean — "Already up to date", 6 workspace projects                                                           |
+| `pnpm db:generate`      | Prisma Client 7.9.1 generated to `packages/db/src/generated`                                                 |
+| `pnpm lint`             | Pass, 0 errors (`turbo lint` + the root boundary/no-console config)                                          |
+| `pnpm typecheck`        | Pass — 3 tasks (`api`, `web`, `worker`)                                                                      |
+| `pnpm test:unit`        | Pass — **20 files, 377 tests**                                                                               |
 | `pnpm test:integration` | Pass — **7 files, 99 tests** (Testcontainers Postgres; Docker was available in this environment — see below) |
-| `pnpm build` | Pass — 3 tasks |
-| `prisma migrate status` | "Database schema is up to date!", 3 migrations found |
+| `pnpm build`            | Pass — 3 tasks                                                                                               |
+| `prisma migrate status` | "Database schema is up to date!", 3 migrations found                                                         |
 
 **Nothing was red.** `pnpm format:check` was not re-run — it was already known-failing
 per `phase-02-log.md` §13/§43 (a `prettier.config.js`/`.prettierrc` conflict predating
@@ -43,16 +43,16 @@ Per this repository's established practice (`phase-01-log.md` §1, `phase-02-log
 everything below was verified by reading the installed package's own source, or by
 running a throwaway script against it, not from memory or documentation.
 
-| Package | Version | What was verified, and where |
-|---|---|---|
-| `@octokit/request` | 10.0.15 | `fetch-wrapper.js`: `requestOptions.request.redirect` **is** forwarded to the underlying `fetch` (an initial assumption that it wasn't wrong — see §8); a 3xx response resolves normally (not thrown) with no special-casing; the default response-body path calls `response.arrayBuffer()` for a non-JSON/`text/*` content type unless `request.parseSuccessResponseBody: false` is set. |
-| `tar-stream` | 3.2.0 | `extract.js`: `Extract` is simultaneously a `Writable` and an async-iterable; each `entry` event/iteration yields `(header, stream, callback)` with **no filesystem interaction anywhere in the package** — confirmed by reading the full source, not just the README. `header.type` is one of `file | link | symlink | directory | block-device | character-device | fifo | contiguous-file | pax-*` (per `@types/tar-stream@3.1.4`, which the package itself does not ship). |
-| `tar-fs` | 2.1.5, 3.1.3 (transitive, via Testcontainers) | Read enough of its README/exports to confirm it extracts *to the filesystem itself* (its whole purpose) — considered and rejected; see §9. |
-| `tar` (node-tar) | 7.5.22 (transitive) | Same treatment — a complete extractor with its own internal path-safety logic, considered and rejected for the same "no seam to inspect before it acts" reason. |
-| Node.js | 22.23.1 | `fetch(url, { redirect: "manual" })` resolves with the 3xx response and a readable `Location` header (`type: "basic"`, not the browser's opaque-redirect behavior) — verified empirically against a local HTTP server, not assumed from the fetch spec. `fetch(url, { redirect: "error" })` on an actual redirect rejects with `TypeError: fetch failed`, also verified empirically. `Readable.fromWeb()` exists and works; its TypeScript signature is declared against `node:stream/web`'s `ReadableStream`, a nominally distinct type from the DOM-lib global of the same name that `fetch()` and this phase's own code use, requiring a cast (see `archive-extractor.ts`). |
-| `turbo` | 2.10.11 | `turbo prune <scope> --docker` — ran it directly against this repo (`turbo prune worker --docker`) and inspected the output: `out/json/` (pruned `package.json`s + lockfile) and `out/full/` (pruned real source), scoped to exactly `@repo/db`, `@repo/github`, `@repo/observability`, `@repo/shared`, `worker` for the `worker` scope — nothing from `apps/api`/`apps/web` included. Does **not** carry along the workspace-root `tsconfig.json` even though every pruned package's own `tsconfig.json` extends it — verified by inspecting `out/full/`'s contents directly, not assumed. |
-| Prisma | 7.9.1 | The `prisma-client` generator's `moduleFormat`/`importFileExtension` options exist and are accepted (found by grepping the installed `prisma` CLI's own minified `build/cli.js` for the option names propagating through its internal generator pipeline, then confirmed empirically by setting them and re-running `prisma generate`) — see §12. The generated client's own internal relative imports (e.g. `./internal/class`) ship **without** an extension by default and carry `// @ts-nocheck`, which is why the missing extension never surfaced as a *type* error, only as a runtime `ERR_MODULE_NOT_FOUND` once the client was actually compiled and run rather than read as source. |
-| `@auth/prisma-adapter` | 2.11.3 | `index.d.ts`: `PrismaAdapter()` imports `Adapter` from `@auth/core/adapters` internally but does not re-export it — confirmed by reading the shipped `.d.ts` directly, which is why `packages/db/src/auth-adapter.ts` needed its own explicit `@auth/core` dependency once it started emitting its own declaration files (see §12). |
+| Package                | Version                                       | What was verified, and where                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@octokit/request`     | 10.0.15                                       | `fetch-wrapper.js`: `requestOptions.request.redirect` **is** forwarded to the underlying `fetch` (an initial assumption that it wasn't wrong — see §8); a 3xx response resolves normally (not thrown) with no special-casing; the default response-body path calls `response.arrayBuffer()` for a non-JSON/`text/*` content type unless `request.parseSuccessResponseBody: false` is set.                                                                                                                                                                                                                                                                                                     |
+| `tar-stream`           | 3.2.0                                         | `extract.js`: `Extract` is simultaneously a `Writable` and an async-iterable; each `entry` event/iteration yields `(header, stream, callback)` with **no filesystem interaction anywhere in the package** — confirmed by reading the full source, not just the README. `header.type` is one of `file                                                                                                                                                                                                                                                                                                                                                                                          | link | symlink | directory | block-device | character-device | fifo | contiguous-file | pax-*`(per`@types/tar-stream@3.1.4`, which the package itself does not ship). |
+| `tar-fs`               | 2.1.5, 3.1.3 (transitive, via Testcontainers) | Read enough of its README/exports to confirm it extracts _to the filesystem itself_ (its whole purpose) — considered and rejected; see §9.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tar` (node-tar)       | 7.5.22 (transitive)                           | Same treatment — a complete extractor with its own internal path-safety logic, considered and rejected for the same "no seam to inspect before it acts" reason.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Node.js                | 22.23.1                                       | `fetch(url, { redirect: "manual" })` resolves with the 3xx response and a readable `Location` header (`type: "basic"`, not the browser's opaque-redirect behavior) — verified empirically against a local HTTP server, not assumed from the fetch spec. `fetch(url, { redirect: "error" })` on an actual redirect rejects with `TypeError: fetch failed`, also verified empirically. `Readable.fromWeb()` exists and works; its TypeScript signature is declared against `node:stream/web`'s `ReadableStream`, a nominally distinct type from the DOM-lib global of the same name that `fetch()` and this phase's own code use, requiring a cast (see `archive-extractor.ts`).                |
+| `turbo`                | 2.10.11                                       | `turbo prune <scope> --docker` — ran it directly against this repo (`turbo prune worker --docker`) and inspected the output: `out/json/` (pruned `package.json`s + lockfile) and `out/full/` (pruned real source), scoped to exactly `@repo/db`, `@repo/github`, `@repo/observability`, `@repo/shared`, `worker` for the `worker` scope — nothing from `apps/api`/`apps/web` included. Does **not** carry along the workspace-root `tsconfig.json` even though every pruned package's own `tsconfig.json` extends it — verified by inspecting `out/full/`'s contents directly, not assumed.                                                                                                   |
+| Prisma                 | 7.9.1                                         | The `prisma-client` generator's `moduleFormat`/`importFileExtension` options exist and are accepted (found by grepping the installed `prisma` CLI's own minified `build/cli.js` for the option names propagating through its internal generator pipeline, then confirmed empirically by setting them and re-running `prisma generate`) — see §12. The generated client's own internal relative imports (e.g. `./internal/class`) ship **without** an extension by default and carry `// @ts-nocheck`, which is why the missing extension never surfaced as a _type_ error, only as a runtime `ERR_MODULE_NOT_FOUND` once the client was actually compiled and run rather than read as source. |
+| `@auth/prisma-adapter` | 2.11.3                                        | `index.d.ts`: `PrismaAdapter()` imports `Adapter` from `@auth/core/adapters` internally but does not re-export it — confirmed by reading the shipped `.d.ts` directly, which is why `packages/db/src/auth-adapter.ts` needed its own explicit `@auth/core` dependency once it started emitting its own declaration files (see §12).                                                                                                                                                                                                                                                                                                                                                           |
 
 ## 2. Sub-task 1.1 — promoting the GitHub client: the options actually weighed
 
@@ -63,7 +63,7 @@ architectural call in the prompt.
 **Option C (apps/worker depends on apps/api as a workspace package) was rejected
 immediately** — it would drag Express, Auth.js, and every apps/api-only concern into the
 worker's build for no benefit, and directly contradicts §1's entire premise that the
-worker is a *separate* deployable.
+worker is a _separate_ deployable.
 
 **Option B (a worker-local thin GitHub module) was rejected** — it would either
 duplicate token minting/the ETag/throttle/retry stack (a second copy of exactly the logic
@@ -74,7 +74,7 @@ a second Octokit anywhere"). Neither is "contained" duplication — token-mint r
 is exactly the kind of thing that silently drifts between two copies.
 
 **Option A (promote to `packages/github`) was chosen**, and the prompt's own framing —
-that this requires *also* promoting the shared observability primitives rather than
+that this requires _also_ promoting the shared observability primitives rather than
 duplicating a logger a third time — turned out to be not just cleaner but load-bearing
 for correctness. See §3.
 
@@ -114,12 +114,12 @@ avoids the collision entirely rather than picking a side.
 ### ESLint Rule A: the fixture had to change shape, not just location
 
 Rule A's second pattern group (`**/src/github/**`, `**/github/client/*`,
-`**/github/services/*`) existed specifically to catch a *relative* import bypassing the
+`**/github/services/*`) existed specifically to catch a _relative_ import bypassing the
 package-name check, because Phase 02 put the client inside `apps/api` where no
 package-name pattern could see it (`phase-02-log.md` §10). Once the client is a real
-package, that specific hole is closed by the *first* pattern group (`@repo/github`
+package, that specific hole is closed by the _first_ pattern group (`@repo/github`
 already listed there since Phase 00's forward declaration) — but a route could still
-reach *past* `@repo/github`'s public `index.ts` into its internals via a long relative
+reach _past_ `@repo/github`'s public `index.ts` into its internals via a long relative
 path. Added `**/packages/github/src/**` to the same pattern group for that narrower case,
 and rewrote `rule-a-github-tree-violation.ts` to demonstrate exactly that (a deep
 relative import into `packages/github/src/client/octokit-factory.js`) rather than the
@@ -131,14 +131,14 @@ confirmed by running the suite, not just by inspection of the pattern.
 `apps/worker`'s `lib/{logger,tracing}.ts` were a deliberate, time-boxed duplicate of
 `apps/api`'s own copies (`phase-01-log.md` §9) — and had already drifted: the worker's
 copy was missing the Phase 02 redaction rules (`token`/`accessToken`/`privateKey`-shaped
-keys), which matters specifically *now*, the first phase where the worker mints and
+keys), which matters specifically _now_, the first phase where the worker mints and
 holds a GitHub installation token.
 
 But the reason this had to be fixed **before**, not alongside, the GitHub client's move
 is sharper than redaction-rule drift: `tracing.ts`'s `AsyncLocalStorage` instance is a
 **module-level singleton**. If `packages/github` had its own copy of `tracing.ts` (a
 third copy, as a worker-local fix would have produced), then `getTraceContext()` called
-from inside the GitHub client would read from a *different* `AsyncLocalStorage` instance
+from inside the GitHub client would read from a _different_ `AsyncLocalStorage` instance
 than the one `apps/api`'s request wrapper (or `apps/worker`'s Inngest middleware)
 populated — every GitHub-client log line would silently lose `traceId`/`userId`/
 `repositoryId` correlation, permanently, with no error to notice it by. This is not an
@@ -154,7 +154,7 @@ having chosen the shared module, a second copy sitting unused is a footgun for t
 person who edits the wrong one.
 
 **Consequence, checked directly**: the existing `logger.test.ts` assertion —
-`accessToken: "ghs_installationtoken"` → `[REDACTED]` — now runs against the *one* logger
+`accessToken: "ghs_installationtoken"` → `[REDACTED]` — now runs against the _one_ logger
 both deployables use, so sub-task 1.2's "port the redaction rules and add a test"
 requirement was satisfied by construction, not by writing a second test. Recorded as
 "nothing further needed" in that sub-task's commit rather than silently skipped.
@@ -164,7 +164,7 @@ requirement was satisfied by construction, not by writing a second test. Recorde
 Several existing unit/integration tests did `vi.mock("../../lib/logger.js", () => ({
 createLogger: () => logSpies }))` — a **narrow** mock returning only `createLogger`. Once
 logger and tracing became the same module (`@repo/observability`), a narrow mock like
-that silently nulls out every *other* export from that module for the whole test file's
+that silently nulls out every _other_ export from that module for the whole test file's
 module graph — including `generateTraceId`/`runWithTraceContext`, which `http.ts` (via
 `requestContext`) genuinely needs at runtime. This was not theoretical: fixing it
 mechanically first and running the suite caught it immediately in
@@ -186,7 +186,7 @@ with a comment claiming "neither `@repo/db` nor the config module is ever loaded
 That was already false before this phase touched the file: `project.service.ts`
 statically imports `repositoryService` from `../repositories/repository.service.js`,
 which (via `installation.repository.ts`/`repository.repository.ts`) reaches `@repo/db`'s
-`prisma` singleton — unmocked. This had never failed before because *some other* test
+`prisma` singleton — unmocked. This had never failed before because _some other_ test
 file sharing the same vitest worker thread happened to load `apps/api/src/config/env.ts`
 (and its `import "dotenv/config"` side effect) first, leaving `DATABASE_URL` populated in
 that worker's `process.env` for the rest of its run — pure scheduling luck, not a
@@ -203,7 +203,7 @@ behind would have been worse than the two-line fix.
 
 `packages/github/src/errors.ts` defines its own `GithubClientError` base (not
 `apps/api`'s `AppError`) and its own `ServiceUnavailableError` extending it — the same
-class *name* `apps/api/src/lib/errors.ts` already uses for an unrelated, HTTP-envelope-
+class _name_ `apps/api/src/lib/errors.ts` already uses for an unrelated, HTTP-envelope-
 shaped concept. This was a deliberate choice, not an oversight, argued fully rather than
 just declared:
 
@@ -224,7 +224,7 @@ just declared:
 - `apps/api/src/lib/errors.test.ts`'s parameterized cases for the two removed classes
   moved to `packages/github/src/errors.test.ts`, **not** copied — they now assert
   `instanceof GithubClientError` instead of `instanceof AppError`/`instanceof
-  ForbiddenError`, because those latter two assertions stopped being true the moment the
+ForbiddenError`, because those latter two assertions stopped being true the moment the
   classes stopped extending `AppError`, and pretending otherwise would have been a
   passing test asserting something false.
 
@@ -244,11 +244,11 @@ validated.
 existing test that exercises `app-auth.ts`/`octokit-factory.ts` injects `createAppJwt`/
 `getToken`/`cache`/`etagStore` explicitly (confirmed by reading every call site in
 `app-auth.test.ts`, `octokit-factory.test.ts`, `github-fixtures.test.ts`) — none of them
-ever reach the *default*, config-reading code paths this seam replaced. No test needed to
+ever reach the _default_, config-reading code paths this seam replaced. No test needed to
 change to accommodate this.
 
 `apps/worker/src/lib/config.ts` gained `DATABASE_URL` (required — Rule B confines
-*queries* to `*.repository.ts` files, but `packages/db/src/client.ts` reads
+_queries_ to `*.repository.ts` files, but `packages/db/src/client.ts` reads
 `DATABASE_URL` at import time, process-wide, exactly as `apps/api` already does),
 `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY` (sharing `@repo/github`'s schema) and
 `REDIS_URL` (sharing `@repo/github`'s schema) — **not** `GITHUB_APP_SLUG` or
@@ -311,11 +311,11 @@ stages (plan.md §8.2 step 4: hard-ignore globs → `.gitattributes` generated/v
 size cap → binary detection → minified heuristic). Pinned as
 `SKIPPED_HARD_IGNORE | SKIPPED_GENERATED | SKIPPED_VENDORED | SKIPPED_TOO_LARGE |
 SKIPPED_BINARY | SKIPPED_MINIFIED` — a fixed union, not free text, because Prompt 2's
-filter pipeline needs something to assign *from*, and a downstream phase branching on
+filter pipeline needs something to assign _from_, and a downstream phase branching on
 `skipReason` needs it machine-comparable. Every value follows `indexError.code`'s
 SCREAMING_SNAKE_CASE convention for consistency even though `skipReason` is a plain
 String column (§5's asymmetry), not JSON. If Prompt 2 discovers it needs finer
-granularity, the instruction left in the source comment is to *extend* this union rather
+granularity, the instruction left in the source comment is to _extend_ this union rather
 than write free text beside it — a mix of pinned and ad-hoc reasons defeats pinning any
 of it.
 
@@ -344,16 +344,16 @@ TRUNCATE list gained `"IndexJob"` and `"RepositoryFile"`.
 The first draft of this module's header comment claimed `@octokit/request` "does not
 expose a `redirect` option through to the underlying fetch call at all." That was
 **wrong**, caught by actually reading the installed source before shipping the claim
-(§1 above) rather than after: `requestOptions.request.redirect` *is* forwarded, and a
-`parseSuccessResponseBody: false` option *does* exist to get the raw stream instead of a
+(§1 above) rather than after: `requestOptions.request.redirect` _is_ forwarded, and a
+`parseSuccessResponseBody: false` option _does_ exist to get the raw stream instead of a
 buffered body. Both problems this module needs to avoid (buffering, no redirect control)
 have an Octokit-native fix.
 
 What doesn't have one: `createAuthPlugin` (octokit-factory.ts) attaches the installation
-bearer token to *every* request made through that Octokit instance, unconditionally —
+bearer token to _every_ request made through that Octokit instance, unconditionally —
 including a full-URL request to `codeload.github.com`. That URL is already
 self-authenticating (a signed, credentialed query string is the entire point of the
-redirect); sending an *additional* `Authorization: token …` header to it would widen the
+redirect); sending an _additional_ `Authorization: token …` header to it would widen the
 credential surface for no reason, and there is no per-request way to suppress one
 plugin's hook without constructing a second, differently-configured Octokit — its own
 complication for a two-call, one-shot fetch. That is the actual, verified reason this
@@ -367,7 +367,7 @@ stale fixture value can.
 because it runs inside a request/response HTTP handler with no outer retry mechanism.
 `fetchTarballStream` is called from an Inngest step (Prompt 2), which already retries the
 whole step on a thrown error (`repository-index`'s own `retries: 3`, plan.md §27.2).
-Retrying inside *and* outside would multiply attempts up to 3×3 against a phase document
+Retrying inside _and_ outside would multiply attempts up to 3×3 against a phase document
 that states the budget as exactly 3. So a 5xx or network failure here is **one attempt**
 that throws a plain `Error`, letting the caller's mechanism own the backoff — 401 / 403
 (with or without rate-limit headers) reuse `GithubAccessRevokedError` /
@@ -402,7 +402,7 @@ error propagation.
 performs **zero filesystem writes on its own** (confirmed by reading its full source, not
 inferred from its README) — every `fs` call in `archive-extractor.ts` is this module's
 own, over a path this module validated, never a dependency's internal path-joining taken
-on faith. `tar-fs` and `tar` both extract *to disk themselves* with their own
+on faith. `tar-fs` and `tar` both extract _to disk themselves_ with their own
 (real, but unaudited-by-us) safety logic; the prompt's own instruction that "a library's
 own safe-extract flag is not evidence" is exactly the reasoning that ruled them out —
 not that they are unsafe, but that trusting them would mean not actually knowing.
@@ -417,13 +417,13 @@ Two different attack shapes get two different responses, argued explicitly:
 - **Path traversal and absolute/drive-letter paths abort the whole archive**
   (`UnsafeArchiveError`, §12's `UNSAFE_ARCHIVE`). `git archive` (what produces GitHub's
   tarball) never legitimately emits either — encountering one is proof of tampering, and
-  continuing to trust the *rest* of an archive that already lied about one entry's path
+  continuing to trust the _rest_ of an archive that already lied about one entry's path
   is not a risk worth taking for something running unattended in the background.
 - **Symlinks and hardlinks are skipped and recorded, extraction continues.** Real
   repositories do contain symlinks (§13's own risk note); aborting on every one would
-  fail legitimate repositories. Because the symlink is never *created* on disk, the
+  fail legitimate repositories. Because the symlink is never _created_ on disk, the
   classic follow-on attack (a symlink named `foo` pointing outside the root, then a
-  later `foo/passwd` entry the OS resolves *through* the symlink on write) cannot occur
+  later `foo/passwd` entry the OS resolves _through_ the symlink on write) cannot occur
   here at all — `fs.mkdir(..., {recursive:true})` for `foo/passwd` just creates `foo` as
   an ordinary directory, because `foo` never existed as anything else. This is a
   structural argument, not a "we tested this one case" argument — verified anyway, by a
@@ -431,7 +431,7 @@ Two different attack shapes get two different responses, argued explicitly:
 
 **The security test suite caught a real bug before this shipped, not after.** The first
 implementation's filename-hygiene check (`isValidPathSegment`) rejected `.`/`..`
-segments as an ordinary invalid filename (skip-and-continue). Since it ran *before* the
+segments as an ordinary invalid filename (skip-and-continue). Since it ran _before_ the
 path-escape check (`resolveSafePath`), an entry named `.../../../etc/passwd` was silently
 **skipped as an invalid filename** rather than aborting the archive — the wrong failure
 mode entirely, caught by `expect(...).rejects.toBeInstanceOf(UnsafeArchiveError)`
@@ -456,19 +456,19 @@ each rejection recorded with `INVALID_FILENAME` rather than silent.
 **The byte cap is a counting `Transform` between `gunzip` and the tar parser**, not a
 per-entry or post-hoc check — it counts bytes for every entry whether ultimately written
 or skipped (decompressing and parsing costs CPU/memory either way), and catches the cap
-being exceeded *during* streaming. Proven with a 5 MB highly-compressible payload that
+being exceeded _during_ streaming. Proven with a 5 MB highly-compressible payload that
 compresses to under 100 KB on the wire but is capped by a 1000-byte `maxTotalBytes` —
 the test would pass trivially if the check ran against the compressed size or a fully-
 buffered total; it doesn't, because the check has no way to see either of those
 quantities, only the running decompressed total. A separate per-entry sanity cap (an
-entry's *declared* `header.size` alone exceeding the total budget) rejects before a
+entry's _declared_ `header.size` alone exceeding the total budget) rejects before a
 single byte of that entry is read.
 
 **Cleanup contract**: `extractRepositoryArchive(stream, options, onExtracted)` takes a
 callback rather than returning a path, specifically so the `finally` that removes the
 per-job temp directory can wrap the callback too — cleanup runs on every path out
 (extraction failure, callback throw, callback success) without relying on the caller to
-remember. Verified directly: a test that lets `onExtracted` throw after a *successful*
+remember. Verified directly: a test that lets `onExtracted` throw after a _successful_
 extraction still finds the temp directory gone afterward.
 
 24 tests total, all built from crafted fixtures assembled with `tar-stream`'s own
@@ -488,15 +488,15 @@ While building `Dockerfile.worker`, `node dist/server.js` (the actual compiled o
 `@repo/github`, `@repo/observability`, and `@repo/shared` all shipped `"exports": {".":
 "./src/index.ts"}` — raw TypeScript source. `tsc`, `tsx`, and `vitest` all resolve this
 correctly (they understand TypeScript's "write `.js`, mean `.ts`" `NodeNext` convention);
-plain `node` running compiled JS does not — it can natively execute a *single* `.ts`
+plain `node` running compiled JS does not — it can natively execute a _single_ `.ts`
 entry file (Node 22's type-stripping), but does not apply TypeScript's own module-
-resolution algorithm to that file's *own* imports, so a `.js`-suffixed specifier that
+resolution algorithm to that file's _own_ imports, so a `.js`-suffixed specifier that
 actually means `.ts` fails to resolve.
 
 **This was already broken for `apps/api`, not something this phase introduced** —
 verified directly: `apps/api`'s own `node dist/server.js` fails identically, and has
 been broken since `packages/shared` was introduced in Phase 01. It was never caught
-because no previous phase's verification ever ran a *compiled* build with plain `node` —
+because no previous phase's verification ever ran a _compiled_ build with plain `node` —
 every "boot the server" check used `tsx watch` (a TypeScript-aware dev runner) or
 vitest. `Dockerfile.worker` is the first thing in this repository that actually needs
 `node dist/server.js` to work, which is exactly why it is the first thing that found
@@ -506,14 +506,14 @@ this.
 gained a `tsconfig.json` (matching `apps/worker`'s own shape, plus `"declaration":
 true`) and a real `"build": "tsc"` script, with `package.json`'s `"exports"` switched to
 `{"types": "./dist/index.d.ts", "default": "./dist/index.js"}`. This is not a novel
-pattern — it is how every *external* npm dependency in this monorepo already works
+pattern — it is how every _external_ npm dependency in this monorepo already works
 (compiled `dist/` + `.d.ts`, resolved through `node_modules`); the previous
 source-only shape was the unusual choice, and the one that didn't support a real
 production build.
 
 `dist/` is **gitignored, not committed** — unlike `packages/db/src/generated` (Prisma's
-own generated *source*, committed so a consumer can read/typecheck against it without
-running `prisma generate` first). This is hand-written TypeScript's *compiled output*,
+own generated _source_, committed so a consumer can read/typecheck against it without
+running `prisma generate` first). This is hand-written TypeScript's _compiled output_,
 a fundamentally different artifact that should be rebuilt, not committed and allowed to
 drift. The consequence: `pnpm typecheck` and `pnpm test:unit`, run from a genuinely
 fresh clone (no `dist/` anywhere), would otherwise fail identically to the
@@ -530,9 +530,10 @@ verified by running the full suite twice from a clean `dist/`-deleted state and
 observing the second run come back from cache.
 
 **Two small, contained fixes were needed inside `packages/db` itself**, both because
-type-checking against *compiled* `.d.ts` output is measurably less forgiving than
+type-checking against _compiled_ `.d.ts` output is measurably less forgiving than
 type-checking against source directly (a well-known friction point with Prisma's
 complex generic/conditional return types specifically):
+
 - `project.repository.ts`'s `findSlugsForUserByPrefix` had an inferred-`any` parameter
   once its `prisma.project.findMany({select:...})` return type was read through a
   round-tripped `.d.ts` rather than Prisma's own source — fixed with an explicit local
@@ -552,7 +553,7 @@ complex generic/conditional return types specifically):
 
 ## 12. Sub-task 1.7 — Prisma's own generated code had the identical extension bug, fixed at the generator level
 
-Beyond `packages/db`'s own hand-written files, the *generated* client itself
+Beyond `packages/db`'s own hand-written files, the _generated_ client itself
 (`packages/db/src/generated/client.ts`) has an internal `import * as $Class from
 "./internal/class"` with no extension — Prisma's own code, carrying `// @ts-nocheck`,
 which is precisely why the missing extension never surfaced as a type error (the file is
@@ -564,7 +565,7 @@ Fixed at the source: `schema.prisma`'s `generator client` block gained
 in any reference this environment could reach), confirmed by regenerating and checking
 the emitted import gained its `.js` suffix. `pnpm db:generate` was re-run and the
 regenerated client committed (matching the established "generated Prisma source is
-committed" convention — the generator *config* changed, so the generated output
+committed" convention — the generator _config_ changed, so the generated output
 legitimately changes with it, same as any schema-driven regeneration).
 
 ## 13. Sub-task 1.7 — Dockerfile.worker: `turbo prune`, verified live under hardening
@@ -572,7 +573,7 @@ legitimately changes with it, same as any schema-driven regeneration).
 Multi-stage build via `turbo prune worker --docker` (§1) — a pruner stage computes
 exactly the workspace subset needed, a `deps` stage installs from the pruned lockfile
 (cache-friendly: invalidates only on `package.json`/lockfile changes), a `builder` stage
-overlays real source and compiles, a `prod-deps` stage does a *second*, `--prod` install
+overlays real source and compiles, a `prod-deps` stage does a _second_, `--prod` install
 (so the runtime image excludes `typescript`/`vitest`/`tsx`/`@types/*`), and the final
 `runner` stage copies only compiled output + prod `node_modules`.
 
@@ -628,7 +629,7 @@ phase, not a continued global count):
 2. **§16's "verified on the actual worker deployable in staging" is not satisfiable
    from any environment without real hosting credentials** — restating
    `phase-02-log.md` §44's finding #3 about the equivalent staging requirement, now
-   true for this phase's own Definition of Done too. What *was* verified is the
+   true for this phase's own Definition of Done too. What _was_ verified is the
    strongest available substitute: the real container, built and run with the real
    hardening flags, against real (locally running) Postgres and Redis.
 3. **§19 says `INDEX_MAX_TOTAL_BYTES` and `INDEX_MAX_FILE_COUNT` have "a code default,"
@@ -681,15 +682,15 @@ this prompt's own:
 
 ## 16. Commits in this prompt
 
-| Commit | Sub-task |
-|---|---|
-| `9cbeca7` | 1.1 — promote the GitHub App client to `@repo/github`; extract `@repo/observability` |
-| `e16dda7` | 1.2 — turn `apps/worker` into a real deployable (env schema, config, docs) |
-| `ae2cf4d` | 1.3 — `RepositoryFile`, `IndexJob`, `FileClassification` Prisma models + migration |
-| `889e380` | 1.4 — streamed tarball fetcher with redirect-host pinning |
+| Commit    | Sub-task                                                                                                                                                                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `9cbeca7` | 1.1 — promote the GitHub App client to `@repo/github`; extract `@repo/observability`                                                                                                                                                                                            |
+| `e16dda7` | 1.2 — turn `apps/worker` into a real deployable (env schema, config, docs)                                                                                                                                                                                                      |
+| `ae2cf4d` | 1.3 — `RepositoryFile`, `IndexJob`, `FileClassification` Prisma models + migration                                                                                                                                                                                              |
+| `889e380` | 1.4 — streamed tarball fetcher with redirect-host pinning                                                                                                                                                                                                                       |
 | `d45750f` | 1.5 + 1.6 — path-traversal-safe archive extractor with its security test suite (shipped together — the tests are what proved the extractor correct, including catching a real bug; see phase-02-log.md §15's precedent for shipping boundary tests beside the code they verify) |
-| `129cd4f` | 1.7 (part 1) — give `@repo/db`/`@repo/github`/`@repo/observability`/`@repo/shared` real production builds (the discovery in §11/§12, prerequisite for the Dockerfile) |
-| `12a2e29` | 1.7 (part 2) — `Dockerfile.worker`, `.dockerignore`, `docker-compose.yml` wiring, deployment docs |
+| `129cd4f` | 1.7 (part 1) — give `@repo/db`/`@repo/github`/`@repo/observability`/`@repo/shared` real production builds (the discovery in §11/§12, prerequisite for the Dockerfile)                                                                                                           |
+| `12a2e29` | 1.7 (part 2) — `Dockerfile.worker`, `.dockerignore`, `docker-compose.yml` wiring, deployment docs                                                                                                                                                                               |
 
 **One commit not made by this session's own `git commit` calls**: `1998724`
 (`feat(github): add various repository fixtures for testing`) sits between `main` and
@@ -715,7 +716,7 @@ reason stated a third time: `repository-index` is what proves the worker is disc
 better than the noop ever could.
 
 **`fetchTarballStream(installationId, owner, repo, sha, options?)`**
-(`apps/worker/src/indexing/fetcher/tarball-fetcher.ts`) — given an *already-resolved*
+(`apps/worker/src/indexing/fetcher/tarball-fetcher.ts`) — given an _already-resolved_
 SHA (this module does not resolve branches/commits; that's step 2 of `repository-index`,
 using `GET /repos/{o}/{r}` — already available as `repositoryGithub.getRepository` — and
 `GET /repos/{o}/{r}/commits/{branch}`, which **does not exist yet** as a wrapper in
@@ -740,10 +741,10 @@ already passed `resolveSafePath`. **The temp directory is gone the instant
 `extractRepositoryArchive`'s returned promise settles, on every path** — do not return a
 bare path out of `onExtracted` and try to read it afterward; do all the reading inside
 the callback. `summary.skipped` (an `ExtractionSkip[]`, `{rawPath, reason}`) covers
-*extraction-level* rejections (`SYMLINK`/`HARDLINK`/`UNSUPPORTED_ENTRY_TYPE`/
+_extraction-level_ rejections (`SYMLINK`/`HARDLINK`/`UNSUPPORTED_ENTRY_TYPE`/
 `INVALID_FILENAME`/`NO_TOP_LEVEL_PREFIX`) — a **different, non-overlapping** vocabulary
 from `@repo/shared`'s `SkipReason` (`SKIPPED_TOO_LARGE` etc.), which describes Prompt
-2's own filter pipeline declining to *index* a file that the extractor already
+2's own filter pipeline declining to _index_ a file that the extractor already
 successfully wrote to disk. Throws `UnsafeArchiveError`/`ArchiveTooLargeError` (both
 exported, both carry `.code` — `"UNSAFE_ARCHIVE"`/`"REPO_TOO_LARGE"`, matching
 `@repo/shared`'s `IndexErrorCode` exactly) for the whole-archive-aborting cases; Prompt
@@ -775,7 +776,7 @@ or terminal-state-transition logic §8/§11 describe. That is entirely Prompt 2'
 to write.
 
 **apps/api's production build now works too** (§11), a side effect of fixing this for
-the worker — not this phase's job to *deploy*, but worth knowing it is no longer
+the worker — not this phase's job to _deploy_, but worth knowing it is no longer
 secretly broken if a later phase needs it.
 
 ---
@@ -793,16 +794,16 @@ and where the phase document turned out to be wrong.
 Every command run against the tree as Prompt 1 left it (`d8f1269`), before a single line
 changed:
 
-| Command | Result |
-|---|---|
-| `git branch --show-current` / `git status` | `phase-03-repository-indexing`, clean |
-| `pnpm install` | Already up to date |
-| `pnpm db:generate` | Prisma Client 7.9.1 regenerated cleanly |
-| `pnpm lint` | Pass |
-| `pnpm typecheck` | Pass — 7 tasks |
-| `pnpm test:unit` | Pass — 20 files, 377 tests |
-| `pnpm build` | Pass — 7 tasks |
-| `pnpm test:integration` | Pass — 7 files, 106 tests (Testcontainers Postgres; Docker available) |
+| Command                                                              | Result                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git branch --show-current` / `git status`                           | `phase-03-repository-indexing`, clean                                                                                                                                                                                                                                                                                                                     |
+| `pnpm install`                                                       | Already up to date                                                                                                                                                                                                                                                                                                                                        |
+| `pnpm db:generate`                                                   | Prisma Client 7.9.1 regenerated cleanly                                                                                                                                                                                                                                                                                                                   |
+| `pnpm lint`                                                          | Pass                                                                                                                                                                                                                                                                                                                                                      |
+| `pnpm typecheck`                                                     | Pass — 7 tasks                                                                                                                                                                                                                                                                                                                                            |
+| `pnpm test:unit`                                                     | Pass — 20 files, 377 tests                                                                                                                                                                                                                                                                                                                                |
+| `pnpm build`                                                         | Pass — 7 tasks                                                                                                                                                                                                                                                                                                                                            |
+| `pnpm test:integration`                                              | Pass — 7 files, 106 tests (Testcontainers Postgres; Docker available)                                                                                                                                                                                                                                                                                     |
 | `prisma migrate status` (against the configured Neon `DATABASE_URL`) | `P1001: Can't reach database server` — this environment cannot reach the Neon endpoint in `packages/db/.env`; **not** a claim the schema is out of sync. `prisma migrate deploy` against a local Testcontainers/`docker compose` Postgres (used throughout this prompt's own live verification, §7 below) applied all four migrations cleanly every time. |
 
 Read in full, per the prompt's own instructions: `docs/decisions/phase-03-log.md`'s
@@ -817,13 +818,13 @@ and the last of those turned out to matter again directly (§5 below).
 
 ## 1. Installed-package behavior verified by reading, not assumed
 
-| Package | What was verified, and how |
-|---|---|
-| `inngest@4.18.1` | `Middleware.WrapFunctionHandlerArgs`/`WrapStepHandlerArgs` both carry a full `ctx` (including `ctx.event`), read from `node_modules/inngest/components/middleware/middleware.d.ts` directly — this is what makes `JobTrackingMiddleware`'s event-derived `repositoryId`/`projectId` propagation possible (§5). `Cancellation.match` is marked `@deprecated` in favor of `.if` in the same file — `repository-index.ts` uses `if`, not `plan.md` §27.3's own example, which still shows the deprecated form (§8, "where the phase document is wrong"). `ConcurrencyOption`'s tuple form (`RecursiveTuple<ConcurrencyOption, 2>`) is exactly two entries, confirmed against the type before writing the `[{key:...}, {limit:20}]` config. `onFailure` is a same-level `InngestFunction.Options` field (not a third `createFunction` argument, as some Inngest example code elsewhere might suggest) — confirmed in `components/InngestFunction.d.ts`, and confirmed *live*: it registers as a second, `(failure)`-suffixed function, triggered internally on `inngest/function.failed` filtered to the parent's function id (§7's live registration dump shows this exactly). Its context is a `FailureEventArgs`-shaped `ctx.event.data.event.data` (the *original* triggering event, nested), `ctx.event.data.run_id`, and `error: Error` reconstructed from Inngest's own `JsonError` schema (`{name, message, stack, cause?}` — `types.d.ts`'s `baseJsonErrorSchema`/`JsonError`) — this is what drove the "encode the code in `.message`, not `.cause`" decision in §7 below, since `.cause` surviving that round trip could not be verified without a live Inngest Cloud account (only the Dev Server was reachable here) and `.message` is a guaranteed, non-optional field. Step outputs are typed through Inngest's own `Jsonify` transform, which — verified the hard way, via a real `tsc` error rather than documentation — **drops a `bigint` field entirely** rather than coercing it; `repository-index.ts`'s `target.installationId` had to be threaded through as a decimal string across the `resolve-target` step boundary for exactly this reason (§7). |
-| `ioredis@6.0.0` | Same `RedisOptions` shape `@repo/github`'s own client already relies on (`lazyConnect`/`connectTimeout`/`maxRetriesPerRequest: 1`/`enableOfflineQueue: false`), reused verbatim for `apps/api/src/lib/redis.ts` (§6). |
-| `@prisma/client@7.9.1`'s raw-SQL helpers | `Prisma.sql`/`.join`/`.raw`/`.empty` are re-exports of `runtime.sqltag`/`runtime.empty`/`runtime.join`/`runtime.raw`, confirmed by reading `packages/db/src/generated/internal/prismaNamespace.ts` directly — this is what let `repository-file.repository.ts`'s batched upsert (§3) use genuine parameterized multi-row `INSERT ... VALUES (...), (...), ...` composition rather than reaching for `$queryRawUnsafe` or string interpolation (forbidden outright by `plan.md` §35.11). |
-| `packages/db/src/generated/client.ts` vs `packages/db/src/client.ts` | Confirmed by reading both directly: the **generated** `client.ts` (Prisma's own output) has no side effects at module-load time — it only exports classes/types/the `Prisma` namespace. The **hand-written** `client.ts` (this package's own wrapper) is what reads `process.env.DATABASE_URL` and throws if it is unset, at `new PrismaClient(...)` construction. `packages/db/src/index.ts`'s barrel re-exports `prisma` from the hand-written file, so **any** import of `@repo/db` — even one that only wants a type from the generated file — evaluates the hand-written wrapper's throw too, since ES module barrel re-exports evaluate every listed source, not just the binding the importer actually uses. This is the mechanism behind two separate, real discoveries in this prompt: `file-classifier.ts` could not safely import the real `FileClassification` Prisma enum (§2), and `stale-index-sweeper.test.ts` needed an explicit mock of `repository.repository.ts` that `repository-index.test.ts` happened not to need, for reasons that had nothing to do with either test's own correctness (§7's own note on this). |
-| The Inngest Dev Server (`inngest-cli@1.43.0`, via `pnpm dlx`) | Live-verified end to end — see §7. Exposes `GET /dev` (registered function list, including cron/concurrency/cancel config as actually parsed) and `GET /v1/events/:id/runs` (per-run status) on `:8288`; events are sent to `POST /e/:key` in dev mode with any string as `:key`. |
+| Package                                                              | What was verified, and how                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inngest@4.18.1`                                                     | `Middleware.WrapFunctionHandlerArgs`/`WrapStepHandlerArgs` both carry a full `ctx` (including `ctx.event`), read from `node_modules/inngest/components/middleware/middleware.d.ts` directly — this is what makes `JobTrackingMiddleware`'s event-derived `repositoryId`/`projectId` propagation possible (§5). `Cancellation.match` is marked `@deprecated` in favor of `.if` in the same file — `repository-index.ts` uses `if`, not `plan.md` §27.3's own example, which still shows the deprecated form (§8, "where the phase document is wrong"). `ConcurrencyOption`'s tuple form (`RecursiveTuple<ConcurrencyOption, 2>`) is exactly two entries, confirmed against the type before writing the `[{key:...}, {limit:20}]` config. `onFailure` is a same-level `InngestFunction.Options` field (not a third `createFunction` argument, as some Inngest example code elsewhere might suggest) — confirmed in `components/InngestFunction.d.ts`, and confirmed _live_: it registers as a second, `(failure)`-suffixed function, triggered internally on `inngest/function.failed` filtered to the parent's function id (§7's live registration dump shows this exactly). Its context is a `FailureEventArgs`-shaped `ctx.event.data.event.data` (the _original_ triggering event, nested), `ctx.event.data.run_id`, and `error: Error` reconstructed from Inngest's own `JsonError` schema (`{name, message, stack, cause?}` — `types.d.ts`'s `baseJsonErrorSchema`/`JsonError`) — this is what drove the "encode the code in `.message`, not `.cause`" decision in §7 below, since `.cause` surviving that round trip could not be verified without a live Inngest Cloud account (only the Dev Server was reachable here) and `.message` is a guaranteed, non-optional field. Step outputs are typed through Inngest's own `Jsonify` transform, which — verified the hard way, via a real `tsc` error rather than documentation — **drops a `bigint` field entirely** rather than coercing it; `repository-index.ts`'s `target.installationId` had to be threaded through as a decimal string across the `resolve-target` step boundary for exactly this reason (§7). |
+| `ioredis@6.0.0`                                                      | Same `RedisOptions` shape `@repo/github`'s own client already relies on (`lazyConnect`/`connectTimeout`/`maxRetriesPerRequest: 1`/`enableOfflineQueue: false`), reused verbatim for `apps/api/src/lib/redis.ts` (§6).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `@prisma/client@7.9.1`'s raw-SQL helpers                             | `Prisma.sql`/`.join`/`.raw`/`.empty` are re-exports of `runtime.sqltag`/`runtime.empty`/`runtime.join`/`runtime.raw`, confirmed by reading `packages/db/src/generated/internal/prismaNamespace.ts` directly — this is what let `repository-file.repository.ts`'s batched upsert (§3) use genuine parameterized multi-row `INSERT ... VALUES (...), (...), ...` composition rather than reaching for `$queryRawUnsafe` or string interpolation (forbidden outright by `plan.md` §35.11).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `packages/db/src/generated/client.ts` vs `packages/db/src/client.ts` | Confirmed by reading both directly: the **generated** `client.ts` (Prisma's own output) has no side effects at module-load time — it only exports classes/types/the `Prisma` namespace. The **hand-written** `client.ts` (this package's own wrapper) is what reads `process.env.DATABASE_URL` and throws if it is unset, at `new PrismaClient(...)` construction. `packages/db/src/index.ts`'s barrel re-exports `prisma` from the hand-written file, so **any** import of `@repo/db` — even one that only wants a type from the generated file — evaluates the hand-written wrapper's throw too, since ES module barrel re-exports evaluate every listed source, not just the binding the importer actually uses. This is the mechanism behind two separate, real discoveries in this prompt: `file-classifier.ts` could not safely import the real `FileClassification` Prisma enum (§2), and `stale-index-sweeper.test.ts` needed an explicit mock of `repository.repository.ts` that `repository-index.test.ts` happened not to need, for reasons that had nothing to do with either test's own correctness (§7's own note on this).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| The Inngest Dev Server (`inngest-cli@1.43.0`, via `pnpm dlx`)        | Live-verified end to end — see §7. Exposes `GET /dev` (registered function list, including cron/concurrency/cancel config as actually parsed) and `GET /v1/events/:id/runs` (per-run status) on `:8288`; events are sent to `POST /e/:key` in dev mode with any string as `:key`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ## 2. Sub-task 2.1/2.2 — `FileClassification` had to leave `@repo/db` before it ever arrived
 
@@ -832,15 +833,15 @@ recording precisely because it reads, in isolation, like the opposite of what ac
 happened: `FileClassification` **is** a real Postgres/Prisma enum (unlike
 `indexState`/`skipReason`/etc., which are plain `String` columns whose legal values are
 pinned in `@repo/shared` by Prompt 1's own design, §6 of the Prompt 1 log). The natural
-instinct was therefore to re-export the *real* generated enum from `@repo/db`'s public
+instinct was therefore to re-export the _real_ generated enum from `@repo/db`'s public
 surface for `file-classifier.ts` to import.
 
-That failed the moment `file-classifier.test.ts` ran: importing `@repo/db` for *any*
+That failed the moment `file-classifier.test.ts` ran: importing `@repo/db` for _any_
 reason evaluates its barrel, which evaluates the hand-written `client.ts`, which throws
 `Error: DATABASE_URL is not defined` in a pure-function unit test that has and should
 have no database configuration at all (§1's table above has the full mechanism). Two
 fixes were available — set `DATABASE_URL` globally for every worker unit test, or
-decouple the *type* from the package that carries the connection. The second is
+decouple the _type_ from the package that carries the connection. The second is
 strictly better: it does not paper over a real coupling with an environment variable a
 future reader would not know was load-bearing. `FileClassification`'s string values are
 mirrored in `packages/shared/src/indexing.ts` (`FILE_CLASSIFICATIONS`), matched
@@ -877,8 +878,8 @@ it wasn't indexed (§4 FR), the same reasoning every other skip stage gets a row
 glob per path per pattern" taken to its logical end**: `isHardIgnoredDirectory` (added
 alongside `isHardIgnored`) answers "would everything under this directory be hard-ignored
 anyway" by testing one synthetic child path against the same compiled pattern set — sound
-specifically because every *directory-anchored* hard-ignore pattern matches any path
-under it, and no *extension*-anchored pattern can false-positive against a probe name
+specifically because every _directory-anchored_ hard-ignore pattern matches any path
+under it, and no _extension_-anchored pattern can false-positive against a probe name
 with no extension. `walk-tree.ts`'s directory walk uses this to prune a committed
 `node_modules` tree whole (never opening it) rather than rejecting each file inside it
 individually — the difference between walking past one directory entry and walking
@@ -890,7 +891,7 @@ treats a pattern with no interior `/` as unanchored (matches at any depth), whil
 `micromatch` has no such implicit rule — a bare `*.pb.go linguist-generated` line, the
 single most common real-world `.gitattributes` shape, would have silently matched nothing
 below the repository root. `toAnchoredGlob` normalizes a slash-free pattern to a
-`**/`-prefixed one before compiling, verified directly by a test asserting the *before*
+`**/`-prefixed one before compiling, verified directly by a test asserting the _before_
 behavior would have failed (`service.pb.go` at the root vs. `api/v1/service.pb.go`
 nested — both must match the same bare pattern).
 
@@ -909,10 +910,10 @@ semantics, and the combined `classifyIgnore` decision).
 
 Every heuristic (size cap, binary sniff, minified average-line-length) is implemented
 exactly to §10's letter, in the specified order, with the boundary cases §14 names tested
-directly (512 KB exactly is *not* over the cap; a NUL byte at sniff-window offset 8191 is
+directly (512 KB exactly is _not_ over the cap; a NUL byte at sniff-window offset 8191 is
 detected, one at offset 8192 — one past an 8 KB window — is not, by construction, since
 this module never reads past what it is given; one very long line among many short ones
-is *not* minified, only a genuinely low average is). `classify`'s own doc comment states
+is _not_ minified, only a genuinely low average is). `classify`'s own doc comment states
 the bias explicitly, matching §22: a binary file that slips past the NUL-byte sniff still
 gets indexed and is re-checked by Phase 04's real parser (contained, recoverable); a text
 file wrongly flagged binary disappears from review context entirely with nothing to
@@ -923,7 +924,7 @@ mode (silent disappearance) more likely, not less.
 `packageName` resolution (§7 of Prompt 1's log flagged this as Prompt 2's decision to
 make) stays at the **directory-path** level, not a parsed `package.json` `"name"` field —
 `detectPackageName` takes a pre-sorted (longest-first) list of package-root directories
-and returns the nearest ancestor's *path*. Reading and parsing every `package.json` for
+and returns the nearest ancestor's _path_. Reading and parsing every `package.json` for
 its declared name is real, additional work with no consumer in a files-only phase;
 `@@index([repositoryId, packageName])` only needs a stable grouping key, and a directory
 path is one. Phase 04's monorepo work (`plan.md` §8.2's own note: "detect workspace
@@ -958,7 +959,7 @@ repository where one is hard-ignored does not trip it) — a distinct, greppable
 separate from the ordinary per-run completion line, so it is discoverable without parsing
 every run's aggregate counts. Computing `hardIgnoredCount` precisely (rather than
 approximating it as "whatever wasn't in the candidate list") costs one extra recursive
-`readdir` pass over each *pruned* subtree specifically — accepted, because that pass is
+`readdir` pass over each _pruned_ subtree specifically — accepted, because that pass is
 cheap directory listing, not the expensive per-file classify/hash pipeline pruning exists
 to avoid, and losing the exact count would blind the one signal §22 asks this phase to
 surface.
@@ -1025,7 +1026,7 @@ database.
 **`IndexJob.status` never passes through `PENDING` in this implementation**, despite §11's
 documented `PENDING → RUNNING → SUCCEEDED|FAILED` diagram. `createIndexJob` inserts the
 row already `RUNNING`. Argued in the module's own header comment: the earliest safe
-moment to create the row at all is *after* the locking `UPDATE` has confirmed this run
+moment to create the row at all is _after_ the locking `UPDATE` has confirmed this run
 actually won the lock (creating it before that confirmation would mean unwinding an
 orphan row on the "zero rows affected, exit gracefully" path); by the time it is safe to
 create, the run has unambiguously started. `PENDING` remains a legal value in
@@ -1037,22 +1038,22 @@ because it is the kind of thing a future reader would otherwise "fix" by adding 
 **Counter definitions — binding, because §14's reconciliation check depends on them being
 exact, not merely reasonable**: `filesTotal = filesIndexed + filesFailed + filesSkipped`
 (never includes hard-ignored paths, which get no row at all). `filesProcessed =
-filesIndexed + filesFailed` — "processed" means *attempted to completion*, successfully
+filesIndexed + filesFailed` — "processed" means _attempted to completion_, successfully
 or not, which is what makes §12's own table ("visible in filesSkipped/filesProcessed
 counts" for a `FAILED` file) literally true when `FAILED` folds into `filesProcessed`
-rather than `filesSkipped`. `filesSkipped` is *only* files excluded by policy
+rather than `filesSkipped`. `filesSkipped` is _only_ files excluded by policy
 (size/binary/minified/generated/vendored) that the pipeline never attempted to read for
 indexing purposes. `indexer.service.ts`'s `countByBucket` is where this definition is
 actually applied to a walk's results — the three raw buckets (`filesIndexed`,
 `filesFailed`, `filesSkipped`) are kept separate all the way up, because
 `Repository.indexedFileCount` (successfully-indexed only) and `IndexJob.filesProcessed`
-(indexed *and* failed) genuinely need different subsets of the same walk.
+(indexed _and_ failed) genuinely need different subsets of the same walk.
 
 **`attempts` tracking — a real design problem solved by reading `ctx.attempt`'s actual
 semantics rather than guessing**: Inngest replays a function's handler from the top on
 every retry, re-executing memoized steps from cache rather than for real. A `step.run`
 placed early to "count this attempt" would therefore only ever execute for real on the
-*first* attempt (the one that succeeds and gets memoized) — exactly backwards.
+_first_ attempt (the one that succeeds and gets memoized) — exactly backwards.
 `repository-index.ts` instead calls `indexJobRepository.incrementAttempts` inside a step
 whose **id itself includes `ctx.attempt`** (`record-attempt-${attempt}`) and only when
 `attempt > 0` — a genuinely new, never-before-seen step id on every real retry, which
@@ -1107,7 +1108,7 @@ rather than re-fetching metadata at index time — one `getHeadCommit` call plus
 tarball fetch, two calls total, matching §9/§14/§15's repeatedly-stated acceptance
 criterion rather than §8.2's own step-2 wording (which describes a metadata re-fetch
 `plan.md` did not anticipate this codebase already caches from connect). The narrow,
-accepted staleness risk this creates (a default branch *renamed* without the old one
+accepted staleness risk this creates (a default branch _renamed_ without the old one
 being deleted would go undetected until the stale sweeper or a webhook, not this call) is
 recorded, not hidden.
 
@@ -1120,7 +1121,7 @@ confirmed, by reading `NonRetriableError`'s own doc comment ("indicates to Innge
 the function should cease all execution") and by the live run in this section, that this
 is what actually stops Inngest's automatic per-step retry rather than merely being caught
 by surrounding code. A rate limit is different: §8/§12 specify `step.sleepUntil(resetTime),
-resume` as *the* retry mechanism, not Inngest's own blind exponential backoff — so
+resume` as _the_ retry mechanism, not Inngest's own blind exponential backoff — so
 `runFetchExtractPersist` returns a `{ rateLimited: true, retryAfterSeconds }`
 **successful** step result instead of throwing, and the function handler turns that into
 a real `step.sleepUntil` call followed by a fresh retry attempt under a new step id
@@ -1182,12 +1183,12 @@ Observed, end to end, from the worker's own structured logs and direct Postgres 
   matching `retries: 3`), the run reached terminal `Failed` and `onFailure` fired —
   observed via a `"repository-index failed terminally"` log line and, directly in
   Postgres, `Repository.indexStatus = "FAILED"` with `indexError = {code: "UNKNOWN",
-  message: "..."}`, and `IndexJob.status = "FAILED"`, `attempts: 4`, `currentStep:
-  "failed"`, the identical `error` shape.
+message: "..."}`, and `IndexJob.status = "FAILED"`, `attempts: 4`, `currentStep:
+"failed"`, the identical `error` shape.
 - **One unexplained observation, flagged rather than silently resolved**: the Dev
   Server's own log showed more `"error handling queue item": "invalid status code: 500"`
   entries (8, over roughly 6 minutes) than the worker's own structured logs showed actual
-  step invocations (2, both accounted for above). The *outcome* was correct in every
+  step invocations (2, both accounted for above). The _outcome_ was correct in every
   respect checked (final attempt count, final state, final error shape all matched
   `retries: 3` exactly), so this reads as Dev-Server-side transport/queue-retry noise
   distinct from the function's own step-retry budget, not a bug in this phase's code —
@@ -1198,10 +1199,10 @@ Observed, end to end, from the worker's own structured logs and direct Postgres 
 - **Lock concurrency, verified directly against real Postgres, not simulated**: with the
   repository reset to `PENDING`, two genuinely concurrent (`Promise.all`) calls to
   `acquireIndexingLock` resolved to exactly one `{acquired: true}` and one `{acquired:
-  false}`; a third call afterward (repository now `INDEXING`) also correctly returned
+false}`; a third call afterward (repository now `INDEXING`) also correctly returned
   `{acquired: false}`.
 
-**What this live session did *not* cover, honestly**: the full happy-path
+**What this live session did _not_ cover, honestly**: the full happy-path
 fetch→extract→walk→persist→terminal-INDEXED pipeline never ran against a real GitHub
 tarball, because no real GitHub App installation exists in this environment (unchanged
 from Prompt 1's own "Outstanding" list). Only the failure path (token mint → transient
@@ -1225,8 +1226,8 @@ event for the worker's own `createIndexJob` to adopt (**chosen**).
 path, untouched by this prompt, has no synchronous caller waiting on an id, so it
 continues to let the worker generate its own). The accepted race this leaves open — the
 pre-allocated id can go unused if this run loses the lock to a genuinely concurrent one —
-is low-consequence because *neither* `POST /index`'s response nor `GET /index-status`
-requires the client to poll *by* that id; `/index-status` is scoped to the repository, not
+is low-consequence because _neither_ `POST /index`'s response nor `GET /index-status`
+requires the client to poll _by_ that id; `/index-status` is scoped to the repository, not
 the job.
 
 **`getIndexStatus` falls back to the `Repository` row's own `indexStatus`/`indexError`
@@ -1324,7 +1325,7 @@ Verified live (§8's own live session, extended): `GET /dev` on the Inngest Dev 
 confirmed `stale-index-sweeper` registered with `{"cron": "0 */6 * * *"}` parsed
 correctly by Inngest itself — catching a cron-string typo here would have meant a
 function that silently never fires, exactly the failure mode this whole sub-task exists
-to prevent for the *emit* side. 3 unit tests for the pure, extracted `buildSweepEvents`
+to prevent for the _emit_ side. 3 unit tests for the pure, extracted `buildSweepEvents`
 function (one event per stale repository with `reason: "sweep"`, a fresh `indexJobId`
 per event, the empty-input case).
 
@@ -1373,20 +1374,20 @@ plus this prompt's own:
 
 - [ ] **No real GitHub App has been registered.** Unchanged. Every live verification this
       prompt did against a real Inngest Dev Server used fake, syntactically-valid-only
-      credentials — real enough to prove the *code paths* (token mint attempted, failed,
+      credentials — real enough to prove the _code paths_ (token mint attempted, failed,
       classified, retried, exhausted, `onFailure` fired) but not to prove a real tarball
       ever downloads and indexes successfully end to end.
 - [ ] **No real installation exists, no repository has ever been connected against real
       GitHub, and — new this prompt — no real ~1,000-file repository has ever reached
       `INDEXED`.** This is the single biggest verification gap this prompt leaves open;
       see §8's own "what this live session did not cover" for the precise boundary of
-      what *was* checked (the failure path, live) versus what was not (the full success
+      what _was_ checked (the failure path, live) versus what was not (the full success
       path, live).
 - [ ] **The `GithubRateLimitError`/`step.sleepUntil` retry loop was never triggered
       live** — unit-tested only (§8). Triggering a real GitHub rate limit from this
       environment is not practical without a real installation.
 - [ ] **The Dev-Server transport-retry anomaly noted in §8** (more `"invalid status
-      code: 500"` log lines than actual step invocations, outcome still correct) was not
+code: 500"` log lines than actual step invocations, outcome still correct) was not
       fully explained. Worth a second look against a real Inngest Cloud deployment,
       where the retry/queue machinery is the production implementation rather than the
       Dev Server's own.
@@ -1405,17 +1406,17 @@ plus this prompt's own:
 
 ## 13. Commits in this prompt
 
-| Commit | Sub-task |
-|---|---|
+| Commit    | Sub-task                                                                                 |
+| --------- | ---------------------------------------------------------------------------------------- |
 | `cd561de` | 2.1 — hard-ignore rules + `.gitattributes`-based file classification (`ignore-rules.ts`) |
-| `05d2690` | 2.2 — deterministic file-classifier (size/binary/minified, classification) |
-| `d787166` | 2.3 — the tree walk and content hashing pipeline (`walk-tree.ts`) |
-| `7c5662d` | 2.4 — batched upsert `RepositoryFile` persistence with the stale-row sweep |
-| `459f8c6` | 2.5 — `IndexJob` persistence + the job-tracking trace-context middleware |
-| `7c182a8` | 2.6 — `indexer.service.ts`, the Inngest-agnostic orchestration seam |
-| `12b7c8b` | 2.7 — the `repository-index` Inngest function, live-verified against a real Dev Server |
-| `d5d9ea0` | 2.8 — `GET /index-status` and `POST /index` API routes |
-| `247f3fc` | 2.9 — `stale-index-sweeper` cron, resolving `emit.ts`'s `TODO(phase-03)` |
+| `05d2690` | 2.2 — deterministic file-classifier (size/binary/minified, classification)               |
+| `d787166` | 2.3 — the tree walk and content hashing pipeline (`walk-tree.ts`)                        |
+| `7c5662d` | 2.4 — batched upsert `RepositoryFile` persistence with the stale-row sweep               |
+| `459f8c6` | 2.5 — `IndexJob` persistence + the job-tracking trace-context middleware                 |
+| `7c182a8` | 2.6 — `indexer.service.ts`, the Inngest-agnostic orchestration seam                      |
+| `12b7c8b` | 2.7 — the `repository-index` Inngest function, live-verified against a real Dev Server   |
+| `d5d9ea0` | 2.8 — `GET /index-status` and `POST /index` API routes                                   |
+| `247f3fc` | 2.9 — `stale-index-sweeper` cron, resolving `emit.ts`'s `TODO(phase-03)`                 |
 
 ## 14. What Prompt 3 inherits
 
@@ -1475,7 +1476,7 @@ firing and finding a genuinely stale row.
 `stale-index-sweeper.test.ts` both import modules that statically import
 `repository.repository.ts` (and therefore `@repo/db`'s `prisma` singleton, which
 requires `DATABASE_URL` at import time). The former happens to work without mocking that
-import because it *also* imports `config/env.ts` (for `env.WORKER_TEMP_DIR`), whose own
+import because it _also_ imports `config/env.ts` (for `env.WORKER_TEMP_DIR`), whose own
 `import "dotenv/config"` side effect loads `.env` before `@repo/db` is ever evaluated —
 incidental, load-order-dependent, and would break the moment that unrelated import were
 removed. The latter mocks `repository.repository.ts` directly, which is the more robust

@@ -16,7 +16,9 @@ export class ConfigError extends Error {
  * (phase-00 §22).
  */
 export const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   INNGEST_EVENT_KEY: z.string().min(1, "INNGEST_EVENT_KEY is required"),
@@ -27,10 +29,18 @@ export const envSchema = z.object({
   // Phase 01 §19 — GitHub OAuth sign-in (Auth.js), never the repository-scoped GitHub
   // App token (Phase 02). See docs/decisions/phase-01-log.md for the AUTH_URL /
   // NEXTAUTH_URL naming decision.
-  GITHUB_OAUTH_CLIENT_ID: z.string().min(1, "GITHUB_OAUTH_CLIENT_ID is required"),
-  GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1, "GITHUB_OAUTH_CLIENT_SECRET is required"),
+  GITHUB_OAUTH_CLIENT_ID: z
+    .string()
+    .min(1, "GITHUB_OAUTH_CLIENT_ID is required"),
+  GITHUB_OAUTH_CLIENT_SECRET: z
+    .string()
+    .min(1, "GITHUB_OAUTH_CLIENT_SECRET is required"),
   AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
-  AUTH_URL: z.string().url("AUTH_URL must be the canonical origin apps/api is reachable at, e.g. http://localhost:4000"),
+  AUTH_URL: z
+    .string()
+    .url(
+      "AUTH_URL must be the canonical origin apps/api is reachable at, e.g. http://localhost:4000",
+    ),
 
   // Phase 02 §19 — the GitHub *App* (what repository data we may read), deliberately
   // NOT the OAuth App above (who is signed in). Two separate credentials, never
@@ -42,7 +52,9 @@ export const envSchema = z.object({
   // Configured on the App now so it is ready for Phase 06; no code in this phase (or
   // any phase before 06) reads it. Required anyway, so a deployment can never reach
   // Phase 06's webhook endpoint without it already being set — phase-02 §19.
-  GITHUB_APP_WEBHOOK_SECRET: z.string().min(1, "GITHUB_APP_WEBHOOK_SECRET is required"),
+  GITHUB_APP_WEBHOOK_SECRET: z
+    .string()
+    .min(1, "GITHUB_APP_WEBHOOK_SECRET is required"),
   // Shared with apps/worker via @repo/github rather than re-derived here — see
   // docs/decisions/phase-03-log.md, sub-task 1.1/1.2.
   REDIS_URL: githubRedisUrlSchema,
@@ -63,11 +75,15 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
     // Name every offending variable *and* carry its first message, so a value that is
     // present but structurally wrong (a mangled GITHUB_APP_PRIVATE_KEY, say) says so at
     // boot instead of reading as "missing".
-    const missingOrInvalid = Object.entries(fieldErrors).map(([name, messages]) => {
-      const reason = messages?.[0];
-      return reason ? `${name} (${reason})` : name;
-    });
-    throw new ConfigError(`Invalid environment configuration — missing/invalid variable(s): ${missingOrInvalid.join(", ")}`);
+    const missingOrInvalid = Object.entries(fieldErrors).map(
+      ([name, messages]) => {
+        const reason = messages?.[0];
+        return reason ? `${name} (${reason})` : name;
+      },
+    );
+    throw new ConfigError(
+      `Invalid environment configuration — missing/invalid variable(s): ${missingOrInvalid.join(", ")}`,
+    );
   }
   return Object.freeze(parsed.data);
 }

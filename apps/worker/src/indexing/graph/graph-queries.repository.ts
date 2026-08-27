@@ -130,7 +130,10 @@ export interface KnowledgeGraphSummary {
 
 const DEFAULT_TOP_FILES_LIMIT = 10;
 
-export async function getKnowledgeGraphSummary(repositoryId: string, topFilesLimit: number = DEFAULT_TOP_FILES_LIMIT): Promise<KnowledgeGraphSummary> {
+export async function getKnowledgeGraphSummary(
+  repositoryId: string,
+  topFilesLimit: number = DEFAULT_TOP_FILES_LIMIT,
+): Promise<KnowledgeGraphSummary> {
   const [fileCountRow] = await prisma.$queryRaw<{ count: bigint }[]>`
     SELECT COUNT(*)::bigint AS count FROM "RepositoryFile" WHERE "repositoryId" = ${repositoryId}
   `;
@@ -140,7 +143,9 @@ export async function getKnowledgeGraphSummary(repositoryId: string, topFilesLim
   const [edgeCountRow] = await prisma.$queryRaw<{ count: bigint }[]>`
     SELECT COUNT(*)::bigint AS count FROM "CodeDependency" WHERE "repositoryId" = ${repositoryId}
   `;
-  const [importRatioRow] = await prisma.$queryRaw<{ resolved: bigint; external: bigint; unresolved: bigint }[]>`
+  const [importRatioRow] = await prisma.$queryRaw<
+    { resolved: bigint; external: bigint; unresolved: bigint }[]
+  >`
     SELECT
       COUNT(*) FILTER (WHERE resolution = 'RESOLVED')::bigint AS resolved,
       COUNT(*) FILTER (WHERE resolution = 'EXTERNAL')::bigint AS external,
@@ -148,7 +153,9 @@ export async function getKnowledgeGraphSummary(repositoryId: string, topFilesLim
     FROM "CodeDependency"
     WHERE "repositoryId" = ${repositoryId} AND kind = 'IMPORTS'
   `;
-  const topFilesByInboundEdges = await prisma.$queryRaw<TopFileByInboundEdges[]>`
+  const topFilesByInboundEdges = await prisma.$queryRaw<
+    TopFileByInboundEdges[]
+  >`
     SELECT id AS "fileId", path, "inboundEdgeCount"
     FROM "RepositoryFile"
     WHERE "repositoryId" = ${repositoryId}

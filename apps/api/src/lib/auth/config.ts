@@ -112,7 +112,8 @@ export const authConfig: ExpressAuthConfig = {
       const expires: unknown = session.expires;
       return {
         ...session,
-        expires: expires instanceof Date ? expires.toISOString() : (expires as string),
+        expires:
+          expires instanceof Date ? expires.toISOString() : (expires as string),
         user: {
           ...session.user,
           id: user.id,
@@ -121,7 +122,10 @@ export const authConfig: ExpressAuthConfig = {
           image: user.image,
           // BigInt -> string at the API/DTO boundary (see the module augmentation
           // comment above) — githubUserId never reaches a JSON response as a bigint.
-          githubUserId: typeof user.githubUserId === "bigint" ? user.githubUserId.toString() : user.githubUserId,
+          githubUserId:
+            typeof user.githubUserId === "bigint"
+              ? user.githubUserId.toString()
+              : user.githubUserId,
           githubLogin: user.githubLogin,
           avatarUrl: user.avatarUrl,
         },

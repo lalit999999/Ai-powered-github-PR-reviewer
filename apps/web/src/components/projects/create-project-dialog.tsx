@@ -60,8 +60,12 @@ export function CreateProjectDialog() {
       });
 
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? `Could not create project (${res.status})`);
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setError(
+          body?.error?.message ?? `Could not create project (${res.status})`,
+        );
         setPending(false);
         return;
       }
@@ -70,7 +74,9 @@ export function CreateProjectDialog() {
       handleOpenChange(false);
       router.refresh();
     } catch {
-      setError("Could not reach the API. Check that it is running, then try again.");
+      setError(
+        "Could not reach the API. Check that it is running, then try again.",
+      );
       setPending(false);
     }
   }
@@ -82,7 +88,9 @@ export function CreateProjectDialog() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
-            <DialogDescription>A project groups the repositories you want reviewed.</DialogDescription>
+            <DialogDescription>
+              A project groups the repositories you want reviewed.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-2">
@@ -105,7 +113,10 @@ export function CreateProjectDialog() {
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={pending || name.trim().length === 0}>
+            <Button
+              type="submit"
+              disabled={pending || name.trim().length === 0}
+            >
               {pending ? "Creating…" : "Create project"}
             </Button>
           </DialogFooter>

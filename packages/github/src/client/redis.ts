@@ -1,7 +1,11 @@
 import { Redis } from "ioredis";
 import { createLogger } from "@repo/observability";
 import { getGithubClientConfig } from "../config.js";
-import { InMemoryTokenCache, RedisTokenCache, type TokenCache } from "./token-cache.js";
+import {
+  InMemoryTokenCache,
+  RedisTokenCache,
+  type TokenCache,
+} from "./token-cache.js";
 
 const logger = createLogger("github.redis");
 
@@ -65,7 +69,9 @@ export function getTokenCache(): TokenCache {
  * config flag that silently disables the real cache in production is a worse failure
  * than a test that has to wire its own.
  */
-export function setTokenCacheForTesting(replacement: TokenCache = new InMemoryTokenCache()): void {
+export function setTokenCacheForTesting(
+  replacement: TokenCache = new InMemoryTokenCache(),
+): void {
   cache = replacement;
 }
 

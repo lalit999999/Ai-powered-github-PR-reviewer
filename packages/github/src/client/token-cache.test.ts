@@ -2,7 +2,12 @@ import { Writable } from "node:stream";
 import pino from "pino";
 import { describe, expect, it, vi } from "vitest";
 import { createLogger } from "@repo/observability";
-import { InMemoryTokenCache, REDIS_ERROR_LOG_WINDOW_MS, RedisTokenCache, type RedisLike } from "./token-cache.js";
+import {
+  InMemoryTokenCache,
+  REDIS_ERROR_LOG_WINDOW_MS,
+  RedisTokenCache,
+  type RedisLike,
+} from "./token-cache.js";
 
 /** A controllable clock, in epoch ms, so TTL boundaries are tested without setTimeout. */
 function fakeClock(startMs = 1_700_000_000_000) {
@@ -16,7 +21,10 @@ function fakeClock(startMs = 1_700_000_000_000) {
 }
 
 /** A minimal in-memory stand-in for ioredis, with no TTL semantics of its own. */
-function stubRedis(): RedisLike & { store: Map<string, string>; calls: string[] } {
+function stubRedis(): RedisLike & {
+  store: Map<string, string>;
+  calls: string[];
+} {
   const store = new Map<string, string>();
   const calls: string[] = [];
   return {
@@ -140,7 +148,10 @@ describe("RedisTokenCache", () => {
         callback();
       },
     });
-    const instance = pino({ level: "debug", base: null, timestamp: false, messageKey: "msg" }, stream);
+    const instance = pino(
+      { level: "debug", base: null, timestamp: false, messageKey: "msg" },
+      stream,
+    );
     const clock = fakeClock();
     const cache = new RedisTokenCache(failingRedis(), clock.now);
     // Point the cache's logger at the capturing stream. The logger is private by design
@@ -166,7 +177,10 @@ describe("RedisTokenCache", () => {
         callback();
       },
     });
-    const instance = pino({ level: "debug", base: null, timestamp: false, messageKey: "msg" }, stream);
+    const instance = pino(
+      { level: "debug", base: null, timestamp: false, messageKey: "msg" },
+      stream,
+    );
     const cache = new RedisTokenCache(failingRedis(), Date.now);
     Reflect.set(cache, "logger", createLogger("github.token-cache", instance));
 

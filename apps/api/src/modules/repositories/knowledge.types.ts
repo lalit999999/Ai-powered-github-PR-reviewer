@@ -68,23 +68,37 @@ export interface RepositoryKnowledgeDto {
   topUnresolvedSpecifiers: TopUnresolvedSpecifier[];
 }
 
-function toTopFileByInboundEdgesDto(record: TopFileByInboundEdgesRecord): TopFileByInboundEdges {
-  return { fileId: record.fileId, path: record.path, inboundEdgeCount: record.inboundEdgeCount };
+function toTopFileByInboundEdgesDto(
+  record: TopFileByInboundEdgesRecord,
+): TopFileByInboundEdges {
+  return {
+    fileId: record.fileId,
+    path: record.path,
+    inboundEdgeCount: record.inboundEdgeCount,
+  };
 }
 
-function toTopUnresolvedSpecifierDto(record: TopUnresolvedSpecifierRecord): TopUnresolvedSpecifier {
+function toTopUnresolvedSpecifierDto(
+  record: TopUnresolvedSpecifierRecord,
+): TopUnresolvedSpecifier {
   return { rawSpecifier: record.rawSpecifier, count: record.count };
 }
 
-export function toRepositoryKnowledgeDto(aggregates: KnowledgeAggregates): RepositoryKnowledgeDto {
+export function toRepositoryKnowledgeDto(
+  aggregates: KnowledgeAggregates,
+): RepositoryKnowledgeDto {
   return {
     fileCount: aggregates.fileTotals.fileCount,
     symbolCount: aggregates.symbolCount,
     edgeCount: aggregates.edgeTotals.edgeCount,
     unresolvedImportRatio: aggregates.edgeTotals.unresolvedImportRatio,
-    topFilesByInboundEdges: aggregates.topFilesByInboundEdges.map(toTopFileByInboundEdgesDto),
+    topFilesByInboundEdges: aggregates.topFilesByInboundEdges.map(
+      toTopFileByInboundEdgesDto,
+    ),
     edgeCountByKind: aggregates.edgeTotals.edgeCountByKind,
     parseStateCounts: aggregates.fileTotals.parseStateCounts,
-    topUnresolvedSpecifiers: aggregates.topUnresolvedSpecifiers.map(toTopUnresolvedSpecifierDto),
+    topUnresolvedSpecifiers: aggregates.topUnresolvedSpecifiers.map(
+      toTopUnresolvedSpecifierDto,
+    ),
   };
 }

@@ -34,13 +34,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <Link href="/dashboard" className="font-semibold tracking-tight">
               PR Reviewer
             </Link>
-            <Link href="/projects" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              href="/projects"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
               Projects
             </Link>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">
-              {session.user.githubLogin ?? session.user.name ?? session.user.email}
+              {session.user.githubLogin ??
+                session.user.name ??
+                session.user.email}
             </span>
             <SignOutButton />
           </div>

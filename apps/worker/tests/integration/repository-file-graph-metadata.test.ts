@@ -38,10 +38,19 @@ describe("updateRepositoryFileGraphMetadata", () => {
     const file = await seedFile(repo.id, "src/util.ts");
 
     await updateRepositoryFileGraphMetadata([
-      { fileId: file.id, symbolCount: 4, inboundEdgeCount: 7, parseState: "OK", packageName: "@repo/util", isTest: true },
+      {
+        fileId: file.id,
+        symbolCount: 4,
+        inboundEdgeCount: 7,
+        parseState: "OK",
+        packageName: "@repo/util",
+        isTest: true,
+      },
     ]);
 
-    const updated = await prisma.repositoryFile.findUniqueOrThrow({ where: { id: file.id } });
+    const updated = await prisma.repositoryFile.findUniqueOrThrow({
+      where: { id: file.id },
+    });
     expect(updated.symbolCount).toBe(4);
     expect(updated.inboundEdgeCount).toBe(7);
     expect(updated.parseState).toBe("OK");
@@ -51,14 +60,27 @@ describe("updateRepositoryFileGraphMetadata", () => {
 
   it("batches across more than one statement worth of rows", async () => {
     const repo = await seedRepository();
-    const files = await Promise.all(Array.from({ length: 30 }, (_, i) => seedFile(repo.id, `src/f${i.toString()}.ts`)));
+    const files = await Promise.all(
+      Array.from({ length: 30 }, (_, i) =>
+        seedFile(repo.id, `src/f${i.toString()}.ts`),
+      ),
+    );
 
     const expected = new Map(files.map((f, i) => [f.id, i]));
     await updateRepositoryFileGraphMetadata(
-      files.map((f, i) => ({ fileId: f.id, symbolCount: i, inboundEdgeCount: i, parseState: "OK" as const, packageName: null, isTest: false })),
+      files.map((f, i) => ({
+        fileId: f.id,
+        symbolCount: i,
+        inboundEdgeCount: i,
+        parseState: "OK" as const,
+        packageName: null,
+        isTest: false,
+      })),
     );
 
-    const rows = await prisma.repositoryFile.findMany({ where: { repositoryId: repo.id } });
+    const rows = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repo.id },
+    });
     expect(rows.every((r) => r.symbolCount === expected.get(r.id))).toBe(true);
   });
 
@@ -68,8 +90,22 @@ describe("updateRepositoryFileGraphMetadata", () => {
     const leaf = await seedFile(repo.id, "src/leaf.ts");
 
     await updateRepositoryFileGraphMetadata([
-      { fileId: util.id, symbolCount: 3, inboundEdgeCount: 42, parseState: "OK", packageName: null, isTest: false },
-      { fileId: leaf.id, symbolCount: 1, inboundEdgeCount: 0, parseState: "OK", packageName: null, isTest: false },
+      {
+        fileId: util.id,
+        symbolCount: 3,
+        inboundEdgeCount: 42,
+        parseState: "OK",
+        packageName: null,
+        isTest: false,
+      },
+      {
+        fileId: leaf.id,
+        symbolCount: 1,
+        inboundEdgeCount: 0,
+        parseState: "OK",
+        packageName: null,
+        isTest: false,
+      },
     ]);
 
     const [utilRow, leafRow] = await Promise.all([
@@ -84,10 +120,19 @@ describe("updateRepositoryFileGraphMetadata", () => {
     const file = await seedFile(repo.id, "packages/ui/src/button.tsx"); // directory-derived default: packages/ui/src
 
     await updateRepositoryFileGraphMetadata([
-      { fileId: file.id, symbolCount: 1, inboundEdgeCount: 0, parseState: "OK", packageName: "@repo/ui", isTest: false },
+      {
+        fileId: file.id,
+        symbolCount: 1,
+        inboundEdgeCount: 0,
+        parseState: "OK",
+        packageName: "@repo/ui",
+        isTest: false,
+      },
     ]);
 
-    const updated = await prisma.repositoryFile.findUniqueOrThrow({ where: { id: file.id } });
+    const updated = await prisma.repositoryFile.findUniqueOrThrow({
+      where: { id: file.id },
+    });
     expect(updated.packageName).toBe("@repo/ui");
     expect(updated.packageName).not.toBe("packages/ui/src");
   });

@@ -1,4 +1,8 @@
-import { GithubAccessRevokedError, GithubRateLimitError, getInstallationToken } from "@repo/github";
+import {
+  GithubAccessRevokedError,
+  GithubRateLimitError,
+  getInstallationToken,
+} from "@repo/github";
 import { createLogger, type Logger } from "@repo/observability";
 
 /**
@@ -95,7 +99,10 @@ export type TarballFetchResult =
    * retry would mean GitHub's redirect target changed, which is not a transient fault. */
   | { ok: false; reason: "UNSAFE_REDIRECT"; host: string };
 
-function rateLimitResetAtSeconds(headers: Headers, nowMs: number): number | null {
+function rateLimitResetAtSeconds(
+  headers: Headers,
+  nowMs: number,
+): number | null {
   const retryAfter = Number(headers.get("retry-after"));
   if (Number.isFinite(retryAfter) && retryAfter >= 0) return retryAfter;
   const reset = Number(headers.get("x-ratelimit-reset"));
@@ -104,24 +111,43 @@ function rateLimitResetAtSeconds(headers: Headers, nowMs: number): number | null
 }
 
 function isRateLimited(headers: Headers): boolean {
-  return headers.get("x-ratelimit-remaining") === "0" || headers.get("retry-after") !== null;
+  return (
+    headers.get("x-ratelimit-remaining") === "0" ||
+    headers.get("retry-after") !== null
+  );
 }
 
-function logCompleted(logger: Logger, installationId: bigint, endpoint: string, status: number, headers: Headers): void {
+function logCompleted(
+  logger: Logger,
+  installationId: bigint,
+  endpoint: string,
+  status: number,
+  headers: Headers,
+): void {
   logger.info("github request completed", {
     installationId: installationId.toString(),
     endpoint,
     status,
-    "github.rate_limit_remaining": Number(headers.get("x-ratelimit-remaining") ?? Number.NaN),
+    "github.rate_limit_remaining": Number(
+      headers.get("x-ratelimit-remaining") ?? Number.NaN,
+    ),
   });
 }
 
-function logFailed(logger: Logger, installationId: bigint, endpoint: string, status: number, headers: Headers): void {
+function logFailed(
+  logger: Logger,
+  installationId: bigint,
+  endpoint: string,
+  status: number,
+  headers: Headers,
+): void {
   logger.warn("github request failed", {
     installationId: installationId.toString(),
     endpoint,
     status,
-    "github.rate_limit_remaining": Number(headers.get("x-ratelimit-remaining") ?? Number.NaN),
+    "github.rate_limit_remaining": Number(
+      headers.get("x-ratelimit-remaining") ?? Number.NaN,
+    ),
   });
 }
 
@@ -146,15 +172,18 @@ export async function fetchTarballStream(
   // unchanged on failure — see this module's header comment.
   const token = await getToken(installationId);
 
-  const firstResponse = await doFetch(`${baseUrl}/repos/${owner}/${repo}/tarball/${sha}`, {
-    method: "GET",
-    redirect: "manual",
-    headers: {
-      authorization: `token ${token}`,
-      accept: "application/vnd.github+json",
-      "x-github-api-version": "2022-11-28",
+  const firstResponse = await doFetch(
+    `${baseUrl}/repos/${owner}/${repo}/tarball/${sha}`,
+    {
+      method: "GET",
+      redirect: "manual",
+      headers: {
+        authorization: `token ${token}`,
+        accept: "application/vnd.github+json",
+        "x-github-api-version": "2022-11-28",
+      },
     },
-  });
+  );
 
   // A 3xx with `redirect: "manual"` resolves (rather than throwing) with the redirect
   // response itself and a readable Location header — verified empirically against the
@@ -166,31 +195,70 @@ export async function fetchTarballStream(
     const target = location ? safeParseUrl(location) : null;
 
     if (!target || target.hostname !== CODELOAD_HOST) {
-      logFailed(logger, installationId, endpointTemplate, firstResponse.status, firstResponse.headers);
-      logger.warn("tarball redirect target rejected — not the pinned codeload host", {
-        installationId: installationId.toString(),
-        // The host only — never the full URL, which carries a signed, credentialed
-        // query string (§4 Security: no secret ever reaches a log line).
-        redirectHost: target?.hostname ?? null,
-      });
-      return { ok: false, reason: "UNSAFE_REDIRECT", host: target?.hostname ?? "unknown" };
+      logFailed(
+        logger,
+        installationId,
+        endpointTemplate,
+        firstResponse.status,
+        firstResponse.headers,
+      );
+      logger.warn(
+        "tarball redirect target rejected — not the pinned codeload host",
+        {
+          installationId: installationId.toString(),
+          // The host only — never the full URL, which carries a signed, credentialed
+          // query string (§4 Security: no secret ever reaches a log line).
+          redirectHost: target?.hostname ?? null,
+        },
+      );
+      return {
+        ok: false,
+        reason: "UNSAFE_REDIRECT",
+        host: target?.hostname ?? "unknown",
+      };
     }
 
-    logCompleted(logger, installationId, endpointTemplate, firstResponse.status, firstResponse.headers);
-    logger.info("following pinned tarball redirect", { installationId: installationId.toString(), redirectHost: target.hostname });
+    logCompleted(
+      logger,
+      installationId,
+      endpointTemplate,
+      firstResponse.status,
+      firstResponse.headers,
+    );
+    logger.info("following pinned tarball redirect", {
+      installationId: installationId.toString(),
+      redirectHost: target.hostname,
+    });
 
     // `redirect: "error"` on this second call is the enforcement half of "one hop and no
     // further" — if codeload.github.com itself ever answered with another redirect, this
     // throws rather than silently chasing it (verified: a fetch that would redirect under
     // `redirect: "error"` rejects with a TypeError instead of resolving).
-    const secondResponse = await doFetch(target.toString(), { method: "GET", redirect: "error" });
+    const secondResponse = await doFetch(target.toString(), {
+      method: "GET",
+      redirect: "error",
+    });
 
     if (!secondResponse.ok || !secondResponse.body) {
-      logFailed(logger, installationId, "GET codeload.github.com", secondResponse.status, secondResponse.headers);
-      throw new Error(`codeload.github.com responded ${secondResponse.status.toString()} fetching the tarball`);
+      logFailed(
+        logger,
+        installationId,
+        "GET codeload.github.com",
+        secondResponse.status,
+        secondResponse.headers,
+      );
+      throw new Error(
+        `codeload.github.com responded ${secondResponse.status.toString()} fetching the tarball`,
+      );
     }
 
-    logCompleted(logger, installationId, "GET codeload.github.com", secondResponse.status, secondResponse.headers);
+    logCompleted(
+      logger,
+      installationId,
+      "GET codeload.github.com",
+      secondResponse.status,
+      secondResponse.headers,
+    );
     return { ok: true, stream: secondResponse.body };
   }
 
@@ -205,30 +273,44 @@ export async function fetchTarballStream(
 
   if (status === 401) {
     logFailed(logger, installationId, endpointTemplate, status, headers);
-    throw new GithubAccessRevokedError("GitHub access was revoked — reinstall the app", {
-      details: { installationId: installationId.toString() },
-    });
+    throw new GithubAccessRevokedError(
+      "GitHub access was revoked — reinstall the app",
+      {
+        details: { installationId: installationId.toString() },
+      },
+    );
   }
 
   if ((status === 403 || status === 429) && isRateLimited(headers)) {
     const resetAtSeconds = rateLimitResetAtSeconds(headers, Date.now());
     logFailed(logger, installationId, endpointTemplate, status, headers);
-    throw new GithubRateLimitError("GitHub's rate limit for this app is exhausted — try again shortly", {
-      details: { installationId: installationId.toString(), retryAfterSeconds: resetAtSeconds },
-    });
+    throw new GithubRateLimitError(
+      "GitHub's rate limit for this app is exhausted — try again shortly",
+      {
+        details: {
+          installationId: installationId.toString(),
+          retryAfterSeconds: resetAtSeconds,
+        },
+      },
+    );
   }
 
   if (status === 403) {
     // 403 without rate-limit headers, same classification app-auth.ts uses for the
     // identical ambiguity on the token-mint call: suspended or gone, not busy.
     logFailed(logger, installationId, endpointTemplate, status, headers);
-    throw new GithubAccessRevokedError("GitHub access was revoked — reinstall the app", {
-      details: { installationId: installationId.toString(), status },
-    });
+    throw new GithubAccessRevokedError(
+      "GitHub access was revoked — reinstall the app",
+      {
+        details: { installationId: installationId.toString(), status },
+      },
+    );
   }
 
   logFailed(logger, installationId, endpointTemplate, status, headers);
-  throw new Error(`GitHub responded ${status.toString()} fetching the tarball for ${owner}/${repo}@${sha}`);
+  throw new Error(
+    `GitHub responded ${status.toString()} fetching the tarball for ${owner}/${repo}@${sha}`,
+  );
 }
 
 function safeParseUrl(value: string): URL | null {

@@ -22,7 +22,12 @@ vi.mock("../repositories/repository.service.js", () => ({
 }));
 vi.mock("../../inngest/emit.js", () => ({ emitProjectDeleted: vi.fn() }));
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
   return { ...actual, createLogger: () => logSpies };
@@ -106,7 +111,9 @@ describe("nextSuffixedSlug (the numeric suffix used by the single retry)", () =>
 
   it("ignores slugs that merely share the prefix", () => {
     // `startsWith` matching means "api-gateway" comes back from the same query.
-    expect(nextSuffixedSlug("api", ["api", "api-gateway", "apiary"])).toBe("api-2");
+    expect(nextSuffixedSlug("api", ["api", "api-gateway", "apiary"])).toBe(
+      "api-2",
+    );
   });
 
   it("is unaffected by gaps in the numbering", () => {
@@ -121,14 +128,20 @@ describe("createProject â€” per-user uniqueness, one retry, then 409 (phase-01 Â
     const dto = await createProject(OWNER, { name: "Test Project" });
 
     expect(mockedCreate).toHaveBeenCalledTimes(1);
-    expect(mockedCreate).toHaveBeenCalledWith(USER_ID, { name: "Test Project", slug: "test-project" });
+    expect(mockedCreate).toHaveBeenCalledWith(USER_ID, {
+      name: "Test Project",
+      slug: "test-project",
+    });
     expect(dto.slug).toBe("test-project");
   });
 
   it("retries exactly once with a numeric suffix when the slug is taken", async () => {
     mockedCreate
       .mockResolvedValueOnce({ ok: false, reason: "SLUG_TAKEN" })
-      .mockResolvedValueOnce({ ok: true, project: projectRow({ id: "project-2", slug: "test-project-2" }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        project: projectRow({ id: "project-2", slug: "test-project-2" }),
+      });
     mockedFindSlugs.mockResolvedValueOnce(["test-project"]);
 
     const dto = await createProject(OWNER, { name: "Test Project" });
@@ -149,7 +162,10 @@ describe("createProject â€” per-user uniqueness, one retry, then 409 (phase-01 Â
     const promise = createProject(OWNER, { name: "Test Project" });
 
     await expect(promise).rejects.toBeInstanceOf(ConflictError);
-    await expect(promise).rejects.toMatchObject({ httpStatus: 409, code: "CONFLICT" });
+    await expect(promise).rejects.toMatchObject({
+      httpStatus: 409,
+      code: "CONFLICT",
+    });
     // Two attempts total. A third would mean the "one retry, not a loop" rule
     // (phase-01 Â§12) had turned into an unbounded retry under contention.
     expect(mockedCreate).toHaveBeenCalledTimes(2);
@@ -158,7 +174,10 @@ describe("createProject â€” per-user uniqueness, one retry, then 409 (phase-01 Â
   it("scopes the uniqueness probe to the calling user", async () => {
     mockedCreate
       .mockResolvedValueOnce({ ok: false, reason: "SLUG_TAKEN" })
-      .mockResolvedValueOnce({ ok: true, project: projectRow({ slug: "test-project-2" }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        project: projectRow({ slug: "test-project-2" }),
+      });
     mockedFindSlugs.mockResolvedValueOnce(["test-project"]);
 
     await createProject(OWNER, { name: "Test Project" });
@@ -191,19 +210,27 @@ describe("listProjects â€” cursor paging", () => {
 
     expect(page.projects.map((p) => p.id)).toEqual(["p1", "p2"]);
     expect(page.nextCursor).toBe("p2");
-    expect(mockedListByUser).toHaveBeenCalledWith(USER_ID, { limit: 2, cursor: undefined });
+    expect(mockedListByUser).toHaveBeenCalledWith(USER_ID, {
+      limit: 2,
+      cursor: undefined,
+    });
   });
 
   it("returns a null cursor on the last page", async () => {
     mockedListByUser.mockResolvedValueOnce([projectRow({ id: "p1" })]);
 
-    await expect(listProjects(OWNER, { limit: 2 })).resolves.toMatchObject({ nextCursor: null });
+    await expect(listProjects(OWNER, { limit: 2 })).resolves.toMatchObject({
+      nextCursor: null,
+    });
   });
 
   it("returns a null cursor for an empty list", async () => {
     mockedListByUser.mockResolvedValueOnce([]);
 
-    await expect(listProjects(OWNER, { limit: 2 })).resolves.toEqual({ projects: [], nextCursor: null });
+    await expect(listProjects(OWNER, { limit: 2 })).resolves.toEqual({
+      projects: [],
+      nextCursor: null,
+    });
   });
 });
 

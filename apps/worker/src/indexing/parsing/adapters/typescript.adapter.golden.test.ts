@@ -21,15 +21,20 @@ import { isParseRefusal, parseFile } from "./typescript.adapter.js";
  * fixtures themselves are plain data files elsewhere and never need to match that glob.
  */
 
-const FIXTURES_DIR = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../tests/fixtures/parsing");
+const FIXTURES_DIR = path.resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../../../../tests/fixtures/parsing",
+);
 
 async function parseFixture(filename: string): Promise<ParsedFile> {
   const filePath = path.join(FIXTURES_DIR, filename);
   const source = await fs.readFile(filePath, "utf8");
   const ext = path.extname(filename);
-  const language: ParserLanguage = ext === ".tsx" ? "tsx" : ext === ".js" ? "javascript" : "typescript";
+  const language: ParserLanguage =
+    ext === ".tsx" ? "tsx" : ext === ".js" ? "javascript" : "typescript";
   const result = await parseFile(filename, language, source);
-  if (isParseRefusal(result)) throw new Error(`fixture ${filename} was refused: ${result.reason}`);
+  if (isParseRefusal(result))
+    throw new Error(`fixture ${filename} was refused: ${result.reason}`);
   return result;
 }
 
@@ -40,23 +45,35 @@ afterAll(async () => {
 describe("golden fixtures", () => {
   it("barrel.ts — a chain of export * from re-exports", async () => {
     const parsed = await parseFixture("barrel.ts");
-    const reExportTargets = parsed.exports.filter((e) => e.reExportFrom).map((e) => e.reExportFrom);
-    expect(reExportTargets.sort()).toEqual(["./button", "./input", "./modal", "./theme"].sort());
+    const reExportTargets = parsed.exports
+      .filter((e) => e.reExportFrom)
+      .map((e) => e.reExportFrom);
+    expect(reExportTargets.sort()).toEqual(
+      ["./button", "./input", "./modal", "./theme"].sort(),
+    );
     // Each re-export is also a file-level import edge (the "dual nature" contract).
     for (const target of ["./button", "./input", "./modal", "./theme"]) {
-      expect(parsed.imports).toContainEqual(expect.objectContaining({ specifier: target }));
+      expect(parsed.imports).toContainEqual(
+        expect.objectContaining({ specifier: target }),
+      );
     }
   });
 
   it("export-star.ts — export * from specifically", async () => {
     const parsed = await parseFixture("export-star.ts");
-    expect(parsed.exports).toContainEqual(expect.objectContaining({ name: "", reExportFrom: "./utils" }));
+    expect(parsed.exports).toContainEqual(
+      expect.objectContaining({ name: "", reExportFrom: "./utils" }),
+    );
   });
 
   it("dynamic-imports.ts — literal specifier resolved, non-literal never fabricated", async () => {
     const parsed = await parseFixture("dynamic-imports.ts");
-    expect(parsed.imports).toContainEqual(expect.objectContaining({ specifier: "./widget", syntax: "dynamic" }));
-    expect(parsed.imports.filter((i) => i.syntax === "dynamic")).toHaveLength(1);
+    expect(parsed.imports).toContainEqual(
+      expect.objectContaining({ specifier: "./widget", syntax: "dynamic" }),
+    );
+    expect(parsed.imports.filter((i) => i.syntax === "dynamic")).toHaveLength(
+      1,
+    );
     expect(byName(parsed, "loadWidget").kind).toBe("FUNCTION");
     expect(byName(parsed, "loadDynamic").kind).toBe("FUNCTION");
   });
@@ -66,13 +83,24 @@ describe("golden fixtures", () => {
     const service = byName(parsed, "WidgetService");
     expect(service.kind).toBe("CLASS");
     // `@Injectable()` is on the line immediately before `export class WidgetService`.
-    const source = await fs.readFile(path.join(FIXTURES_DIR, "decorators.ts"), "utf8");
-    const decoratorLine = source.split("\n").findIndex((l) => l.includes("@Injectable")) + 1;
+    const source = await fs.readFile(
+      path.join(FIXTURES_DIR, "decorators.ts"),
+      "utf8",
+    );
+    const decoratorLine =
+      source.split("\n").findIndex((l) => l.includes("@Injectable")) + 1;
     expect(service.startLine).toBe(decoratorLine);
 
     const render = byName(parsed, "render");
     expect(render.parentSymbol).toBe("WidgetService");
-    const renderDecoratorLine = source.split("\n").findIndex((l, i) => l.includes("@Input") && i > source.split("\n").findIndex((x) => x.includes("label"))) + 1;
+    const renderDecoratorLine =
+      source
+        .split("\n")
+        .findIndex(
+          (l, i) =>
+            l.includes("@Input") &&
+            i > source.split("\n").findIndex((x) => x.includes("label")),
+        ) + 1;
     expect(render.startLine).toBe(renderDecoratorLine);
   });
 
@@ -88,35 +116,51 @@ describe("golden fixtures", () => {
     const formatDate = byName(parsed, "formatDate");
     expect(formatDate.isExported).toBe(true);
     expect(formatDate.isDefault).toBe(true);
-    expect(parsed.exports).toContainEqual(expect.objectContaining({ name: "formatDate", isDefault: true }));
+    expect(parsed.exports).toContainEqual(
+      expect.objectContaining({ name: "formatDate", isDefault: true }),
+    );
   });
 
   it("namespace-imports.ts", async () => {
     const parsed = await parseFixture("namespace-imports.ts");
-    expect(parsed.imports).toContainEqual(expect.objectContaining({ specifier: "node:path", namespace: "path" }));
+    expect(parsed.imports).toContainEqual(
+      expect.objectContaining({ specifier: "node:path", namespace: "path" }),
+    );
     const joinPaths = byName(parsed, "joinPaths");
-    expect(joinPaths.calls).toContainEqual(expect.objectContaining({ name: "join", receiver: "path" }));
+    expect(joinPaths.calls).toContainEqual(
+      expect.objectContaining({ name: "join", receiver: "path" }),
+    );
   });
 
   it("type-only-imports.ts — whole-statement and mixed per-specifier forms both correct", async () => {
     const parsed = await parseFixture("type-only-imports.ts");
-    const wholeStatement = parsed.imports.find((i) => i.named.includes("Request"));
+    const wholeStatement = parsed.imports.find((i) =>
+      i.named.includes("Request"),
+    );
     expect(wholeStatement?.isTypeOnly).toBe(true);
-    expect(wholeStatement?.named.sort()).toEqual(["Request", "Response"].sort());
+    expect(wholeStatement?.named.sort()).toEqual(
+      ["Request", "Response"].sort(),
+    );
 
-    const fromExpress = parsed.imports.filter((i) => i.specifier === "express" && i.named.includes("Router"));
+    const fromExpress = parsed.imports.filter(
+      (i) => i.specifier === "express" && i.named.includes("Router"),
+    );
     expect(fromExpress).toHaveLength(1);
     expect(fromExpress[0]?.isTypeOnly).toBe(false);
     expect(fromExpress[0]?.named).toContain("Router");
     expect(fromExpress[0]?.named).not.toContain("NextFunction");
 
-    const typeOnlySpecifier = parsed.imports.find((i) => i.specifier === "express" && i.named.includes("NextFunction"));
+    const typeOnlySpecifier = parsed.imports.find(
+      (i) => i.specifier === "express" && i.named.includes("NextFunction"),
+    );
     expect(typeOnlySpecifier?.isTypeOnly).toBe(true);
   });
 
   it("overloaded-functions.ts — exactly one symbol, not three, no duplicate ranges", async () => {
     const parsed = await parseFixture("overloaded-functions.ts");
-    const parseValueSymbols = parsed.symbols.filter((s) => s.name === "parseValue");
+    const parseValueSymbols = parsed.symbols.filter(
+      (s) => s.name === "parseValue",
+    );
     expect(parseValueSymbols).toHaveLength(1);
     expect(parseValueSymbols[0]?.signature).toContain("string | number");
   });
@@ -125,7 +169,9 @@ describe("golden fixtures", () => {
     const parsed = await parseFixture("abstract-classes.ts");
     const shape = byName(parsed, "Shape");
     expect(shape.kind).toBe("CLASS");
-    const area = parsed.symbols.find((s) => s.name === "area" && s.parentSymbol === "Shape");
+    const area = parsed.symbols.find(
+      (s) => s.name === "area" && s.parentSymbol === "Shape",
+    );
     expect(area?.kind).toBe("METHOD");
     const circle = byName(parsed, "Circle");
     expect(circle.extends).toEqual(["Shape"]);
@@ -149,13 +195,19 @@ describe("golden fixtures", () => {
   it("class-members.ts — getters, setters, and static methods are all METHOD; the private field is not a symbol at all", async () => {
     const parsed = await parseFixture("class-members.ts");
     for (const name of ["fahrenheit", "create"]) {
-      const matches = parsed.symbols.filter((s) => s.name === name && s.parentSymbol === "Temperature");
+      const matches = parsed.symbols.filter(
+        (s) => s.name === name && s.parentSymbol === "Temperature",
+      );
       expect(matches.length).toBeGreaterThan(0);
       for (const m of matches) expect(m.kind).toBe("METHOD");
     }
-    expect(parsed.symbols.filter((s) => s.name === "fahrenheit")).toHaveLength(2); // getter + setter
+    expect(parsed.symbols.filter((s) => s.name === "fahrenheit")).toHaveLength(
+      2,
+    ); // getter + setter
     expect(parsed.symbols.find((s) => s.name === "celsius")).toBeUndefined();
-    expect(parsed.symbols.find((s) => s.name === "defaultUnit")).toBeUndefined();
+    expect(
+      parsed.symbols.find((s) => s.name === "defaultUnit"),
+    ).toBeUndefined();
   });
 
   it("object-literal-members.ts — no object-literal method/arrow/function-expression becomes a symbol", async () => {
@@ -164,7 +216,10 @@ describe("golden fixtures", () => {
   });
 
   it("malformed.ts — FAILED, not thrown, with real ERROR nodes counted", async () => {
-    const source = await fs.readFile(path.join(FIXTURES_DIR, "malformed.ts"), "utf8");
+    const source = await fs.readFile(
+      path.join(FIXTURES_DIR, "malformed.ts"),
+      "utf8",
+    );
     const result = await parseFile("malformed.ts", "typescript", source);
     expect(isParseRefusal(result)).toBe(false);
     if (!isParseRefusal(result)) {
@@ -186,7 +241,10 @@ describe("golden fixtures", () => {
     // independently-tuned concern (see the malformed.ts test) from the claim this test
     // makes: that TypeScript-only syntax is genuinely unparseable by the plain JS
     // grammar, not merely "different-looking but still valid".
-    const source = await fs.readFile(path.join(FIXTURES_DIR, "ts-only-syntax.ts"), "utf8");
+    const source = await fs.readFile(
+      path.join(FIXTURES_DIR, "ts-only-syntax.ts"),
+      "utf8",
+    );
     const result = await parseFile("ts-only-syntax.js", "javascript", source);
     expect(isParseRefusal(result)).toBe(false);
     if (!isParseRefusal(result)) {
@@ -232,6 +290,9 @@ describe("golden fixtures", () => {
 
 function byName(parsed: ParsedFile, name: string) {
   const found = parsed.symbols.find((s) => s.name === name);
-  if (!found) throw new Error(`expected a symbol named "${name}" among: ${parsed.symbols.map((s) => s.name).join(", ")}`);
+  if (!found)
+    throw new Error(
+      `expected a symbol named "${name}" among: ${parsed.symbols.map((s) => s.name).join(", ")}`,
+    );
   return found;
 }

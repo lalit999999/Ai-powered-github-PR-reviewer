@@ -1,6 +1,10 @@
 import type { Octokit } from "@octokit/core";
 import { createLogger, type Logger } from "@repo/observability";
-import { createInstallationOctokit, createUserOctokit, GITHUB_CLIENT_COMPONENT } from "../client/octokit-factory.js";
+import {
+  createInstallationOctokit,
+  createUserOctokit,
+  GITHUB_CLIENT_COMPONENT,
+} from "../client/octokit-factory.js";
 import { classifyGithubError, type GithubResult } from "./github-result.js";
 
 /**
@@ -84,8 +88,14 @@ export async function listUserInstallations(
     const installations: GithubInstallationSummary[] = [];
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const response = await octokit.request("GET /user/installations", { per_page: PER_PAGE, page });
-      const body = response.data as { total_count?: number; installations?: RawInstallation[] };
+      const response = await octokit.request("GET /user/installations", {
+        per_page: PER_PAGE,
+        page,
+      });
+      const body = response.data as {
+        total_count?: number;
+        installations?: RawInstallation[];
+      };
       const batch = body.installations ?? [];
 
       for (const raw of batch) {
@@ -116,7 +126,9 @@ export async function listUserInstallations(
 
 /** Drops an installation GitHub described without the fields this system needs, rather
  * than persisting a row with a fabricated `accountLogin`. */
-function toInstallationSummary(raw: RawInstallation): GithubInstallationSummary | null {
+function toInstallationSummary(
+  raw: RawInstallation,
+): GithubInstallationSummary | null {
   const login = raw.account?.login;
   if (typeof raw.id !== "number" || typeof login !== "string") return null;
 
@@ -176,7 +188,8 @@ export async function listInstallationRepositories(
   options: ListInstallationRepositoriesOptions = {},
 ): Promise<GithubResult<{ repositories: InstallationRepositorySummary[] }>> {
   const logger = options.logger ?? defaultLogger;
-  const octokit = options.octokit ?? createInstallationOctokit(installationId, { logger });
+  const octokit =
+    options.octokit ?? createInstallationOctokit(installationId, { logger });
 
   try {
     const repositories: InstallationRepositorySummary[] = [];
@@ -184,8 +197,14 @@ export async function listInstallationRepositories(
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       pages = page;
-      const response = await octokit.request("GET /installation/repositories", { per_page: PER_PAGE, page });
-      const body = response.data as { total_count?: number; repositories?: RawRepository[] };
+      const response = await octokit.request("GET /installation/repositories", {
+        per_page: PER_PAGE,
+        page,
+      });
+      const body = response.data as {
+        total_count?: number;
+        repositories?: RawRepository[];
+      };
       const batch = body.repositories ?? [];
 
       for (const raw of batch) {
@@ -219,9 +238,16 @@ export async function listInstallationRepositories(
  * it is dropped rather than surfaced as a picker entry that would fail on selection.
  * An empty repository legitimately has no `default_branch`; it is kept, and the
  * validation chain rejects it later with the specific "repository is empty" error. */
-function toRepositorySummary(raw: RawRepository): InstallationRepositorySummary | null {
+function toRepositorySummary(
+  raw: RawRepository,
+): InstallationRepositorySummary | null {
   const owner = raw.owner?.login;
-  if (typeof raw.id !== "number" || typeof raw.name !== "string" || typeof owner !== "string") return null;
+  if (
+    typeof raw.id !== "number" ||
+    typeof raw.name !== "string" ||
+    typeof owner !== "string"
+  )
+    return null;
 
   return {
     githubRepoId: BigInt(raw.id),

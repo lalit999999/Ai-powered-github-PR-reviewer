@@ -4,7 +4,11 @@ import { throttling } from "@octokit/plugin-throttling";
 import type { EndpointDefaults } from "@octokit/types";
 import { createLogger, type Logger } from "@repo/observability";
 import { getInstallationToken } from "./app-auth.js";
-import { createEtagCachePlugin, TokenCacheEtagStore, type EtagStore } from "./etag-cache.js";
+import {
+  createEtagCachePlugin,
+  TokenCacheEtagStore,
+  type EtagStore,
+} from "./etag-cache.js";
 import { getTokenCache } from "./redis.js";
 import { createRateLimitPolicy } from "./rate-limiter.js";
 import type { TokenCache } from "./token-cache.js";
@@ -51,7 +55,8 @@ function createLoggingPlugin(installationId: bigint | null, logger: Logger) {
   // an installation token (GET /user/installations) — see createUserOctokit. The field
   // is still emitted, so a log query filtering on `installationId` sees an explicit
   // null rather than a missing key.
-  const installation = installationId === null ? null : installationId.toString();
+  const installation =
+    installationId === null ? null : installationId.toString();
 
   return function loggingPlugin(octokit: Octokit): void {
     octokit.hook.wrap("request", async (request, requestOptions) => {
@@ -62,16 +67,23 @@ function createLoggingPlugin(installationId: bigint | null, logger: Logger) {
           installationId: installation,
           endpoint,
           status: response.status,
-          "github.rate_limit_remaining": Number(response.headers?.["x-ratelimit-remaining"] ?? Number.NaN),
+          "github.rate_limit_remaining": Number(
+            response.headers?.["x-ratelimit-remaining"] ?? Number.NaN,
+          ),
         });
         return response;
       } catch (error) {
-        const failure = error as { status?: number; response?: { headers?: Record<string, string> } };
+        const failure = error as {
+          status?: number;
+          response?: { headers?: Record<string, string> };
+        };
         logger.warn("github request failed", {
           installationId: installation,
           endpoint,
           status: failure.status ?? 0,
-          "github.rate_limit_remaining": Number(failure.response?.headers?.["x-ratelimit-remaining"] ?? Number.NaN),
+          "github.rate_limit_remaining": Number(
+            failure.response?.headers?.["x-ratelimit-remaining"] ?? Number.NaN,
+          ),
         });
         throw error;
       }
@@ -88,11 +100,17 @@ function createLoggingPlugin(installationId: bigint | null, logger: Logger) {
  * held across the expiry boundary picks up the new token instead of sending a dead one.
  * The alternative — `new Octokit({ auth: token })` — bakes in a token that silently rots.
  */
-function createAuthPlugin(installationId: bigint, getToken: (installationId: bigint) => Promise<string>) {
+function createAuthPlugin(
+  installationId: bigint,
+  getToken: (installationId: bigint) => Promise<string>,
+) {
   return function authPlugin(octokit: Octokit): void {
     octokit.hook.before("request", async (requestOptions) => {
       const token = await getToken(installationId);
-      requestOptions.headers = { ...requestOptions.headers, authorization: `token ${token}` };
+      requestOptions.headers = {
+        ...requestOptions.headers,
+        authorization: `token ${token}`,
+      };
     });
   };
 }
@@ -103,12 +121,21 @@ function createAuthPlugin(installationId: bigint, getToken: (installationId: big
  * Async only because nothing here needs to be — it is kept synchronous deliberately: no
  * token is minted at construction, so building a client never costs a GitHub call.
  */
-export function createInstallationOctokit(installationId: bigint, options: OctokitFactoryOptions = {}): Octokit {
+export function createInstallationOctokit(
+  installationId: bigint,
+  options: OctokitFactoryOptions = {},
+): Octokit {
   const logger = options.logger ?? createLogger(GITHUB_CLIENT_COMPONENT);
   const getToken = options.getToken ?? getInstallationToken;
-  const etagStore = options.etagStore ?? new TokenCacheEtagStore(options.cache ?? getTokenCache());
+  const etagStore =
+    options.etagStore ??
+    new TokenCacheEtagStore(options.cache ?? getTokenCache());
 
-  const etagCache = createEtagCachePlugin({ store: etagStore, scope: installationId.toString(), logger });
+  const etagCache = createEtagCachePlugin({
+    store: etagStore,
+    scope: installationId.toString(),
+    logger,
+  });
 
   const ClientConstructor = Octokit.plugin(
     etagCache,
@@ -131,7 +158,9 @@ export function createInstallationOctokit(installationId: bigint, options: Octok
     throttle: createRateLimitPolicy({
       installationId,
       logger,
-      ...(options.maxRateLimitWaitSeconds !== undefined ? { maxWaitSeconds: options.maxRateLimitWaitSeconds } : {}),
+      ...(options.maxRateLimitWaitSeconds !== undefined
+        ? { maxWaitSeconds: options.maxRateLimitWaitSeconds }
+        : {}),
     }),
     log: {
       // Octokit's own internal logging is routed into the structured logger rather than
@@ -171,10 +200,17 @@ export interface UserOctokitOptions {
  * The token is passed to Octokit and never logged — `logger.ts`'s redaction covers
  * `token`/`accessToken`-shaped keys, and nothing here puts it in a log payload anyway.
  */
-export function createUserOctokit(accessToken: string, options: UserOctokitOptions = {}): Octokit {
+export function createUserOctokit(
+  accessToken: string,
+  options: UserOctokitOptions = {},
+): Octokit {
   const logger = options.logger ?? createLogger(GITHUB_CLIENT_COMPONENT);
 
-  const ClientConstructor = Octokit.plugin(retry, throttling, createLoggingPlugin(null, logger));
+  const ClientConstructor = Octokit.plugin(
+    retry,
+    throttling,
+    createLoggingPlugin(null, logger),
+  );
 
   return new ClientConstructor({
     auth: accessToken,
@@ -184,7 +220,9 @@ export function createUserOctokit(accessToken: string, options: UserOctokitOptio
     throttle: createRateLimitPolicy({
       installationId: null,
       logger,
-      ...(options.maxRateLimitWaitSeconds !== undefined ? { maxWaitSeconds: options.maxRateLimitWaitSeconds } : {}),
+      ...(options.maxRateLimitWaitSeconds !== undefined
+        ? { maxWaitSeconds: options.maxRateLimitWaitSeconds }
+        : {}),
     }),
     log: {
       debug: (message: string) => logger.debug(message, { source: "octokit" }),

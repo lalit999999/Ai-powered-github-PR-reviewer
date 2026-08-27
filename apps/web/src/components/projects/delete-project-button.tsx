@@ -22,14 +22,21 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
     setPending(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/projects/${encodeURIComponent(projectId)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${API_URL}/api/projects/${encodeURIComponent(projectId)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
 
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? `Could not delete project (${res.status})`);
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setError(
+          body?.error?.message ?? `Could not delete project (${res.status})`,
+        );
         setPending(false);
         return;
       }
@@ -37,14 +44,21 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
       router.push("/projects");
       router.refresh();
     } catch {
-      setError("Could not reach the API. Check that it is running, then try again.");
+      setError(
+        "Could not reach the API. Check that it is running, then try again.",
+      );
       setPending(false);
     }
   }
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <Button variant="outline" size="sm" onClick={handleDelete} disabled={pending}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleDelete}
+        disabled={pending}
+      >
         {pending ? "Deleting…" : "Delete project"}
       </Button>
       {error && (

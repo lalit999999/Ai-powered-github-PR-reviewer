@@ -24,7 +24,9 @@ import type {
  * regardless of how large the repository is.
  */
 
-export async function getFileTotals(repositoryId: string): Promise<KnowledgeFileTotals> {
+export async function getFileTotals(
+  repositoryId: string,
+): Promise<KnowledgeFileTotals> {
   const rows = await prisma.$queryRaw<{ parseState: string; count: bigint }[]>`
     SELECT "parseState", COUNT(*) AS count
     FROM "RepositoryFile"
@@ -55,8 +57,12 @@ export async function getSymbolCount(repositoryId: string): Promise<number> {
  * (derived from the `IMPORTS` kind's own rows) — all from the same result set, no second
  * query needed for any of the three.
  */
-export async function getEdgeTotals(repositoryId: string): Promise<KnowledgeEdgeTotals> {
-  const rows = await prisma.$queryRaw<{ kind: string; resolution: string; count: bigint }[]>`
+export async function getEdgeTotals(
+  repositoryId: string,
+): Promise<KnowledgeEdgeTotals> {
+  const rows = await prisma.$queryRaw<
+    { kind: string; resolution: string; count: bigint }[]
+  >`
     SELECT kind::text AS kind, resolution, COUNT(*) AS count
     FROM "CodeDependency"
     WHERE "repositoryId" = ${repositoryId}
@@ -81,7 +87,8 @@ export async function getEdgeTotals(repositoryId: string): Promise<KnowledgeEdge
   }
 
   const importTotal = importsResolved + importsExternal + importsUnresolved;
-  const unresolvedImportRatio = importTotal === 0 ? 0 : importsUnresolved / importTotal;
+  const unresolvedImportRatio =
+    importTotal === 0 ? 0 : importsUnresolved / importTotal;
 
   return { edgeCount, edgeCountByKind, unresolvedImportRatio };
 }
@@ -98,8 +105,12 @@ const TOP_UNRESOLVED_LIMIT = 20;
  * often") without inventing a classification the resolver never actually produces. See
  * docs/decisions/phase-04-log.md for this conflict and its resolution.
  */
-export async function getTopUnresolvedSpecifiers(repositoryId: string): Promise<TopUnresolvedSpecifierRecord[]> {
-  const rows = await prisma.$queryRaw<{ rawSpecifier: string | null; count: bigint }[]>`
+export async function getTopUnresolvedSpecifiers(
+  repositoryId: string,
+): Promise<TopUnresolvedSpecifierRecord[]> {
+  const rows = await prisma.$queryRaw<
+    { rawSpecifier: string | null; count: bigint }[]
+  >`
     SELECT "rawSpecifier", COUNT(*) AS count
     FROM "CodeDependency"
     WHERE "repositoryId" = ${repositoryId} AND resolution = 'UNRESOLVED'
@@ -107,19 +118,28 @@ export async function getTopUnresolvedSpecifiers(repositoryId: string): Promise<
     ORDER BY count DESC
     LIMIT ${TOP_UNRESOLVED_LIMIT}
   `;
-  return rows.map((row) => ({ rawSpecifier: row.rawSpecifier, count: Number(row.count) }));
+  return rows.map((row) => ({
+    rawSpecifier: row.rawSpecifier,
+    count: Number(row.count),
+  }));
 }
 
 const TOP_FILES_LIMIT = 10;
 
-export async function getTopFilesByInboundEdges(repositoryId: string): Promise<TopFileByInboundEdgesRecord[]> {
+export async function getTopFilesByInboundEdges(
+  repositoryId: string,
+): Promise<TopFileByInboundEdgesRecord[]> {
   const rows = await prisma.repositoryFile.findMany({
     where: { repositoryId },
     select: { id: true, path: true, inboundEdgeCount: true },
     orderBy: [{ inboundEdgeCount: "desc" }, { path: "asc" }],
     take: TOP_FILES_LIMIT,
   });
-  return rows.map((row) => ({ fileId: row.id, path: row.path, inboundEdgeCount: row.inboundEdgeCount }));
+  return rows.map((row) => ({
+    fileId: row.id,
+    path: row.path,
+    inboundEdgeCount: row.inboundEdgeCount,
+  }));
 }
 
 /**
@@ -128,18 +148,28 @@ export async function getTopFilesByInboundEdges(repositoryId: string): Promise<T
  * client-side) when `getEdgeTotals` already reports zero unresolved imports, the common
  * case for a well-formed repository — one fewer round trip on the path that matters most.
  */
-export async function getKnowledgeAggregates(repositoryId: string): Promise<KnowledgeAggregates> {
-  const [fileTotals, symbolCount, edgeTotals, topFilesByInboundEdges] = await Promise.all([
-    getFileTotals(repositoryId),
-    getSymbolCount(repositoryId),
-    getEdgeTotals(repositoryId),
-    getTopFilesByInboundEdges(repositoryId),
-  ]);
+export async function getKnowledgeAggregates(
+  repositoryId: string,
+): Promise<KnowledgeAggregates> {
+  const [fileTotals, symbolCount, edgeTotals, topFilesByInboundEdges] =
+    await Promise.all([
+      getFileTotals(repositoryId),
+      getSymbolCount(repositoryId),
+      getEdgeTotals(repositoryId),
+      getTopFilesByInboundEdges(repositoryId),
+    ]);
 
   const topUnresolvedSpecifiers =
-    (edgeTotals.edgeCountByKind.IMPORTS ?? 0) > 0 && edgeTotals.unresolvedImportRatio > 0
+    (edgeTotals.edgeCountByKind.IMPORTS ?? 0) > 0 &&
+    edgeTotals.unresolvedImportRatio > 0
       ? await getTopUnresolvedSpecifiers(repositoryId)
       : [];
 
-  return { fileTotals, symbolCount, edgeTotals, topUnresolvedSpecifiers, topFilesByInboundEdges };
+  return {
+    fileTotals,
+    symbolCount,
+    edgeTotals,
+    topUnresolvedSpecifiers,
+    topFilesByInboundEdges,
+  };
 }

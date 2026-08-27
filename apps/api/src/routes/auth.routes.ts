@@ -37,14 +37,21 @@ const authPagesRouter = Router();
 
 function redirectToFrontendSignIn(req: Request, res: Response): void {
   const target = new URL("/signin", env.FRONTEND_URL);
-  const error = typeof req.query.error === "string" ? req.query.error : undefined;
+  const error =
+    typeof req.query.error === "string" ? req.query.error : undefined;
   if (error) {
     target.searchParams.set("error", error);
   }
   res.redirect(302, target.toString());
 }
 
-authPagesRouter.get("/signin", withRoute(redirectToFrontendSignIn, { component: "api.auth-pages" }));
-authPagesRouter.get("/error", withRoute(redirectToFrontendSignIn, { component: "api.auth-pages" }));
+authPagesRouter.get(
+  "/signin",
+  withRoute(redirectToFrontendSignIn, { component: "api.auth-pages" }),
+);
+authPagesRouter.get(
+  "/error",
+  withRoute(redirectToFrontendSignIn, { component: "api.auth-pages" }),
+);
 
 export { authPagesRouter };

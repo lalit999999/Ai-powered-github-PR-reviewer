@@ -2,11 +2,18 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildRepoContext, findPackageForFile, findTsconfigForFile, getPackageNameForFile } from "./repo-context.js";
+import {
+  buildRepoContext,
+  findPackageForFile,
+  findTsconfigForFile,
+  getPackageNameForFile,
+} from "./repo-context.js";
 
 const tempDirs: string[] = [];
 
-async function makeTempRepo(files: Record<string, string>): Promise<{ dir: string; paths: string[] }> {
+async function makeTempRepo(
+  files: Record<string, string>,
+): Promise<{ dir: string; paths: string[] }> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "repo-context-test-"));
   tempDirs.push(dir);
   for (const [relativePath, content] of Object.entries(files)) {
@@ -27,7 +34,10 @@ afterEach(async () => {
 describe("buildRepoContext", () => {
   it("handles a single-package repo with no workspace at all", async () => {
     const { dir, paths } = await makeTempRepo({
-      "package.json": JSON.stringify({ name: "my-app", dependencies: { lodash: "^4.17.21" } }),
+      "package.json": JSON.stringify({
+        name: "my-app",
+        dependencies: { lodash: "^4.17.21" },
+      }),
       "src/index.ts": "export const x = 1;\n",
     });
 
@@ -50,12 +60,17 @@ describe("buildRepoContext", () => {
     const context = await buildRepoContext(dir, paths);
 
     expect(context.workspaceMarkers.pnpmWorkspaceYaml).toBe(true);
-    expect(new Set(context.workspaceRoots)).toEqual(new Set(["apps/web", "packages/ui"]));
+    expect(new Set(context.workspaceRoots)).toEqual(
+      new Set(["apps/web", "packages/ui"]),
+    );
   });
 
   it("detects an npm workspaces array in the root package.json", async () => {
     const { dir, paths } = await makeTempRepo({
-      "package.json": JSON.stringify({ name: "root", workspaces: ["packages/*"] }),
+      "package.json": JSON.stringify({
+        name: "root",
+        workspaces: ["packages/*"],
+      }),
       "packages/core/package.json": JSON.stringify({ name: "@repo/core" }),
     });
 
@@ -68,7 +83,10 @@ describe("buildRepoContext", () => {
   it("follows a tsconfig extends chain, with the leaf's own paths/baseUrl winning", async () => {
     const { dir, paths } = await makeTempRepo({
       "tsconfig.base.json": JSON.stringify({
-        compilerOptions: { baseUrl: ".", paths: { "@shared/*": ["packages/shared/src/*"] } },
+        compilerOptions: {
+          baseUrl: ".",
+          paths: { "@shared/*": ["packages/shared/src/*"] },
+        },
       }),
       "apps/web/tsconfig.json": JSON.stringify({
         extends: "../../tsconfig.base.json",
@@ -91,8 +109,14 @@ describe("buildRepoContext", () => {
 
   it("guards against a tsconfig extends cycle rather than hanging", async () => {
     const { dir, paths } = await makeTempRepo({
-      "tsconfig.a.json": JSON.stringify({ extends: "./tsconfig.b.json", compilerOptions: { paths: { "@a/*": ["a/*"] } } }),
-      "tsconfig.b.json": JSON.stringify({ extends: "./tsconfig.a.json", compilerOptions: { paths: { "@b/*": ["b/*"] } } }),
+      "tsconfig.a.json": JSON.stringify({
+        extends: "./tsconfig.b.json",
+        compilerOptions: { paths: { "@a/*": ["a/*"] } },
+      }),
+      "tsconfig.b.json": JSON.stringify({
+        extends: "./tsconfig.a.json",
+        compilerOptions: { paths: { "@b/*": ["b/*"] } },
+      }),
       "tsconfig.json": JSON.stringify({ extends: "./tsconfig.a.json" }),
       "src/index.ts": "export {};\n",
     });
@@ -109,7 +133,7 @@ describe("buildRepoContext", () => {
     const { dir, paths } = await makeTempRepo({
       "tsconfig.json": [
         "{",
-        '  // a comment',
+        "  // a comment",
         '  "compilerOptions": {',
         '    "baseUrl": ".", // trailing comment',
         '    "paths": {',
@@ -138,7 +162,9 @@ describe("buildRepoContext", () => {
   });
 
   it("treats a missing root tsconfig.json as normal, not an error", async () => {
-    const { dir, paths } = await makeTempRepo({ "src/index.ts": "export {};\n" });
+    const { dir, paths } = await makeTempRepo({
+      "src/index.ts": "export {};\n",
+    });
     const context = await buildRepoContext(dir, paths);
     expect(context.malformedManifestCount).toBe(0);
     expect(findTsconfigForFile(context, "src/index.ts")).toBeNull();
@@ -150,7 +176,9 @@ describe("buildRepoContext", () => {
     // itself, rather than trusting the input list blindly.
     const { dir, paths } = await makeTempRepo({
       "package.json": JSON.stringify({ name: "root" }),
-      "node_modules/left-pad/package.json": JSON.stringify({ name: "left-pad" }),
+      "node_modules/left-pad/package.json": JSON.stringify({
+        name: "left-pad",
+      }),
     });
 
     const context = await buildRepoContext(dir, paths);
@@ -179,7 +207,9 @@ describe("getPackageNameForFile", () => {
       "packages/core/src/index.ts": "export {};\n",
     });
     const context = await buildRepoContext(dir, paths);
-    expect(getPackageNameForFile(context, "packages/core/src/index.ts")).toBe("@repo/core");
+    expect(getPackageNameForFile(context, "packages/core/src/index.ts")).toBe(
+      "@repo/core",
+    );
   });
 
   it("falls back to the directory path when the package.json has no name field", async () => {
@@ -188,11 +218,15 @@ describe("getPackageNameForFile", () => {
       "packages/core/src/index.ts": "export {};\n",
     });
     const context = await buildRepoContext(dir, paths);
-    expect(getPackageNameForFile(context, "packages/core/src/index.ts")).toBe("packages/core");
+    expect(getPackageNameForFile(context, "packages/core/src/index.ts")).toBe(
+      "packages/core",
+    );
   });
 
   it("returns null when no ancestor package.json exists at all", async () => {
-    const { dir, paths } = await makeTempRepo({ "src/index.ts": "export {};\n" });
+    const { dir, paths } = await makeTempRepo({
+      "src/index.ts": "export {};\n",
+    });
     const context = await buildRepoContext(dir, paths);
     expect(getPackageNameForFile(context, "src/index.ts")).toBeNull();
     expect(findPackageForFile(context, "src/index.ts")).toBeNull();

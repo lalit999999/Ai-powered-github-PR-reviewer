@@ -82,7 +82,9 @@ export interface CreateIndexJobInput {
 /** Inserts the run's `IndexJob` row already `RUNNING` (see this module's header
  * comment). `attempts` starts at 1 — this call itself is the run's first attempt;
  * {@link incrementAttempts} accounts for every attempt after it. */
-export async function createIndexJob(input: CreateIndexJobInput): Promise<IndexJobRecord> {
+export async function createIndexJob(
+  input: CreateIndexJobInput,
+): Promise<IndexJobRecord> {
   return prisma.indexJob.create({
     data: {
       ...(input.id ? { id: input.id } : {}),
@@ -106,8 +108,13 @@ export async function createIndexJob(input: CreateIndexJobInput): Promise<IndexJ
  * `null` if the run failed before step 1 ever created a row (e.g. a transient DB error
  * on the very first write) — `onFailure` treats that as "nothing to mark", not an error.
  */
-export async function findByInngestRunId(inngestRunId: string): Promise<IndexJobRecord | null> {
-  return prisma.indexJob.findFirst({ where: { inngestRunId }, orderBy: { createdAt: "desc" } });
+export async function findByInngestRunId(
+  inngestRunId: string,
+): Promise<IndexJobRecord | null> {
+  return prisma.indexJob.findFirst({
+    where: { inngestRunId },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 /**
@@ -117,7 +124,10 @@ export async function findByInngestRunId(inngestRunId: string): Promise<IndexJob
  * from the top, not how many *steps* within it happened to retry individually.
  */
 export async function incrementAttempts(jobId: string): Promise<void> {
-  await prisma.indexJob.update({ where: { id: jobId }, data: { attempts: { increment: 1 } } });
+  await prisma.indexJob.update({
+    where: { id: jobId },
+    data: { attempts: { increment: 1 } },
+  });
 }
 
 export interface ProgressUpdate {
@@ -138,17 +148,30 @@ export interface ProgressUpdate {
  * step that only advances `currentStep`/`progressPercent` (most of them) does not need
  * to re-supply counters it has no new value for.
  */
-export async function updateProgress(jobId: string, update: ProgressUpdate): Promise<void> {
+export async function updateProgress(
+  jobId: string,
+  update: ProgressUpdate,
+): Promise<void> {
   await prisma.indexJob.update({
     where: { id: jobId },
     data: {
       currentStep: update.currentStep,
       progressPercent: update.progressPercent,
-      ...(update.targetCommitSha !== undefined ? { targetCommitSha: update.targetCommitSha } : {}),
-      ...(update.previousCommitSha !== undefined ? { previousCommitSha: update.previousCommitSha } : {}),
-      ...(update.filesTotal !== undefined ? { filesTotal: update.filesTotal } : {}),
-      ...(update.filesProcessed !== undefined ? { filesProcessed: update.filesProcessed } : {}),
-      ...(update.filesSkipped !== undefined ? { filesSkipped: update.filesSkipped } : {}),
+      ...(update.targetCommitSha !== undefined
+        ? { targetCommitSha: update.targetCommitSha }
+        : {}),
+      ...(update.previousCommitSha !== undefined
+        ? { previousCommitSha: update.previousCommitSha }
+        : {}),
+      ...(update.filesTotal !== undefined
+        ? { filesTotal: update.filesTotal }
+        : {}),
+      ...(update.filesProcessed !== undefined
+        ? { filesProcessed: update.filesProcessed }
+        : {}),
+      ...(update.filesSkipped !== undefined
+        ? { filesSkipped: update.filesSkipped }
+        : {}),
     },
   });
 }
@@ -161,7 +184,13 @@ export async function updateProgress(jobId: string, update: ProgressUpdate): Pro
  * them without writing `0` over a value that was never actually computed this run. */
 export async function markSucceeded(
   jobId: string,
-  finalCounts: { filesTotal: number; filesProcessed: number; filesSkipped: number; symbolsCreated?: number; edgesCreated?: number },
+  finalCounts: {
+    filesTotal: number;
+    filesProcessed: number;
+    filesSkipped: number;
+    symbolsCreated?: number;
+    edgesCreated?: number;
+  },
 ): Promise<void> {
   await prisma.indexJob.update({
     where: { id: jobId },
@@ -173,8 +202,12 @@ export async function markSucceeded(
       filesTotal: finalCounts.filesTotal,
       filesProcessed: finalCounts.filesProcessed,
       filesSkipped: finalCounts.filesSkipped,
-      ...(finalCounts.symbolsCreated !== undefined ? { symbolsCreated: finalCounts.symbolsCreated } : {}),
-      ...(finalCounts.edgesCreated !== undefined ? { edgesCreated: finalCounts.edgesCreated } : {}),
+      ...(finalCounts.symbolsCreated !== undefined
+        ? { symbolsCreated: finalCounts.symbolsCreated }
+        : {}),
+      ...(finalCounts.edgesCreated !== undefined
+        ? { edgesCreated: finalCounts.edgesCreated }
+        : {}),
     },
   });
 }
@@ -192,14 +225,21 @@ export interface JobError {
  * `message` for exactly the cases §12 says must not leak attack detail
  * (`UNSAFE_ARCHIVE`); the full detail goes to the structured log line instead.
  */
-export async function markFailed(jobId: string, error: JobError): Promise<void> {
+export async function markFailed(
+  jobId: string,
+  error: JobError,
+): Promise<void> {
   await prisma.indexJob.update({
     where: { id: jobId },
     data: {
       status: "FAILED",
       currentStep: error.step ?? "failed",
       completedAt: new Date(),
-      error: { code: error.code, message: error.message, ...(error.step ? { step: error.step } : {}) },
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.step ? { step: error.step } : {}),
+      },
     },
   });
 }
@@ -213,6 +253,11 @@ export async function markFailed(jobId: string, error: JobError): Promise<void> 
 export async function markSucceededNoOp(jobId: string): Promise<void> {
   await prisma.indexJob.update({
     where: { id: jobId },
-    data: { status: "SUCCEEDED", currentStep: "no-op-already-indexed", progressPercent: 100, completedAt: new Date() },
+    data: {
+      status: "SUCCEEDED",
+      currentStep: "no-op-already-indexed",
+      progressPercent: 100,
+      completedAt: new Date(),
+    },
   });
 }

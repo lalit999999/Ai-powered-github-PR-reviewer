@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getServerSession, listProjects } from "@/lib/api";
 
 /**
@@ -10,12 +16,18 @@ import { getServerSession, listProjects } from "@/lib/api";
  * numbers that cannot be computed yet.
  */
 export default async function DashboardPage() {
-  const [session, projects] = await Promise.all([getServerSession(), listProjects()]);
+  const [session, projects] = await Promise.all([
+    getServerSession(),
+    listProjects(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">
-        Signed in as {session?.user?.githubLogin ?? session?.user?.name ?? "your GitHub account"}
+        Signed in as{" "}
+        {session?.user?.githubLogin ??
+          session?.user?.name ??
+          "your GitHub account"}
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Repositories, indexing, and pull-request reviews arrive in later phases.
@@ -31,7 +43,10 @@ export default async function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/projects" className="text-sm underline underline-offset-4">
+          <Link
+            href="/projects"
+            className="text-sm underline underline-offset-4"
+          >
             Manage projects
           </Link>
         </CardContent>

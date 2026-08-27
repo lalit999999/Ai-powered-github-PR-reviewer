@@ -1,6 +1,12 @@
 import { createLogger, type Logger } from "@repo/observability";
-import { extractRepositoryArchive, type ExtractionSummary } from "./fetcher/archive-extractor.js";
-import { fetchTarballStream, type TarballFetchOptions } from "./fetcher/tarball-fetcher.js";
+import {
+  extractRepositoryArchive,
+  type ExtractionSummary,
+} from "./fetcher/archive-extractor.js";
+import {
+  fetchTarballStream,
+  type TarballFetchOptions,
+} from "./fetcher/tarball-fetcher.js";
 import { buildKnowledgeGraph } from "./graph/graph-builder.js";
 import { buildRepoContext } from "./graph/repo-context.js";
 import { countInboundEdgesByFile } from "./persistence/code-dependency.repository.js";
@@ -126,7 +132,11 @@ export type IndexRepositoryResult =
  * threaded through as every row's `commitSha` (`plan.md` §24.2: one row per current
  * path, stamped with when it was last indexed — never one row per commit).
  */
-function toUpsertInput(repositoryId: string, sha: string, file: WalkSummary["files"][number]): RepositoryFileUpsertInput {
+function toUpsertInput(
+  repositoryId: string,
+  sha: string,
+  file: WalkSummary["files"][number],
+): RepositoryFileUpsertInput {
   return {
     repositoryId,
     path: file.path,
@@ -153,7 +163,11 @@ function toUpsertInput(repositoryId: string, sha: string, file: WalkSummary["fil
  * narrower number, `IndexJob`'s progress tracking needs the broader one, and both come
  * from the same walk.
  */
-function countByBucket(files: WalkSummary["files"]): { filesIndexed: number; filesFailed: number; filesSkipped: number } {
+function countByBucket(files: WalkSummary["files"]): {
+  filesIndexed: number;
+  filesFailed: number;
+  filesSkipped: number;
+} {
   let filesIndexed = 0;
   let filesFailed = 0;
   let filesSkipped = 0;
@@ -165,81 +179,129 @@ function countByBucket(files: WalkSummary["files"]): { filesIndexed: number; fil
   return { filesIndexed, filesFailed, filesSkipped };
 }
 
-export async function indexRepository(options: IndexRepositoryOptions): Promise<IndexRepositoryResult> {
+export async function indexRepository(
+  options: IndexRepositoryOptions,
+): Promise<IndexRepositoryResult> {
   const logger = options.logger ?? createLogger("indexing.indexer-service");
   const fetchTarball = options.fetchTarball ?? fetchTarballStream;
 
-  await options.onProgress?.({ currentStep: "download-tarball", progressPercent: 10 });
+  await options.onProgress?.({
+    currentStep: "download-tarball",
+    progressPercent: 10,
+  });
 
   const fetchOptions: TarballFetchOptions = { logger };
-  const fetched = await fetchTarball(options.installationId, options.owner, options.repo, options.sha, fetchOptions);
+  const fetched = await fetchTarball(
+    options.installationId,
+    options.owner,
+    options.repo,
+    options.sha,
+    fetchOptions,
+  );
 
   if (!fetched.ok) {
-    logger.warn("indexRepository stopped: tarball fetch did not succeed", { repositoryId: options.repositoryId, reason: fetched.reason });
+    logger.warn("indexRepository stopped: tarball fetch did not succeed", {
+      repositoryId: options.repositoryId,
+      reason: fetched.reason,
+    });
     return fetched;
   }
 
-  await options.onProgress?.({ currentStep: "extract-filter-hash", progressPercent: 25 });
+  await options.onProgress?.({
+    currentStep: "extract-filter-hash",
+    progressPercent: 25,
+  });
 
-  const { walkSummary, extraction, staleRowsRemoved, graphResult } = await extractRepositoryArchive(
-    fetched.stream,
-    {
-      tempRootDir: options.tempRootDir,
-      jobId: options.jobId,
-      maxTotalBytes: options.maxTotalBytes,
-      maxFileCount: options.maxFileCount,
-      logger,
-    },
-    async (rootDir, summary) => {
-      const walked = await walkTree(rootDir, { logger });
-
-      const upsertInputs = walked.files.map((file) => toUpsertInput(options.repositoryId, options.sha, file));
-      await upsertRepositoryFiles(upsertInputs);
-      const staleRemoved = await sweepStaleRepositoryFiles(options.repositoryId, options.sha);
-
-      await options.onProgress?.({ currentStep: "persist-repository-files", progressPercent: 40, filesTotal: walked.files.length });
-
-      // The graph builder needs real ids, and an upsert conflict discards the caller's
-      // generated id in favor of the existing row's own (repository-file.repository.ts's
-      // own comment) — the only honest way to learn them is to ask, after the upsert
-      // commits, scoped to this run's own commitSha.
-      const persistedFiles = await findRepositoryFilesByCommit(options.repositoryId, options.sha);
-      const repoContext = await buildRepoContext(
-        rootDir,
-        walked.files.map((file) => file.path),
-      );
-
-      await options.onProgress?.({ currentStep: "build-graph", progressPercent: 55 });
-
-      const graph = await buildKnowledgeGraph({
-        rootDir,
-        files: persistedFiles,
-        repoContext,
-        repositoryId: options.repositoryId,
-        commitSha: options.sha,
-        attempt: options.attempt,
+  const { walkSummary, extraction, staleRowsRemoved, graphResult } =
+    await extractRepositoryArchive(
+      fetched.stream,
+      {
+        tempRootDir: options.tempRootDir,
+        jobId: options.jobId,
+        maxTotalBytes: options.maxTotalBytes,
+        maxFileCount: options.maxFileCount,
         logger,
-      });
+      },
+      async (rootDir, summary) => {
+        const walked = await walkTree(rootDir, { logger });
 
-      const inboundCounts = await countInboundEdgesByFile(options.repositoryId);
-      const inboundByFileId = new Map(inboundCounts.map((row) => [row.fileId, row.inboundEdgeCount]));
-      const metadataUpdates: RepositoryFileGraphMetadataUpdate[] = graph.fileGraphMetadata.map((meta) => ({
-        fileId: meta.fileId,
-        symbolCount: meta.symbolCount,
-        inboundEdgeCount: inboundByFileId.get(meta.fileId) ?? 0,
-        parseState: meta.parseState,
-        packageName: meta.packageName,
-        isTest: meta.isTest,
-      }));
-      await updateRepositoryFileGraphMetadata(metadataUpdates);
+        const upsertInputs = walked.files.map((file) =>
+          toUpsertInput(options.repositoryId, options.sha, file),
+        );
+        await upsertRepositoryFiles(upsertInputs);
+        const staleRemoved = await sweepStaleRepositoryFiles(
+          options.repositoryId,
+          options.sha,
+        );
 
-      await options.onProgress?.({ currentStep: "graph-built", progressPercent: 85 });
+        await options.onProgress?.({
+          currentStep: "persist-repository-files",
+          progressPercent: 40,
+          filesTotal: walked.files.length,
+        });
 
-      return { walkSummary: walked, extraction: summary, staleRowsRemoved: staleRemoved, graphResult: graph };
-    },
+        // The graph builder needs real ids, and an upsert conflict discards the caller's
+        // generated id in favor of the existing row's own (repository-file.repository.ts's
+        // own comment) — the only honest way to learn them is to ask, after the upsert
+        // commits, scoped to this run's own commitSha.
+        const persistedFiles = await findRepositoryFilesByCommit(
+          options.repositoryId,
+          options.sha,
+        );
+        const repoContext = await buildRepoContext(
+          rootDir,
+          walked.files.map((file) => file.path),
+        );
+
+        await options.onProgress?.({
+          currentStep: "build-graph",
+          progressPercent: 55,
+        });
+
+        const graph = await buildKnowledgeGraph({
+          rootDir,
+          files: persistedFiles,
+          repoContext,
+          repositoryId: options.repositoryId,
+          commitSha: options.sha,
+          attempt: options.attempt,
+          logger,
+        });
+
+        const inboundCounts = await countInboundEdgesByFile(
+          options.repositoryId,
+        );
+        const inboundByFileId = new Map(
+          inboundCounts.map((row) => [row.fileId, row.inboundEdgeCount]),
+        );
+        const metadataUpdates: RepositoryFileGraphMetadataUpdate[] =
+          graph.fileGraphMetadata.map((meta) => ({
+            fileId: meta.fileId,
+            symbolCount: meta.symbolCount,
+            inboundEdgeCount: inboundByFileId.get(meta.fileId) ?? 0,
+            parseState: meta.parseState,
+            packageName: meta.packageName,
+            isTest: meta.isTest,
+          }));
+        await updateRepositoryFileGraphMetadata(metadataUpdates);
+
+        await options.onProgress?.({
+          currentStep: "graph-built",
+          progressPercent: 85,
+        });
+
+        return {
+          walkSummary: walked,
+          extraction: summary,
+          staleRowsRemoved: staleRemoved,
+          graphResult: graph,
+        };
+      },
+    );
+
+  const { filesIndexed, filesFailed, filesSkipped } = countByBucket(
+    walkSummary.files,
   );
-
-  const { filesIndexed, filesFailed, filesSkipped } = countByBucket(walkSummary.files);
   const filesProcessed = filesIndexed + filesFailed;
   const filesTotal = walkSummary.files.length;
 
@@ -258,7 +320,12 @@ export async function indexRepository(options: IndexRepositoryOptions): Promise<
     unresolvedImportRatio: Number(graphResult.unresolvedImportRatio.toFixed(3)),
   });
 
-  await options.onProgress?.({ currentStep: "persisted", progressPercent: 95, filesProcessed, filesSkipped });
+  await options.onProgress?.({
+    currentStep: "persisted",
+    progressPercent: 95,
+    filesProcessed,
+    filesSkipped,
+  });
 
   return {
     ok: true,

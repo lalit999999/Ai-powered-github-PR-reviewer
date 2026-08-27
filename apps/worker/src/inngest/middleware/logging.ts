@@ -1,5 +1,9 @@
 import { Middleware } from "inngest";
-import { createLogger, generateTraceId, runWithTraceContext } from "@repo/observability";
+import {
+  createLogger,
+  generateTraceId,
+  runWithTraceContext,
+} from "@repo/observability";
 
 /**
  * Attaches a traceId to each function run via AsyncLocalStorage, exactly like
@@ -26,7 +30,9 @@ export class LoggingMiddleware extends Middleware.BaseMiddleware {
   readonly id = "logging";
   private readonly traceId = generateTraceId();
 
-  override async wrapFunctionHandler({ next }: Middleware.WrapFunctionHandlerArgs): Promise<unknown> {
+  override async wrapFunctionHandler({
+    next,
+  }: Middleware.WrapFunctionHandlerArgs): Promise<unknown> {
     return runWithTraceContext({ traceId: this.traceId }, () => next());
   }
 
@@ -43,7 +49,10 @@ export class LoggingMiddleware extends Middleware.BaseMiddleware {
    * would multiply log volume by however many times a function has been retried so far
    * for no informational gain.
    */
-  override async wrapStepHandler({ next, stepInfo }: Middleware.WrapStepHandlerArgs): Promise<unknown> {
+  override async wrapStepHandler({
+    next,
+    stepInfo,
+  }: Middleware.WrapStepHandlerArgs): Promise<unknown> {
     return runWithTraceContext({ traceId: this.traceId }, async () => {
       if (stepInfo.memoized) {
         return next();

@@ -61,14 +61,22 @@ export const CODE_SYMBOL_BATCH_SIZE = 1000;
  * surrounding function might make (`repository-file.repository.ts`'s own note on
  * self-inflicted pool exhaustion applies identically here).
  */
-export async function insertCodeSymbols(symbols: readonly CodeSymbolInsertInput[]): Promise<void> {
-  for (let offset = 0; offset < symbols.length; offset += CODE_SYMBOL_BATCH_SIZE) {
+export async function insertCodeSymbols(
+  symbols: readonly CodeSymbolInsertInput[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < symbols.length;
+    offset += CODE_SYMBOL_BATCH_SIZE
+  ) {
     const batch = symbols.slice(offset, offset + CODE_SYMBOL_BATCH_SIZE);
     await insertBatch(batch);
   }
 }
 
-async function insertBatch(batch: readonly CodeSymbolInsertInput[]): Promise<void> {
+async function insertBatch(
+  batch: readonly CodeSymbolInsertInput[],
+): Promise<void> {
   if (batch.length === 0) return;
 
   const rows = Prisma.join(
@@ -113,7 +121,11 @@ async function insertBatch(batch: readonly CodeSymbolInsertInput[]): Promise<voi
  * — deleting symbols first would leave dangling `toSymbolId`/`fromSymbolId` values on
  * still-live edge rows, whereas deleting edges first and symbols second never does.
  */
-export async function deleteCodeSymbolsByRepository(repositoryId: string): Promise<number> {
-  const result = await prisma.codeSymbol.deleteMany({ where: { repositoryId } });
+export async function deleteCodeSymbolsByRepository(
+  repositoryId: string,
+): Promise<number> {
+  const result = await prisma.codeSymbol.deleteMany({
+    where: { repositoryId },
+  });
   return result.count;
 }

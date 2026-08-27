@@ -4,7 +4,10 @@ import { prisma } from "@repo/db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { buildKnowledgeGraph } from "../../src/indexing/graph/graph-builder.js";
 import { buildRepoContext } from "../../src/indexing/graph/repo-context.js";
-import { findRepositoryFilesByCommit, upsertRepositoryFiles } from "../../src/indexing/persistence/repository-file.repository.js";
+import {
+  findRepositoryFilesByCommit,
+  upsertRepositoryFiles,
+} from "../../src/indexing/persistence/repository-file.repository.js";
 import { walkTree } from "../../src/indexing/walk-tree.js";
 import { resetDatabase } from "./db-helpers.js";
 import { seedRepository } from "./repository-helpers.js";
@@ -24,7 +27,9 @@ import { seedRepository } from "./repository-helpers.js";
  * already on disk exactly where a real extracted repository would be.
  */
 
-const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+const REPO_ROOT = path.resolve(
+  fileURLToPath(new URL("../../../../", import.meta.url)),
+);
 const COMMIT_SHA = "self-index-sha1";
 
 beforeEach(resetDatabase);
@@ -41,7 +46,12 @@ describe("unresolved-import ratio — indexing this monorepo itself (phase-04 §
     // the same person tuning this resolver, deliberately contain unresolvable imports and
     // ambiguity, and including them here would bias exactly the number this test exists
     // to measure honestly. Every other real source file in the monorepo is included.
-    const walked = { ...walkedFull, files: walkedFull.files.filter((f) => !f.path.includes("tests/fixtures/")) };
+    const walked = {
+      ...walkedFull,
+      files: walkedFull.files.filter(
+        (f) => !f.path.includes("tests/fixtures/"),
+      ),
+    };
     // Sanity check on the fixture's own size claim above — if this repository's shape
     // changes enough to fall far outside "hundreds of files", the comment above (and the
     // reasoning for using it as "a real repository") should be revisited.
@@ -65,7 +75,10 @@ describe("unresolved-import ratio — indexing this monorepo itself (phase-04 §
       })),
     );
 
-    const persistedFiles = await findRepositoryFilesByCommit(repository.id, COMMIT_SHA);
+    const persistedFiles = await findRepositoryFilesByCommit(
+      repository.id,
+      COMMIT_SHA,
+    );
     const repoContext = await buildRepoContext(
       REPO_ROOT,
       walked.files.map((f) => f.path),
@@ -82,7 +95,13 @@ describe("unresolved-import ratio — indexing this monorepo itself (phase-04 §
 
     // The exact aggregate query sub-task 5.3(b) specifies.
     const [totals] = await prisma.$queryRaw<
-      { total: bigint; resolved: bigint; external: bigint; unresolved: bigint; ratio: number | null }[]
+      {
+        total: bigint;
+        resolved: bigint;
+        external: bigint;
+        unresolved: bigint;
+        ratio: number | null;
+      }[]
     >`
       SELECT
         COUNT(*)                                                        AS total,
@@ -107,14 +126,18 @@ describe("unresolved-import ratio — indexing this monorepo itself (phase-04 §
     );
 
     if (unresolved > 0) {
-      const topUnresolved = await prisma.$queryRaw<{ rawSpecifier: string | null; count: bigint }[]>`
+      const topUnresolved = await prisma.$queryRaw<
+        { rawSpecifier: string | null; count: bigint }[]
+      >`
         SELECT "rawSpecifier", COUNT(*) AS count FROM "CodeDependency"
         WHERE "repositoryId" = ${repository.id} AND resolution = 'UNRESOLVED'
         GROUP BY 1 ORDER BY 2 DESC LIMIT 20
       `;
       console.log("Top unresolved specifiers:");
       for (const row of topUnresolved) {
-        console.log(`  ${row.count.toString()}x  ${row.rawSpecifier ?? "(none)"}`);
+        console.log(
+          `  ${row.count.toString()}x  ${row.rawSpecifier ?? "(none)"}`,
+        );
       }
     }
 

@@ -166,7 +166,9 @@ const TEST_FILENAME = /[.\-_](test|spec)\.[^/.]+$/i;
  * nothing but a slightly-wrong flag on one row; a false negative costs a real test file
  * being treated as production code by a later phase's review weighting. */
 export function detectIsTest(relativePath: string): boolean {
-  return TEST_PATH_SEGMENT.test(relativePath) || TEST_FILENAME.test(relativePath);
+  return (
+    TEST_PATH_SEGMENT.test(relativePath) || TEST_FILENAME.test(relativePath)
+  );
 }
 
 const GENERATED_FILENAME = /\.(generated|gen|pb)\.[^/.]+$/i;
@@ -181,7 +183,10 @@ const GENERATED_PATH_SEGMENT = /(^|\/)(generated|\.generated)(\/|$)/i;
  * independently and never reconciled against each other in this phase.
  */
 export function detectIsGenerated(relativePath: string): boolean {
-  return GENERATED_FILENAME.test(relativePath) || GENERATED_PATH_SEGMENT.test(relativePath);
+  return (
+    GENERATED_FILENAME.test(relativePath) ||
+    GENERATED_PATH_SEGMENT.test(relativePath)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +208,10 @@ export function detectIsGenerated(relativePath: string): boolean {
  * builds it once per repository, not per file) so the first prefix match found here is
  * always the nearest one, not merely *a* matching one.
  */
-export function detectPackageName(relativePath: string, packageRootsLongestFirst: readonly string[]): string | null {
+export function detectPackageName(
+  relativePath: string,
+  packageRootsLongestFirst: readonly string[],
+): string | null {
   const dir = path.dirname(relativePath);
   for (const root of packageRootsLongestFirst) {
     if (root === "." ? true : dir === root || dir.startsWith(`${root}/`)) {
@@ -217,12 +225,26 @@ export function detectPackageName(relativePath: string, packageRootsLongestFirst
 // classification — the coarse FileClassification enum
 // ---------------------------------------------------------------------------
 
-const CONFIG_FILENAME = /^(\.[\w-]+rc(\.[a-z]+)?|[\w.-]+\.config\.[cm]?[jt]sx?|tsconfig.*\.json|package\.json|\.env(\..+)?|Dockerfile|docker-compose.*\.ya?ml|\.editorconfig|\.eslintrc.*|\.prettierrc.*)$/i;
+const CONFIG_FILENAME =
+  /^(\.[\w-]+rc(\.[a-z]+)?|[\w.-]+\.config\.[cm]?[jt]sx?|tsconfig.*\.json|package\.json|\.env(\..+)?|Dockerfile|docker-compose.*\.ya?ml|\.editorconfig|\.eslintrc.*|\.prettierrc.*)$/i;
 const CONFIG_EXTENSIONS = new Set([".yaml", ".yml", ".toml", ".ini", ".cfg"]);
-const DEPENDENCY_LOCK_FILENAME = /^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|go\.sum|Cargo\.lock|poetry\.lock|composer\.lock|Gemfile\.lock)$/;
+const DEPENDENCY_LOCK_FILENAME =
+  /^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|go\.sum|Cargo\.lock|poetry\.lock|composer\.lock|Gemfile\.lock)$/;
 const DOCUMENTATION_EXTENSIONS = new Set([".md", ".mdx", ".rst", ".txt"]);
 const ASSET_EXTENSIONS = new Set([
-  ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".pdf", ".zip", ".woff", ".woff2", ".ttf", ".mp4", ".wasm",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".svg",
+  ".ico",
+  ".pdf",
+  ".zip",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".mp4",
+  ".wasm",
 ]);
 
 /**
@@ -232,7 +254,12 @@ const ASSET_EXTENSIONS = new Set([
  * is config even though its extension is `.json`. Anything left over after every specific
  * check is `SOURCE` if it has a recognized language, else `UNKNOWN` — never guessed.
  */
-export function classifyFile(relativePath: string, isTest: boolean, isGenerated: boolean, language: string | null): FileClassification {
+export function classifyFile(
+  relativePath: string,
+  isTest: boolean,
+  isGenerated: boolean,
+  language: string | null,
+): FileClassification {
   const filename = path.basename(relativePath);
   const ext = path.extname(relativePath).toLowerCase();
 
@@ -241,7 +268,8 @@ export function classifyFile(relativePath: string, isTest: boolean, isGenerated:
   if (isGenerated) return "GENERATED";
   if (DOCUMENTATION_EXTENSIONS.has(ext)) return "DOCUMENTATION";
   if (ASSET_EXTENSIONS.has(ext)) return "ASSET";
-  if (CONFIG_FILENAME.test(filename) || CONFIG_EXTENSIONS.has(ext)) return "CONFIG";
+  if (CONFIG_FILENAME.test(filename) || CONFIG_EXTENSIONS.has(ext))
+    return "CONFIG";
   if (language !== null) return "SOURCE";
   return "UNKNOWN";
 }
@@ -250,7 +278,8 @@ export function classifyFile(relativePath: string, isTest: boolean, isGenerated:
 // The combined per-file classification result
 // ---------------------------------------------------------------------------
 
-export type ClassifierSkipReason = "SKIPPED_TOO_LARGE" | "SKIPPED_BINARY" | "SKIPPED_MINIFIED";
+export type ClassifierSkipReason =
+  "SKIPPED_TOO_LARGE" | "SKIPPED_BINARY" | "SKIPPED_MINIFIED";
 
 export type ClassifierDecision =
   | { skip: true; reason: ClassifierSkipReason }
@@ -302,7 +331,19 @@ export function classify(
   const isTest = detectIsTest(relativePath);
   const isGenerated = detectIsGenerated(relativePath);
   const packageName = detectPackageName(relativePath, packageRootsLongestFirst);
-  const classification = classifyFile(relativePath, isTest, isGenerated, language);
+  const classification = classifyFile(
+    relativePath,
+    isTest,
+    isGenerated,
+    language,
+  );
 
-  return { skip: false, classification, language, isTest, isGenerated, packageName };
+  return {
+    skip: false,
+    classification,
+    language,
+    isTest,
+    isGenerated,
+    packageName,
+  };
 }

@@ -1,8 +1,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Logger } from "@repo/observability";
-import { buildKnowledgeGraph, type GraphBuilderResult } from "../../src/indexing/graph/graph-builder.js";
-import { buildRepoContext, type RepoContext } from "../../src/indexing/graph/repo-context.js";
+import {
+  buildKnowledgeGraph,
+  type GraphBuilderResult,
+} from "../../src/indexing/graph/graph-builder.js";
+import {
+  buildRepoContext,
+  type RepoContext,
+} from "../../src/indexing/graph/repo-context.js";
 import { countInboundEdgesByFile } from "../../src/indexing/persistence/code-dependency.repository.js";
 import {
   findRepositoryFilesByCommit,
@@ -23,7 +29,9 @@ import { seedRepository, type SeededRepository } from "./repository-helpers.js";
  * actually indexed.
  */
 
-export const GRAPH_REPO_FIXTURE_ROOT = path.resolve(fileURLToPath(new URL("../fixtures/graph-repo/", import.meta.url)));
+export const GRAPH_REPO_FIXTURE_ROOT = path.resolve(
+  fileURLToPath(new URL("../fixtures/graph-repo/", import.meta.url)),
+);
 
 export const GRAPH_REPO_COMMIT_SHA = "graphrepofixturesha1";
 
@@ -34,7 +42,12 @@ export interface GraphRepoFixtureResult {
 }
 
 function noopLogger(): Logger {
-  return { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } as unknown as Logger;
+  return {
+    debug: () => undefined,
+    info: () => undefined,
+    warn: () => undefined,
+    error: () => undefined,
+  } as unknown as Logger;
 }
 
 /**
@@ -67,7 +80,10 @@ export async function indexGraphRepoFixture(): Promise<GraphRepoFixtureResult> {
     })),
   );
 
-  const persistedFiles = await findRepositoryFilesByCommit(repository.id, GRAPH_REPO_COMMIT_SHA);
+  const persistedFiles = await findRepositoryFilesByCommit(
+    repository.id,
+    GRAPH_REPO_COMMIT_SHA,
+  );
   const repoContext = await buildRepoContext(
     GRAPH_REPO_FIXTURE_ROOT,
     walked.files.map((file) => file.path),
@@ -88,15 +104,18 @@ export async function indexGraphRepoFixture(): Promise<GraphRepoFixtureResult> {
   // (parseState/symbolCount/inboundEdgeCount/packageName/isTest) would sit at their
   // pre-graph defaults forever, since buildKnowledgeGraph itself never writes them.
   const inboundCounts = await countInboundEdgesByFile(repository.id);
-  const inboundByFileId = new Map(inboundCounts.map((row) => [row.fileId, row.inboundEdgeCount]));
-  const metadataUpdates: RepositoryFileGraphMetadataUpdate[] = graph.fileGraphMetadata.map((meta) => ({
-    fileId: meta.fileId,
-    symbolCount: meta.symbolCount,
-    inboundEdgeCount: inboundByFileId.get(meta.fileId) ?? 0,
-    parseState: meta.parseState,
-    packageName: meta.packageName,
-    isTest: meta.isTest,
-  }));
+  const inboundByFileId = new Map(
+    inboundCounts.map((row) => [row.fileId, row.inboundEdgeCount]),
+  );
+  const metadataUpdates: RepositoryFileGraphMetadataUpdate[] =
+    graph.fileGraphMetadata.map((meta) => ({
+      fileId: meta.fileId,
+      symbolCount: meta.symbolCount,
+      inboundEdgeCount: inboundByFileId.get(meta.fileId) ?? 0,
+      parseState: meta.parseState,
+      packageName: meta.packageName,
+      isTest: meta.isTest,
+    }));
   await updateRepositoryFileGraphMetadata(metadataUpdates);
 
   return { repository, repoContext, graph };

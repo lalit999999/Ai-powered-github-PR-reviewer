@@ -46,7 +46,9 @@ const PROJECT_SELECT = {
  * extends the chain (repository → project → user) by adding a sibling function here,
  * not by widening this one.
  */
-export async function findOwnershipById(projectId: string): Promise<ProjectOwnership | null> {
+export async function findOwnershipById(
+  projectId: string,
+): Promise<ProjectOwnership | null> {
   return prisma.project.findUnique({
     where: { id: projectId },
     select: { id: true, userId: true, deletedAt: true },
@@ -55,7 +57,10 @@ export async function findOwnershipById(projectId: string): Promise<ProjectOwner
 
 /** Owner-scoped detail read. Excludes soft-deleted rows — a soft-deleted project is
  * not found, per phase-01 §7/§11. */
-export async function findByIdForUser(userId: string, projectId: string): Promise<ProjectRecord | null> {
+export async function findByIdForUser(
+  userId: string,
+  projectId: string,
+): Promise<ProjectRecord | null> {
   return prisma.project.findFirst({
     where: { id: projectId, userId, deletedAt: null },
     select: PROJECT_SELECT,
@@ -78,7 +83,10 @@ export interface ListByUserOptions {
  * Takes `limit + 1` rows: the extra row is how the service knows whether a next page
  * exists without a second `count` query.
  */
-export async function listByUser(userId: string, options: ListByUserOptions): Promise<ProjectRecord[]> {
+export async function listByUser(
+  userId: string,
+  options: ListByUserOptions,
+): Promise<ProjectRecord[]> {
   return prisma.project.findMany({
     where: { userId, deletedAt: null },
     select: PROJECT_SELECT,
@@ -97,7 +105,10 @@ export async function listByUser(userId: string, options: ListByUserOptions): Pr
  * no `deletedAt` in it, so a soft-deleted project still owns its slug; a uniqueness
  * probe that ignored deleted rows would propose a slug the database then rejects.
  */
-export async function findSlugsForUserByPrefix(userId: string, prefix: string): Promise<string[]> {
+export async function findSlugsForUserByPrefix(
+  userId: string,
+  prefix: string,
+): Promise<string[]> {
   const rows: { slug: string }[] = await prisma.project.findMany({
     where: { userId, slug: { startsWith: prefix } },
     select: { slug: true },
@@ -105,14 +116,20 @@ export async function findSlugsForUserByPrefix(userId: string, prefix: string): 
   return rows.map((row) => row.slug);
 }
 
-export type CreateProjectResult = { ok: true; project: ProjectRecord } | { ok: false; reason: "SLUG_TAKEN" };
+export type CreateProjectResult =
+  { ok: true; project: ProjectRecord } | { ok: false; reason: "SLUG_TAKEN" };
 
 /** Prisma signals a unique-constraint violation with `code: "P2002"`. Duck-typed
  * rather than `instanceof PrismaClientKnownRequestError` so the check works across
  * Prisma's driver-adapter client without importing an error class from the generated
  * client (Rule B keeps that import inside packages/db). */
 function isUniqueConstraintViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "P2002";
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2002"
+  );
 }
 
 /**
@@ -123,7 +140,7 @@ function isUniqueConstraintViolation(err: unknown): boolean {
  */
 export async function create(
   userId: string,
-  input: { name: string; slug: string }
+  input: { name: string; slug: string },
 ): Promise<CreateProjectResult> {
   try {
     const project = await prisma.project.create({
@@ -146,7 +163,10 @@ export async function create(
  * to log the difference: `deletedAt: null` in the `where` means a repeat delete never
  * overwrites the original deletion timestamp.
  */
-export async function softDeleteForUser(userId: string, projectId: string): Promise<number> {
+export async function softDeleteForUser(
+  userId: string,
+  projectId: string,
+): Promise<number> {
   const result = await prisma.project.updateMany({
     where: { id: projectId, userId, deletedAt: null },
     data: { deletedAt: new Date() },

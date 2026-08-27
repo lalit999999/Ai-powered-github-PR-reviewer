@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { classifyGitattributes, classifyIgnore, isHardIgnored, parseGitattributes } from "./ignore-rules.js";
+import {
+  classifyGitattributes,
+  classifyIgnore,
+  isHardIgnored,
+  parseGitattributes,
+} from "./ignore-rules.js";
 
 describe("isHardIgnored", () => {
   it.each([
@@ -89,27 +94,47 @@ describe("parseGitattributes + classifyGitattributes", () => {
 
   it("ignores blank lines, comments, and unrelated attributes", () => {
     const rules = parseGitattributes(
-      ["# a comment", "", "*.txt text eol=lf", "*.png binary", "generated/** linguist-generated"].join("\n"),
+      [
+        "# a comment",
+        "",
+        "*.txt text eol=lf",
+        "*.png binary",
+        "generated/** linguist-generated",
+      ].join("\n"),
     );
     expect(classifyGitattributes("README.txt", rules)).toBeNull();
     expect(classifyGitattributes("logo.png", rules)).toBeNull();
-    expect(classifyGitattributes("generated/schema.ts", rules)).toBe("GENERATED");
+    expect(classifyGitattributes("generated/schema.ts", rules)).toBe(
+      "GENERATED",
+    );
   });
 
   it("a later line overrides an earlier one for the same path (last match wins)", () => {
-    const rules = parseGitattributes(["vendor/** linguist-vendored", "vendor/special/** -linguist-vendored"].join("\n"));
+    const rules = parseGitattributes(
+      [
+        "vendor/** linguist-vendored",
+        "vendor/special/** -linguist-vendored",
+      ].join("\n"),
+    );
     expect(classifyGitattributes("vendor/lib/a.js", rules)).toBe("VENDORED");
     expect(classifyGitattributes("vendor/special/a.js", rules)).toBeNull();
   });
 
   it("-linguist-generated unsets an earlier bare match", () => {
-    const rules = parseGitattributes(["**/*.min.js linguist-generated", "src/hand-written.min.js -linguist-generated"].join("\n"));
+    const rules = parseGitattributes(
+      [
+        "**/*.min.js linguist-generated",
+        "src/hand-written.min.js -linguist-generated",
+      ].join("\n"),
+    );
     expect(classifyGitattributes("dist/x.min.js", rules)).toBe("GENERATED");
     expect(classifyGitattributes("src/hand-written.min.js", rules)).toBeNull();
   });
 
   it("generated wins when both flags are set on the same path", () => {
-    const rules = parseGitattributes("odd/** linguist-generated linguist-vendored\n");
+    const rules = parseGitattributes(
+      "odd/** linguist-generated linguist-vendored\n",
+    );
     expect(classifyGitattributes("odd/file.js", rules)).toBe("GENERATED");
   });
 
@@ -120,7 +145,9 @@ describe("parseGitattributes + classifyGitattributes", () => {
   it("a slash-free pattern is unanchored — matches at any depth, gitignore-style", () => {
     const rules = parseGitattributes("*.pb.go linguist-generated\n");
     expect(classifyGitattributes("service.pb.go", rules)).toBe("GENERATED");
-    expect(classifyGitattributes("api/v1/service.pb.go", rules)).toBe("GENERATED");
+    expect(classifyGitattributes("api/v1/service.pb.go", rules)).toBe(
+      "GENERATED",
+    );
   });
 
   it("a pattern containing a slash is anchored to the repository root", () => {
@@ -133,17 +160,25 @@ describe("parseGitattributes + classifyGitattributes", () => {
 describe("classifyIgnore — the combined, ordered decision", () => {
   it("hard-ignore wins even when a .gitattributes rule would also match", () => {
     const rules = parseGitattributes("node_modules/** linguist-vendored\n");
-    expect(classifyIgnore("node_modules/pkg/index.js", rules)).toEqual({ kind: "HARD_IGNORE" });
+    expect(classifyIgnore("node_modules/pkg/index.js", rules)).toEqual({
+      kind: "HARD_IGNORE",
+    });
   });
 
   it("a .gitattributes-generated path that is not hard-ignored is SKIP, not HARD_IGNORE", () => {
     const rules = parseGitattributes("api/**/*.pb.go linguist-generated\n");
-    expect(classifyIgnore("api/v1/service.pb.go", rules)).toEqual({ kind: "SKIP", reason: "SKIPPED_GENERATED" });
+    expect(classifyIgnore("api/v1/service.pb.go", rules)).toEqual({
+      kind: "SKIP",
+      reason: "SKIPPED_GENERATED",
+    });
   });
 
   it("a .gitattributes-vendored path is SKIP with SKIPPED_VENDORED", () => {
     const rules = parseGitattributes("third_party/** linguist-vendored\n");
-    expect(classifyIgnore("third_party/lib.c", rules)).toEqual({ kind: "SKIP", reason: "SKIPPED_VENDORED" });
+    expect(classifyIgnore("third_party/lib.c", rules)).toEqual({
+      kind: "SKIP",
+      reason: "SKIPPED_VENDORED",
+    });
   });
 
   it("an ordinary source file is KEEP", () => {

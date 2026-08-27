@@ -12,11 +12,26 @@ import { withRoute } from "../lib/http.js";
 /** Mounted at `/api/repositories` (see routes/index.ts). */
 const router = Router();
 
-router.get("/:repositoryId", withRoute(getRepository, { component: "api.repositories" }));
-router.delete("/:repositoryId", withRoute(disconnectRepository, { component: "api.repositories" }));
-router.get("/:repositoryId/index-status", withRoute(getIndexStatus, { component: "api.repositories" }));
-router.post("/:repositoryId/index", withRoute(triggerIndex, { component: "api.repositories" }));
-router.get("/:repositoryId/knowledge", withRoute(getKnowledge, { component: "api.repositories" }));
+router.get(
+  "/:repositoryId",
+  withRoute(getRepository, { component: "api.repositories" }),
+);
+router.delete(
+  "/:repositoryId",
+  withRoute(disconnectRepository, { component: "api.repositories" }),
+);
+router.get(
+  "/:repositoryId/index-status",
+  withRoute(getIndexStatus, { component: "api.repositories" }),
+);
+router.post(
+  "/:repositoryId/index",
+  withRoute(triggerIndex, { component: "api.repositories" }),
+);
+router.get(
+  "/:repositoryId/knowledge",
+  withRoute(getKnowledge, { component: "api.repositories" }),
+);
 
 export default router;
 
@@ -42,4 +57,7 @@ export default router;
  */
 export const projectRepositoriesRouter = Router({ mergeParams: true });
 
-projectRepositoriesRouter.post("/", withRoute(connectRepository, { component: "api.repositories" }));
+projectRepositoriesRouter.post(
+  "/",
+  withRoute(connectRepository, { component: "api.repositories" }),
+);

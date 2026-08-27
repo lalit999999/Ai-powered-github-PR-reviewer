@@ -22,7 +22,10 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function seedRepositoryFile(repositoryId: string, path: string): Promise<string> {
+async function seedRepositoryFile(
+  repositoryId: string,
+  path: string,
+): Promise<string> {
   const file = await prisma.repositoryFile.create({
     data: {
       repositoryId,
@@ -40,7 +43,8 @@ async function seedRepositoryFile(repositoryId: string, path: string): Promise<s
 }
 
 function makeSymbol(
-  overrides: Partial<CodeSymbolInsertInput> & Pick<CodeSymbolInsertInput, "repositoryId" | "fileId">,
+  overrides: Partial<CodeSymbolInsertInput> &
+    Pick<CodeSymbolInsertInput, "repositoryId" | "fileId">,
 ): CodeSymbolInsertInput {
   return {
     id: randomUUID(),
@@ -65,14 +69,22 @@ describe("insertCodeSymbols", () => {
     const fileId = await seedRepositoryFile(repo.id, "src/index.ts");
 
     const symbols = Array.from({ length: 5000 }, (_, i) =>
-      makeSymbol({ repositoryId: repo.id, fileId, name: `fn${i.toString()}`, startLine: i + 1, endLine: i + 2 }),
+      makeSymbol({
+        repositoryId: repo.id,
+        fileId,
+        name: `fn${i.toString()}`,
+        startLine: i + 1,
+        endLine: i + 2,
+      }),
     );
 
     const start = Date.now();
     await insertCodeSymbols(symbols);
     const elapsedMs = Date.now() - start;
 
-    const count = await prisma.codeSymbol.count({ where: { repositoryId: repo.id } });
+    const count = await prisma.codeSymbol.count({
+      where: { repositoryId: repo.id },
+    });
     expect(count).toBe(5000);
 
     // 5,000 rows at a 1,000-row batch size is 5 statements — a genuinely batched insert
@@ -85,9 +97,13 @@ describe("insertCodeSymbols", () => {
     const repo = await seedRepository();
     const fileId = await seedRepositoryFile(repo.id, "src/index.ts");
 
-    await insertCodeSymbols([makeSymbol({ repositoryId: repo.id, fileId, commitSha: "deadbeef" })]);
+    await insertCodeSymbols([
+      makeSymbol({ repositoryId: repo.id, fileId, commitSha: "deadbeef" }),
+    ]);
 
-    const row = await prisma.codeSymbol.findFirstOrThrow({ where: { repositoryId: repo.id } });
+    const row = await prisma.codeSymbol.findFirstOrThrow({
+      where: { repositoryId: repo.id },
+    });
     expect(row.commitSha).toBe("deadbeef");
   });
 });
@@ -99,13 +115,21 @@ describe("deleteCodeSymbolsByRepository — tenant isolation", () => {
     const fileA = await seedRepositoryFile(repoA.id, "src/a.ts");
     const fileB = await seedRepositoryFile(repoB.id, "src/b.ts");
 
-    await insertCodeSymbols([makeSymbol({ repositoryId: repoA.id, fileId: fileA, name: "a" })]);
-    await insertCodeSymbols([makeSymbol({ repositoryId: repoB.id, fileId: fileB, name: "b" })]);
+    await insertCodeSymbols([
+      makeSymbol({ repositoryId: repoA.id, fileId: fileA, name: "a" }),
+    ]);
+    await insertCodeSymbols([
+      makeSymbol({ repositoryId: repoB.id, fileId: fileB, name: "b" }),
+    ]);
 
     const removed = await deleteCodeSymbolsByRepository(repoA.id);
     expect(removed).toBe(1);
 
-    expect(await prisma.codeSymbol.count({ where: { repositoryId: repoA.id } })).toBe(0);
-    expect(await prisma.codeSymbol.count({ where: { repositoryId: repoB.id } })).toBe(1);
+    expect(
+      await prisma.codeSymbol.count({ where: { repositoryId: repoA.id } }),
+    ).toBe(0);
+    expect(
+      await prisma.codeSymbol.count({ where: { repositoryId: repoB.id } }),
+    ).toBe(1);
   });
 });

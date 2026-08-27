@@ -59,7 +59,9 @@ interface LabelFile {
   edges: LabelEntry[];
 }
 
-const LABELS_PATH = path.resolve(fileURLToPath(new URL("../fixtures/graph-repo-labels.json", import.meta.url)));
+const LABELS_PATH = path.resolve(
+  fileURLToPath(new URL("../fixtures/graph-repo-labels.json", import.meta.url)),
+);
 
 /** Confidence -> the rule name/band the number § 11.4 assigns it to. Ambiguous-tiebreak
  * confidences are `0.4/N` for whatever N the call site narrowed to, so they are matched by
@@ -91,9 +93,15 @@ describe("call-edge precision — 100 hand-labeled edges in the fixture repo (ph
 
   it("has exactly 100 labeled edges, sampled across all five rules and including expected:null cases", () => {
     expect(labelFile.edges).toHaveLength(100);
-    const withTarget = labelFile.edges.filter((e) => e.expected !== null).length;
-    const withAmbiguousSet = labelFile.edges.filter((e) => e.expectedAmbiguousSet).length;
-    const nullAbstentions = labelFile.edges.filter((e) => e.expected === null && !e.expectedAmbiguousSet).length;
+    const withTarget = labelFile.edges.filter(
+      (e) => e.expected !== null,
+    ).length;
+    const withAmbiguousSet = labelFile.edges.filter(
+      (e) => e.expectedAmbiguousSet,
+    ).length;
+    const nullAbstentions = labelFile.edges.filter(
+      (e) => e.expected === null && !e.expectedAmbiguousSet,
+    ).length;
     expect(withTarget).toBeGreaterThan(0);
     expect(withAmbiguousSet).toBeGreaterThan(0);
     // A meaningful share of correct-abstention cases (§0's own instruction: "a label set
@@ -126,21 +134,35 @@ describe("call-edge precision — 100 hand-labeled edges in the fixture repo (ph
       where: { repositoryId: repository.id, kind: "CALLS" },
       select: { fromSymbolId: true, toSymbolId: true, confidence: true },
     });
-    const symbolMeta = new Map(symbols.map((s) => [s.id, { name: s.name, file: pathById.get(s.fileId) }]));
+    const symbolMeta = new Map(
+      symbols.map((s) => [
+        s.id,
+        { name: s.name, file: pathById.get(s.fileId) },
+      ]),
+    );
 
     // fromSymbolId -> [{ toName, toFile, confidence }]
-    const outEdgesByFromSymbol = new Map<string, { toName: string; toFile: string | undefined; confidence: number }[]>();
+    const outEdgesByFromSymbol = new Map<
+      string,
+      { toName: string; toFile: string | undefined; confidence: number }[]
+    >();
     for (const edge of callsEdges) {
       if (!edge.fromSymbolId || !edge.toSymbolId) continue;
       const to = symbolMeta.get(edge.toSymbolId);
       if (!to) continue;
       const list = outEdgesByFromSymbol.get(edge.fromSymbolId) ?? [];
-      list.push({ toName: to.name, toFile: to.file, confidence: edge.confidence });
+      list.push({
+        toName: to.name,
+        toFile: to.file,
+        confidence: edge.confidence,
+      });
       outEdgesByFromSymbol.set(edge.fromSymbolId, list);
     }
 
     function resolveFromSymbolId(label: LabelEntry): string | undefined {
-      const candidates = symbolsByFileAndName.get(`${label.fromFile}::${label.fromSymbol}`);
+      const candidates = symbolsByFileAndName.get(
+        `${label.fromFile}::${label.fromSymbol}`,
+      );
       return candidates?.[0]?.id;
     }
 
@@ -149,17 +171,35 @@ describe("call-edge precision — 100 hand-labeled edges in the fixture repo (ph
 
     for (const label of labelFile.edges) {
       const fromSymbolId = resolveFromSymbolId(label);
-      const outEdges = fromSymbolId ? (outEdgesByFromSymbol.get(fromSymbolId) ?? []) : [];
+      const outEdges = fromSymbolId
+        ? (outEdgesByFromSymbol.get(fromSymbolId) ?? [])
+        : [];
       // Every edge this fromSymbol produced whose target is named exactly like this call
       // site's callee — the set a single call site's resolution could possibly show up in.
-      const edgesForThisCallName = outEdges.filter((e) => e.toName === label.callName);
+      const edgesForThisCallName = outEdges.filter(
+        (e) => e.toName === label.callName,
+      );
 
       if (label.expectedAmbiguousSet) {
-        const expectedKeys = new Set(label.expectedAmbiguousSet.map((t) => `${t.toFile}::${t.toSymbol}`));
-        const actualKeys = new Set(edgesForThisCallName.map((e) => `${e.toFile}::${e.toName}`));
-        const correct = expectedKeys.size === actualKeys.size && [...expectedKeys].every((k) => actualKeys.has(k));
-        const band = edgesForThisCallName.length > 0 ? bandFor(edgesForThisCallName[0]!.confidence) : "no edge";
-        judgements.push({ label, correct, band, actual: [...actualKeys].join(", ") || "(no edges)" });
+        const expectedKeys = new Set(
+          label.expectedAmbiguousSet.map((t) => `${t.toFile}::${t.toSymbol}`),
+        );
+        const actualKeys = new Set(
+          edgesForThisCallName.map((e) => `${e.toFile}::${e.toName}`),
+        );
+        const correct =
+          expectedKeys.size === actualKeys.size &&
+          [...expectedKeys].every((k) => actualKeys.has(k));
+        const band =
+          edgesForThisCallName.length > 0
+            ? bandFor(edgesForThisCallName[0]!.confidence)
+            : "no edge";
+        judgements.push({
+          label,
+          correct,
+          band,
+          actual: [...actualKeys].join(", ") || "(no edges)",
+        });
         if (!correct) {
           mismatches.push(
             `${label.fromFile}::${label.fromSymbol} -> ${label.callName}() [line ${label.callLine.toString()}]: expected edges to {${[...expectedKeys].join(", ")}}, got {${[...actualKeys].join(", ") || "none"}} — ${label.note}`,
@@ -170,7 +210,16 @@ describe("call-edge precision — 100 hand-labeled edges in the fixture repo (ph
 
       if (label.expected === null) {
         const correct = edgesForThisCallName.length === 0;
-        judgements.push({ label, correct, band: "n/a (abstention)", actual: correct ? "(no edge)" : edgesForThisCallName.map((e) => `${e.toFile}::${e.toName}`).join(", ") });
+        judgements.push({
+          label,
+          correct,
+          band: "n/a (abstention)",
+          actual: correct
+            ? "(no edge)"
+            : edgesForThisCallName
+                .map((e) => `${e.toFile}::${e.toName}`)
+                .join(", "),
+        });
         if (!correct) {
           mismatches.push(
             `${label.fromFile}::${label.fromSymbol} -> ${label.callName}() [line ${label.callLine.toString()}]: expected NO edge, got ${edgesForThisCallName.map((e) => `${e.toFile}::${e.toName}@${e.confidence.toString()}`).join(", ")} — ${label.note}`,
@@ -180,13 +229,22 @@ describe("call-edge precision — 100 hand-labeled edges in the fixture repo (ph
       }
 
       const expected = label.expected;
-      const match = edgesForThisCallName.find((e) => e.toFile === expected.toFile && e.toName === expected.toSymbol);
+      const match = edgesForThisCallName.find(
+        (e) => e.toFile === expected.toFile && e.toName === expected.toSymbol,
+      );
       const correct = match !== undefined;
       judgements.push({
         label,
         correct,
         band: match ? bandFor(match.confidence) : "no edge / wrong target",
-        actual: edgesForThisCallName.length > 0 ? edgesForThisCallName.map((e) => `${e.toFile}::${e.toName}@${e.confidence.toString()}`).join(", ") : "(no edge)",
+        actual:
+          edgesForThisCallName.length > 0
+            ? edgesForThisCallName
+                .map(
+                  (e) => `${e.toFile}::${e.toName}@${e.confidence.toString()}`,
+                )
+                .join(", ")
+            : "(no edge)",
       });
       if (!correct) {
         mismatches.push(
@@ -206,10 +264,16 @@ describe("call-edge precision — 100 hand-labeled edges in the fixture repo (ph
       byBand.set(j.band, entry);
     }
 
-    console.log(`\n=== Call-edge precision: ${correctCount.toString()}/${judgements.length.toString()} = ${(precision * 100).toFixed(1)}% ===\n`);
+    console.log(
+      `\n=== Call-edge precision: ${correctCount.toString()}/${judgements.length.toString()} = ${(precision * 100).toFixed(1)}% ===\n`,
+    );
     console.log("Per-band breakdown:");
-    for (const [band, { correct, total }] of [...byBand.entries()].sort((a, b) => b[1].total - a[1].total)) {
-      console.log(`  ${band}: ${correct.toString()}/${total.toString()} (${((correct / total) * 100).toFixed(1)}%)`);
+    for (const [band, { correct, total }] of [...byBand.entries()].sort(
+      (a, b) => b[1].total - a[1].total,
+    )) {
+      console.log(
+        `  ${band}: ${correct.toString()}/${total.toString()} (${((correct / total) * 100).toFixed(1)}%)`,
+      );
     }
     if (mismatches.length > 0) {
       console.log(`\nMismatches (${mismatches.length.toString()}):`);

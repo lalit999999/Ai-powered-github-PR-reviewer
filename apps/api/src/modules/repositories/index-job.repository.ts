@@ -37,7 +37,9 @@ const INDEX_JOB_SELECT = {
  * the most recently created one for this repository, per `@@index([repositoryId,
  * createdAt(sort: Desc)])` (schema.prisma), which exists specifically for this query.
  */
-export async function findLatestForRepository(repositoryId: string): Promise<IndexJobRecord | null> {
+export async function findLatestForRepository(
+  repositoryId: string,
+): Promise<IndexJobRecord | null> {
   return prisma.indexJob.findFirst({
     where: { repositoryId },
     orderBy: { createdAt: "desc" },

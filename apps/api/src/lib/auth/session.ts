@@ -5,7 +5,9 @@ import { UnauthenticatedError } from "../errors.js";
 import { setTraceUserId } from "@repo/observability";
 import { authConfig } from "./config.js";
 
-export type AuthenticatedSession = Session & { user: NonNullable<Session["user"]> & { id: string } };
+export type AuthenticatedSession = Session & {
+  user: NonNullable<Session["user"]> & { id: string };
+};
 
 /**
  * Thin wrapper over @auth/express's own getSession (phase-01 §17 step 4) — reuses the
@@ -24,7 +26,9 @@ export async function getCurrentSession(req: Request): Promise<Session | null> {
  * Also extends the trace context with `userId` (phase-01 §20) so every log line for
  * the rest of this request carries it, using the Phase 00 envelope as-is.
  */
-export async function requireSession(req: Request): Promise<AuthenticatedSession> {
+export async function requireSession(
+  req: Request,
+): Promise<AuthenticatedSession> {
   const session = await getCurrentSession(req);
   if (!session?.user?.id) {
     throw new UnauthenticatedError("Authentication required");

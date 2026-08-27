@@ -1,7 +1,11 @@
 import * as projectRepository from "../../modules/projects/project.repository.js";
 import * as repositoryRepository from "../../modules/repositories/repository.repository.js";
 import { InternalError, NotFoundError } from "../errors.js";
-import { createLogger, setTraceProjectId, setTraceRepositoryId } from "@repo/observability";
+import {
+  createLogger,
+  setTraceProjectId,
+  setTraceRepositoryId,
+} from "@repo/observability";
 import type { AuthenticatedSession } from "./session.js";
 
 const logger = createLogger("auth.tenant-access");
@@ -118,12 +122,17 @@ type DenialReason = "MISSING" | "FOREIGN" | "DELETED" | "MISMATCH";
 export async function requireTenantAccess(
   session: AuthenticatedSession,
   resource: TenantResource,
-  options: TenantAccessOptions = {}
+  options: TenantAccessOptions = {},
 ): Promise<TenantContext> {
   const userId = session.user.id;
 
   if (resource.repositoryId) {
-    return resolveRepository(userId, resource.repositoryId, resource.projectId, options);
+    return resolveRepository(
+      userId,
+      resource.repositoryId,
+      resource.projectId,
+      options,
+    );
   }
 
   if (!resource.projectId) {
@@ -132,7 +141,9 @@ export async function requireTenantAccess(
     // a context with no tenant) keeps "a TenantContext always names a real, owned
     // project" true by construction — a guarantee that has to survive every extension
     // of this function, including this one.
-    throw new InternalError("requireTenantAccess called without a resolvable resource");
+    throw new InternalError(
+      "requireTenantAccess called without a resolvable resource",
+    );
   }
 
   const projectId = resource.projectId;
@@ -172,25 +183,48 @@ async function resolveRepository(
   userId: string,
   repositoryId: string,
   expectedProjectId: string | undefined,
-  options: TenantAccessOptions
+  options: TenantAccessOptions,
 ): Promise<TenantContext> {
   const repository = await repositoryRepository.findOwnershipById(repositoryId);
 
   if (!repository) {
-    throw denied({ repositoryId, projectId: expectedProjectId ?? null, userId, reason: "MISSING" });
+    throw denied({
+      repositoryId,
+      projectId: expectedProjectId ?? null,
+      userId,
+      reason: "MISSING",
+    });
   }
   if (repository.userId !== userId) {
-    throw denied({ repositoryId, projectId: repository.projectId, userId, reason: "FOREIGN" });
+    throw denied({
+      repositoryId,
+      projectId: repository.projectId,
+      userId,
+      reason: "FOREIGN",
+    });
   }
-  if (expectedProjectId !== undefined && repository.projectId !== expectedProjectId) {
+  if (
+    expectedProjectId !== undefined &&
+    repository.projectId !== expectedProjectId
+  ) {
     // Logged with the *attempted* project, not the real one — the real one is not the
     // caller's business and the attempted one is what a probing pattern looks like.
-    throw denied({ repositoryId, projectId: expectedProjectId, userId, reason: "MISMATCH" });
+    throw denied({
+      repositoryId,
+      projectId: expectedProjectId,
+      userId,
+      reason: "MISMATCH",
+    });
   }
   if (repository.projectDeletedAt !== null && !options.allowDeleted) {
     // A repository under a soft-deleted project is not reachable, for the same reason
     // the project itself is not: phase-01 §7/§11.
-    throw denied({ repositoryId, projectId: repository.projectId, userId, reason: "DELETED" });
+    throw denied({
+      repositoryId,
+      projectId: repository.projectId,
+      userId,
+      reason: "DELETED",
+    });
   }
 
   setTraceProjectId(repository.projectId);

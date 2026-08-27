@@ -9,7 +9,9 @@ import { describe, expect, it, vi } from "vitest";
 // (it never reads env directly). Mocked here rather than relying on some other import
 // in the graph to have loaded dotenv first, which is exactly the kind of implicit,
 // load-order-dependent behavior that breaks the moment a neighboring import changes.
-vi.mock("../../indexing/persistence/repository.repository.js", () => ({ findStalePending: vi.fn() }));
+vi.mock("../../indexing/persistence/repository.repository.js", () => ({
+  findStalePending: vi.fn(),
+}));
 
 const { buildSweepEvents } = await import("./stale-index-sweeper.js");
 
@@ -26,8 +28,14 @@ describe("buildSweepEvents", () => {
       expect(event.data.mode).toBe("FULL");
       expect(event.data.reason).toBe("sweep");
     }
-    expect(events[0]?.data).toMatchObject({ repositoryId: "repo-1", projectId: "proj-1" });
-    expect(events[1]?.data).toMatchObject({ repositoryId: "repo-2", projectId: "proj-2" });
+    expect(events[0]?.data).toMatchObject({
+      repositoryId: "repo-1",
+      projectId: "proj-1",
+    });
+    expect(events[1]?.data).toMatchObject({
+      repositoryId: "repo-2",
+      projectId: "proj-2",
+    });
   });
 
   it("gives each event its own freshly-generated indexJobId", () => {

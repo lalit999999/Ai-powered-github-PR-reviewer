@@ -66,34 +66,63 @@ interface ErrorInfo {
   action: "retry" | "reconnect";
 }
 
-const DEFAULT_ERROR_INFO: ErrorInfo = { message: "Indexing failed.", action: "retry" };
+const DEFAULT_ERROR_INFO: ErrorInfo = {
+  message: "Indexing failed.",
+  action: "retry",
+};
 
 const ERROR_MESSAGES: Record<string, ErrorInfo> = {
-  REPO_NOT_FOUND: { message: "GitHub can no longer find this repository.", action: "reconnect" },
-  REPO_TOO_LARGE: { message: "Repository exceeds the current size limit.", action: "retry" },
+  REPO_NOT_FOUND: {
+    message: "GitHub can no longer find this repository.",
+    action: "reconnect",
+  },
+  REPO_TOO_LARGE: {
+    message: "Repository exceeds the current size limit.",
+    action: "retry",
+  },
   UNSAFE_ARCHIVE: { message: "Indexing failed.", action: "retry" },
-  ACCESS_REVOKED: { message: "GitHub access was revoked for this installation.", action: "reconnect" },
-  TARBALL_DOWNLOAD_FAILED: { message: "Could not download the repository from GitHub.", action: "retry" },
+  ACCESS_REVOKED: {
+    message: "GitHub access was revoked for this installation.",
+    action: "reconnect",
+  },
+  TARBALL_DOWNLOAD_FAILED: {
+    message: "Could not download the repository from GitHub.",
+    action: "retry",
+  },
 };
 
 function errorCodeOf(error: unknown): string {
-  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
     return error.code;
   }
   return "UNKNOWN";
 }
 
 async function fetchIndexStatus(repositoryId: string): Promise<IndexStatus> {
-  const res = await fetch(`${API_URL}/api/repositories/${encodeURIComponent(repositoryId)}/index-status`, {
-    credentials: "include",
-  });
+  const res = await fetch(
+    `${API_URL}/api/repositories/${encodeURIComponent(repositoryId)}/index-status`,
+    {
+      credentials: "include",
+    },
+  );
   if (!res.ok) {
     throw new Error(`Could not load index status (${res.status})`);
   }
   return (await res.json()) as IndexStatus;
 }
 
-export function IndexStatusPoller({ repositoryId, initialStatus }: { repositoryId: string; initialStatus: IndexStatus }) {
+export function IndexStatusPoller({
+  repositoryId,
+  initialStatus,
+}: {
+  repositoryId: string;
+  initialStatus: IndexStatus;
+}) {
   const router = useRouter();
   const [retryPending, setRetryPending] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -113,18 +142,23 @@ export function IndexStatusPoller({ repositoryId, initialStatus }: { repositoryI
     setRetryPending(true);
     setRetryError(null);
     try {
-      const res = await fetch(`${API_URL}/api/repositories/${encodeURIComponent(repositoryId)}/index`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "FULL" }),
-      });
+      const res = await fetch(
+        `${API_URL}/api/repositories/${encodeURIComponent(repositoryId)}/index`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ mode: "FULL" }),
+        },
+      );
 
       if (!res.ok) {
         if (res.status === 409) {
           setRetryError("This repository is already being indexed.");
         } else if (res.status === 429) {
-          const body = (await res.json().catch(() => null)) as { error?: { details?: { retryAfterSeconds?: number } } } | null;
+          const body = (await res.json().catch(() => null)) as {
+            error?: { details?: { retryAfterSeconds?: number } };
+          } | null;
           const retryAfterSeconds = body?.error?.details?.retryAfterSeconds;
           setRetryError(
             typeof retryAfterSeconds === "number"
@@ -132,15 +166,22 @@ export function IndexStatusPoller({ repositoryId, initialStatus }: { repositoryI
               : "Too many index requests for this repository — try again later.",
           );
         } else {
-          const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-          setRetryError(body?.error?.message ?? `Could not start indexing (${res.status.toString()}).`);
+          const body = (await res.json().catch(() => null)) as {
+            error?: { message?: string };
+          } | null;
+          setRetryError(
+            body?.error?.message ??
+              `Could not start indexing (${res.status.toString()}).`,
+          );
         }
         return;
       }
 
       router.refresh();
     } catch {
-      setRetryError("Could not reach the API. Check that it is running, then try again.");
+      setRetryError(
+        "Could not reach the API. Check that it is running, then try again.",
+      );
     } finally {
       setRetryPending(false);
     }
@@ -150,14 +191,24 @@ export function IndexStatusPoller({ repositoryId, initialStatus }: { repositoryI
   const caption = STATUS_CAPTIONS[status] ?? status;
 
   if (status === "FAILED") {
-    const errorInfo = ERROR_MESSAGES[errorCodeOf(data.error)] ?? DEFAULT_ERROR_INFO;
+    const errorInfo =
+      ERROR_MESSAGES[errorCodeOf(data.error)] ?? DEFAULT_ERROR_INFO;
     return (
       <div className="flex flex-col gap-2">
         <Badge variant="destructive">{caption}</Badge>
         <p className="text-xs text-muted-foreground">{errorInfo.message}</p>
         <div>
-          <Button variant="outline" size="sm" onClick={handleRetry} disabled={retryPending}>
-            {retryPending ? "Retrying…" : errorInfo.action === "reconnect" ? "Reconnect" : "Retry"}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRetry}
+            disabled={retryPending}
+          >
+            {retryPending
+              ? "Retrying…"
+              : errorInfo.action === "reconnect"
+                ? "Reconnect"
+                : "Retry"}
           </Button>
         </div>
         {retryError && (
@@ -175,7 +226,8 @@ export function IndexStatusPoller({ repositoryId, initialStatus }: { repositoryI
         <Badge variant="outline">{caption}</Badge>
         <Progress value={data.progressPercent} aria-label={caption} />
         <p className="text-xs text-muted-foreground">
-          {data.currentStep ?? "working"} — {data.filesProcessed}/{data.filesTotal || "…"} files
+          {data.currentStep ?? "working"} — {data.filesProcessed}/
+          {data.filesTotal || "…"} files
         </p>
       </div>
     );
@@ -184,7 +236,11 @@ export function IndexStatusPoller({ repositoryId, initialStatus }: { repositoryI
   return (
     <div className="flex flex-col gap-1">
       <Badge variant="outline">{caption}</Badge>
-      {isError && <p className="text-xs text-muted-foreground">Could not refresh — showing the last known status.</p>}
+      {isError && (
+        <p className="text-xs text-muted-foreground">
+          Could not refresh — showing the last known status.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,4 +1,8 @@
-import type { BranchProbeResult, GithubRepositoryMetadata, GithubResult } from "@repo/github";
+import type {
+  BranchProbeResult,
+  GithubRepositoryMetadata,
+  GithubResult,
+} from "@repo/github";
 import {
   ConflictError,
   ForbiddenError,
@@ -7,7 +11,11 @@ import {
   ValidationError,
 } from "../../lib/errors.js";
 import { createLogger } from "@repo/observability";
-import { GITHUB_REPO_URL_MESSAGE, parseGithubRepoUrl, type GithubRepoRef } from "./repository.schema.js";
+import {
+  GITHUB_REPO_URL_MESSAGE,
+  parseGithubRepoUrl,
+  type GithubRepoRef,
+} from "./repository.schema.js";
 import type { RepositoryRecord } from "./repository.types.js";
 
 /**
@@ -105,7 +113,9 @@ export function resolveRepoRefFromUrl(repoUrl: string): GithubRepoRef {
   const parsed = parseGithubRepoUrl(repoUrl);
 
   if (!parsed.ok) {
-    logger.warn("repository connect rejected: unparseable url", { reason: parsed.reason });
+    logger.warn("repository connect rejected: unparseable url", {
+      reason: parsed.reason,
+    });
     throw new ValidationError(GITHUB_REPO_URL_MESSAGE, {
       details: { fieldErrors: { repoUrl: [GITHUB_REPO_URL_MESSAGE] } },
     });
@@ -158,7 +168,9 @@ export function assertRepositoryAccessible(
       userId: context.userId,
       target: context.target,
     });
-    throw new ForbiddenError(NO_ACCESS_MESSAGE, { details: { repository: context.target } });
+    throw new ForbiddenError(NO_ACCESS_MESSAGE, {
+      details: { repository: context.target },
+    });
   }
 
   logger.warn("repository connect failed: github unavailable", {
@@ -167,7 +179,9 @@ export function assertRepositoryAccessible(
     target: context.target,
     reason: result.reason,
   });
-  throw new ServiceUnavailableError("GitHub is temporarily unavailable, try again");
+  throw new ServiceUnavailableError(
+    "GitHub is temporarily unavailable, try again",
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -200,25 +214,36 @@ export function assertNotAlreadyConnected(
 ): void {
   if (!existing) return;
 
-  logger.warn("repository connect rejected: already connected to this project", {
-    projectId: context.projectId,
-    userId: context.userId,
-    githubRepoId: context.githubRepoId.toString(),
-    repositoryId: existing.id,
-    connectionStatus: existing.connectionStatus,
-  });
+  logger.warn(
+    "repository connect rejected: already connected to this project",
+    {
+      projectId: context.projectId,
+      userId: context.userId,
+      githubRepoId: context.githubRepoId.toString(),
+      repositoryId: existing.id,
+      connectionStatus: existing.connectionStatus,
+    },
+  );
 
-  throw new ConflictError("That repository is already connected to this project", {
-    details: { repositoryId: existing.id, connectionStatus: existing.connectionStatus },
-  });
+  throw new ConflictError(
+    "That repository is already connected to this project",
+    {
+      details: {
+        repositoryId: existing.id,
+        connectionStatus: existing.connectionStatus,
+      },
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Steps 4–6 — the metadata checks
 // ---------------------------------------------------------------------------
 
-export const EMPTY_REPOSITORY_MESSAGE = "That repository is empty — push at least one commit before connecting it";
-export const DEFAULT_BRANCH_MESSAGE = "The repository's default branch could not be resolved";
+export const EMPTY_REPOSITORY_MESSAGE =
+  "That repository is empty — push at least one commit before connecting it";
+export const DEFAULT_BRANCH_MESSAGE =
+  "The repository's default branch could not be resolved";
 
 /** Supplied by `repository.service`; invoked **only** in the ambiguous `size === 0`
  * case, so an ordinary connect never pays for it (§21). */
@@ -315,7 +340,10 @@ export async function assertRepositoryUsable(
       sizeKib: metadata.sizeKib,
     });
     throw new UnprocessableEntityError(DEFAULT_BRANCH_MESSAGE, {
-      details: { reason: "DEFAULT_BRANCH_UNRESOLVABLE", fullName: metadata.fullName },
+      details: {
+        reason: "DEFAULT_BRANCH_UNRESOLVABLE",
+        fullName: metadata.fullName,
+      },
     });
   }
 }

@@ -149,7 +149,9 @@ export const MAX_PARSE_CONTENT_BYTES = 2 * 1024 * 1024;
 export class ContentTooLargeError extends Error {
   readonly byteLength: number;
   constructor(byteLength: number) {
-    super(`content is ${byteLength.toString()} bytes, exceeding the ${MAX_PARSE_CONTENT_BYTES.toString()}-byte parser-pool guard`);
+    super(
+      `content is ${byteLength.toString()} bytes, exceeding the ${MAX_PARSE_CONTENT_BYTES.toString()}-byte parser-pool guard`,
+    );
     this.name = "ContentTooLargeError";
     this.byteLength = byteLength;
   }
@@ -182,7 +184,11 @@ export function getOutstandingTreeCount(): number {
  * prompt-1 §1 rule 4) catch this alongside any parse error and set `parseState=FAILED` —
  * this module does not know about `RepositoryFile` and cannot do that itself.
  */
-export async function withParsedTree<T>(language: ParserLanguage, content: string, use: (tree: Tree) => T): Promise<T> {
+export async function withParsedTree<T>(
+  language: ParserLanguage,
+  content: string,
+  use: (tree: Tree) => T,
+): Promise<T> {
   const byteLength = Buffer.byteLength(content, "utf8");
   if (byteLength > MAX_PARSE_CONTENT_BYTES) {
     throw new ContentTooLargeError(byteLength);
@@ -196,7 +202,9 @@ export async function withParsedTree<T>(language: ParserLanguage, content: strin
     // module never passes a progress callback. Structurally unreachable; the library's
     // own return type is nullable regardless, so this must still be handled rather than
     // asserted away with a non-null assertion.
-    throw new Error(`web-tree-sitter returned no tree for language "${language}" — this should be unreachable`);
+    throw new Error(
+      `web-tree-sitter returned no tree for language "${language}" — this should be unreachable`,
+    );
   }
 
   outstandingTreeCount += 1;
@@ -254,7 +262,8 @@ export function getParseErrorInfo(tree: Tree): ParseErrorInfo {
     let visitedChildren = false;
     for (;;) {
       if (!visitedChildren) {
-        if (cursor.nodeType === "ERROR" || cursor.nodeIsMissing) errorNodeCount += 1;
+        if (cursor.nodeType === "ERROR" || cursor.nodeIsMissing)
+          errorNodeCount += 1;
         if (cursor.gotoFirstChild()) continue;
       }
       if (cursor.gotoNextSibling()) {

@@ -69,14 +69,14 @@ before stage 4 rather than merely trusting the code's own structure).
 `ignore-rules.ts`'s `HARD_IGNORE_PATTERNS` — **the one list to edit** to add or remove a
 hard-ignore rule. Nothing else in the codebase encodes glob knowledge for this stage.
 
-| Category | Patterns |
-|---|---|
-| Dependency directories | `node_modules/**`, `.git/**`, `vendor/**` |
-| Build output | `dist/**`, `build/**`, `out/**`, `.next/**`, `target/**`, `__pycache__/**`, `coverage/**`, `.venv/**` |
-| Minified / map / bundle files | `**/*.min.js`, `**/*.min.css`, `**/*.map`, `**/*.bundle.js` |
-| Lockfiles | `**/*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`, `Cargo.lock`, `poetry.lock`, `composer.lock` |
-| Snapshots | `**/*.snap`, `**/__snapshots__/**` |
-| Binary/asset extensions | `**/*.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.ico`, `.pdf`, `.zip`, `.woff*`, `.ttf`, `.mp4`, `.wasm` |
+| Category                      | Patterns                                                                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Dependency directories        | `node_modules/**`, `.git/**`, `vendor/**`                                                                               |
+| Build output                  | `dist/**`, `build/**`, `out/**`, `.next/**`, `target/**`, `__pycache__/**`, `coverage/**`, `.venv/**`                   |
+| Minified / map / bundle files | `**/*.min.js`, `**/*.min.css`, `**/*.map`, `**/*.bundle.js`                                                             |
+| Lockfiles                     | `**/*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`, `Cargo.lock`, `poetry.lock`, `composer.lock` |
+| Snapshots                     | `**/*.snap`, `**/__snapshots__/**`                                                                                      |
+| Binary/asset extensions       | `**/*.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.ico`, `.pdf`, `.zip`, `.woff*`, `.ttf`, `.mp4`, `.wasm`                  |
 
 A match here means **the path never gets a `RepositoryFile` row at all** — a structural
 exclusion, not a skip. A committed `node_modules/` can be up to ~90% of a repository's
@@ -90,7 +90,7 @@ the walker never descends into a hard-ignored directory at all — via
 pattern set `isHardIgnored` uses. Extension/filename-anchored patterns (a bare
 `pnpm-lock.yaml`, `**/*.min.js`) are checked per file during the walk, since they are not
 confined to any one directory. Both paths funnel into the same "no row" outcome; only the
-*mechanism* differs, for performance on the directory case.
+_mechanism_ differs, for performance on the directory case.
 
 Patterns are compiled to `RegExp` once, at module load — never per path. A full index can
 walk up to `INDEX_MAX_FILE_COUNT` (default 200,000) candidate paths; re-parsing ~40 glob
@@ -127,11 +127,11 @@ when a path is flagged as both.
 `file-classifier.ts`. Each produces a row with `indexState=SKIPPED` and a specific
 `skipReason`:
 
-| Stage | Threshold | `skipReason` | Notes |
-|---|---|---|---|
-| Size cap | > 512 KB (`SIZE_CAP_BYTES`) | `SKIPPED_TOO_LARGE` | Still hashed (streamed, never buffered) so a later incremental re-index can tell whether it changed. |
-| Binary detection | a NUL byte anywhere in the first 8 KB (`BINARY_SNIFF_BYTES`) | `SKIPPED_BINARY` | A heuristic, not a certainty — UTF-16 text is a known, accepted false positive. |
-| Minified heuristic | average line length > 500 chars (`MINIFIED_AVERAGE_LINE_LENGTH`) | `SKIPPED_MINIFIED` | The *average* over the whole file, not the longest line — one long JSON array on an otherwise normal file must not trip this. |
+| Stage              | Threshold                                                        | `skipReason`        | Notes                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Size cap           | > 512 KB (`SIZE_CAP_BYTES`)                                      | `SKIPPED_TOO_LARGE` | Still hashed (streamed, never buffered) so a later incremental re-index can tell whether it changed.                          |
+| Binary detection   | a NUL byte anywhere in the first 8 KB (`BINARY_SNIFF_BYTES`)     | `SKIPPED_BINARY`    | A heuristic, not a certainty — UTF-16 text is a known, accepted false positive.                                               |
+| Minified heuristic | average line length > 500 chars (`MINIFIED_AVERAGE_LINE_LENGTH`) | `SKIPPED_MINIFIED`  | The _average_ over the whole file, not the longest line — one long JSON array on an otherwise normal file must not trip this. |
 
 **The deliberate false-negative bias** (phase-03 §22): a binary file that slips past the
 NUL-byte sniff still gets indexed and is re-checked by Phase 04's real parser — contained,
@@ -142,13 +142,13 @@ disappearance) more likely.
 
 ## The row / no-row rule — the single easiest thing to get backwards
 
-| Outcome | Gets a `RepositoryFile` row? | `indexState` | `skipReason` |
-|---|---|---|---|
-| Hard-ignored (stage 1) | **No** | — | — |
-| `.gitattributes`-declared generated/vendored (stage 2) | Yes | `SKIPPED` | `SKIPPED_GENERATED` / `SKIPPED_VENDORED` |
-| Over the size cap / binary / minified (stages 3–5) | Yes | `SKIPPED` | `SKIPPED_TOO_LARGE` / `SKIPPED_BINARY` / `SKIPPED_MINIFIED` |
-| Survives every stage | Yes | `INDEXED` | `null` |
-| Unreadable/corrupt during hashing | Yes | `FAILED` | `null` — see below |
+| Outcome                                                | Gets a `RepositoryFile` row? | `indexState` | `skipReason`                                                |
+| ------------------------------------------------------ | ---------------------------- | ------------ | ----------------------------------------------------------- |
+| Hard-ignored (stage 1)                                 | **No**                       | —            | —                                                           |
+| `.gitattributes`-declared generated/vendored (stage 2) | Yes                          | `SKIPPED`    | `SKIPPED_GENERATED` / `SKIPPED_VENDORED`                    |
+| Over the size cap / binary / minified (stages 3–5)     | Yes                          | `SKIPPED`    | `SKIPPED_TOO_LARGE` / `SKIPPED_BINARY` / `SKIPPED_MINIFIED` |
+| Survives every stage                                   | Yes                          | `INDEXED`    | `null`                                                      |
+| Unreadable/corrupt during hashing                      | Yes                          | `FAILED`     | `null` — see below                                          |
 
 If you are extending this pipeline and are tempted to give hard-ignored paths a row "for
 completeness," or to silently drop a `.gitattributes` match instead of recording it —
@@ -186,7 +186,7 @@ reason.
 - **`filesProcessed`** = `INDEXED + FAILED` — every file the pipeline actually finished
   attempting, whether the attempt succeeded or not. "Processed" means "attempted to
   completion," not "succeeded."
-- **`filesSkipped`** = `SKIPPED` (any reason) — files deliberately excluded by *policy*,
+- **`filesSkipped`** = `SKIPPED` (any reason) — files deliberately excluded by _policy_,
   never attempted for indexing purposes.
 
 By construction, `filesProcessed + filesSkipped === filesTotal` always holds for a
@@ -195,12 +195,12 @@ made true by definition rather than merely asserted after the fact.
 
 ## Caps — where they're configured
 
-| Cap | Default | Env var | Enforced in |
-|---|---|---|---|
-| Total extracted bytes per repository | 2 GiB | `INDEX_MAX_TOTAL_BYTES` | `archive-extractor.ts` — a counting `Transform` between `gunzip` and the tar parser, observing the *decompressed* running total, not the compressed wire size |
-| Total file count per repository | 200,000 | `INDEX_MAX_FILE_COUNT` | `archive-extractor.ts` |
-| Per-file size (indexing, not extraction) | 512 KB | `SIZE_CAP_BYTES` (code constant, not an env var) | `file-classifier.ts` |
-| Per-entry sanity cap during extraction | same as the total byte budget | — (not separately configurable) | `archive-extractor.ts` — a single archive entry's *declared* size alone exceeding the total budget is rejected before any of its bytes are read |
+| Cap                                      | Default                       | Env var                                          | Enforced in                                                                                                                                                   |
+| ---------------------------------------- | ----------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Total extracted bytes per repository     | 2 GiB                         | `INDEX_MAX_TOTAL_BYTES`                          | `archive-extractor.ts` — a counting `Transform` between `gunzip` and the tar parser, observing the _decompressed_ running total, not the compressed wire size |
+| Total file count per repository          | 200,000                       | `INDEX_MAX_FILE_COUNT`                           | `archive-extractor.ts`                                                                                                                                        |
+| Per-file size (indexing, not extraction) | 512 KB                        | `SIZE_CAP_BYTES` (code constant, not an env var) | `file-classifier.ts`                                                                                                                                          |
+| Per-entry sanity cap during extraction   | same as the total byte budget | — (not separately configurable)                  | `archive-extractor.ts` — a single archive entry's _declared_ size alone exceeding the total budget is rejected before any of its bytes are read               |
 
 Exceeding either extraction-level cap aborts the whole job cleanly
 (`indexError.code=REPO_TOO_LARGE`), rather than partially indexing a repository past the

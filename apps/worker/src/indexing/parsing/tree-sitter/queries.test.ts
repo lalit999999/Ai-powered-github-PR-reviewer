@@ -159,30 +159,54 @@ const TSX_ONLY_CAPTURE_NAMES = ["jsx.element.name", "jsx.selfClosing.name"];
 
 describe("JAVASCRIPT_QUERY", () => {
   it("compiles against the javascript grammar", async () => {
-    await expect(captureCounts("javascript", JAVASCRIPT_QUERY, JS_SAMPLE)).resolves.toBeTruthy();
+    await expect(
+      captureCounts("javascript", JAVASCRIPT_QUERY, JS_SAMPLE),
+    ).resolves.toBeTruthy();
   });
 
-  it.each(JAVASCRIPT_QUERY_CAPTURE_NAMES)("produces a non-empty match set for %s against a representative JS snippet", async (name) => {
-    const counts = await captureCounts("javascript", JAVASCRIPT_QUERY, JS_SAMPLE);
-    expect(counts[name]).toBeGreaterThan(0);
-  });
+  it.each(JAVASCRIPT_QUERY_CAPTURE_NAMES)(
+    "produces a non-empty match set for %s against a representative JS snippet",
+    async (name) => {
+      const counts = await captureCounts(
+        "javascript",
+        JAVASCRIPT_QUERY,
+        JS_SAMPLE,
+      );
+      expect(counts[name]).toBeGreaterThan(0);
+    },
+  );
 });
 
 describe("TYPESCRIPT_QUERY", () => {
-  it.each([...JAVASCRIPT_QUERY_CAPTURE_NAMES, ...TYPESCRIPT_ONLY_CAPTURE_NAMES])(
+  it.each([
+    ...JAVASCRIPT_QUERY_CAPTURE_NAMES,
+    ...TYPESCRIPT_ONLY_CAPTURE_NAMES,
+  ])(
     "produces a non-empty match set for %s against a representative TS snippet",
     async (name) => {
-      const counts = await captureCounts("typescript", TYPESCRIPT_QUERY, TS_SAMPLE);
+      const counts = await captureCounts(
+        "typescript",
+        TYPESCRIPT_QUERY,
+        TS_SAMPLE,
+      );
       expect(counts[name]).toBeGreaterThan(0);
     },
   );
 });
 
 describe("TSX_QUERY", () => {
-  it.each([...JAVASCRIPT_QUERY_CAPTURE_NAMES, ...TYPESCRIPT_ONLY_CAPTURE_NAMES, ...TSX_ONLY_CAPTURE_NAMES])(
+  it.each([
+    ...JAVASCRIPT_QUERY_CAPTURE_NAMES,
+    ...TYPESCRIPT_ONLY_CAPTURE_NAMES,
+    ...TSX_ONLY_CAPTURE_NAMES,
+  ])(
     "produces a non-empty match set for %s against a representative TSX snippet",
     async (name) => {
-      const counts = await captureCounts("tsx", TSX_QUERY, TS_SAMPLE + TSX_SAMPLE);
+      const counts = await captureCounts(
+        "tsx",
+        TSX_QUERY,
+        TS_SAMPLE + TSX_SAMPLE,
+      );
       expect(counts[name]).toBeGreaterThan(0);
     },
   );

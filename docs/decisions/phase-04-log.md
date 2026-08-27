@@ -15,11 +15,11 @@ ever executed — tree-sitter only ever parses text).
 
 **Versions pinned** (`apps/worker/package.json`, exact, no `^`/`~`):
 
-| Package | Version |
-|---|---|
-| `web-tree-sitter` | `0.26.13` |
-| `tree-sitter-typescript` | `0.23.2` |
-| `tree-sitter-javascript` | `0.25.0` |
+| Package                  | Version   |
+| ------------------------ | --------- |
+| `web-tree-sitter`        | `0.26.13` |
+| `tree-sitter-typescript` | `0.23.2`  |
+| `tree-sitter-javascript` | `0.25.0`  |
 
 **Ladder rung landed on: 1 (no fallback needed).** The genuine unknown named by the
 prompt — whether `tree-sitter-typescript@0.23.2`'s `.wasm` (built by an older tree-sitter
@@ -294,7 +294,7 @@ reached, since no image was ever produced.
       (§7 above). Needs re-verification wherever a more reliable network is available;
       nothing about the Dockerfile itself is suspected.
 - [ ] `turbo prune worker --docker`'s lockfile catalog scoping (§7) is worth a follow-up
-      look — not a correctness bug (the *importers* are correctly scoped), but a
+      look — not a correctness bug (the _importers_ are correctly scoped), but a
       possible build-time/size inefficiency.
 
 All six of this prompt's own sub-tasks are otherwise complete. See the Prompt 1
@@ -325,7 +325,7 @@ them, which is how the per-specifier `type` marker's exact position was found):
 - `abstract_class_declaration` / `abstract_method_signature` — confirmed empirically as
   distinct node types from `class_declaration` / `method_definition`.
 - `import_specifier`'s per-specifier `"type"` marker (`import { type Foo, Bar } from "./m"`)
-  — a literal anonymous token that is a *child of the individual specifier*, not a sibling
+  — a literal anonymous token that is a _child of the individual specifier_, not a sibling
   of `import_clause` the way the whole-statement marker is.
 - `export = Foo;` — parses as `export_statement` with the identifier as a positional child
   (no `declaration:`/`value:` field at all), needing its own pattern.
@@ -349,7 +349,7 @@ golden-file commit.
 The adapter's call-attribution and heritage-attribution logic both originally built a
 `Map<number, InternalSymbolRecord>` keyed by `declNode.startIndex` (or
 `callableNode.startIndex`), then walked a node's `.parent` chain looking up each ancestor
-by its `startIndex`. This is unsound: a node's `startIndex` frequently *coincides* with an
+by its `startIndex`. This is unsound: a node's `startIndex` frequently _coincides_ with an
 ancestor's — a `program` node's own start equals its first statement's start, which equals
 that statement's first token's start, and so on down the left edge of the tree. A test for
 "a call at true module top level is dropped, not attributed to any symbol" failed because
@@ -362,7 +362,7 @@ module-level call to it. Fixed by keying both maps on `Node#id` instead — the 
 
 Discovered building the golden-file `malformed.ts` fixture: `parser-pool.ts`'s
 `getParseErrorInfo` (Prompt 1) counted only true `ERROR` nodes. A truncated file with
-unclosed braces — arguably *the* canonical "malformed file" (`plan.md` §14's own named
+unclosed braces — arguably _the_ canonical "malformed file" (`plan.md` §14's own named
 scenario) — produces **zero** `ERROR` nodes and only `MISSING` ones (synthetic tokens the
 parser inserts to recover from a required-but-absent token). `tree.rootNode.hasError`
 correctly reported `true`; `errorNodeCount` reported `0` — silently breaking the invariant
@@ -381,7 +381,7 @@ adapter's 10% tolerance (`PARSE_ERROR_TOLERANCE_RATIO`), because tree-sitter's r
 good enough that most of the surrounding valid-looking content still parses as ordinary,
 recognizable statements — diluting the ratio. Padding the fixture with realistic merge-
 conflict markers or extra garbage tokens did not reliably push the ratio over 10% either;
-in several probed variants it *lowered* the ratio further (more total nodes, only
+in several probed variants it _lowered_ the ratio further (more total nodes, only
 marginally more error nodes). What actually crosses the threshold is a **small** file
 broken very close to its first token, with little surrounding valid content to dilute the
 count (`apps/worker/tests/fixtures/parsing/malformed.ts` — one comment line plus a
@@ -389,13 +389,13 @@ function whose parameter list never closes and has no closing braces at all — 
 ≈11%, verified against the live grammar, not assumed). This is worth a future prompt's
 attention if the fixed 10% constant ever needs revisiting: it is well-calibrated for "a
 small local mistake in an otherwise-fine file shouldn't fail the whole file," but a
-correspondingly small *fixture* is required to demonstrate the FAILED path at all — a
+correspondingly small _fixture_ is required to demonstrate the FAILED path at all — a
 large file would need proportionally severe corruption to cross it.
 
 ## 6. A doc comment must be immediately adjacent — no blank line — to attach
 
 `collectLeadingTrivia`'s first implementation walked back through preceding
-`comment`/`decorator` siblings with no adjacency check at all, so *any* comment on the
+`comment`/`decorator` siblings with no adjacency check at all, so _any_ comment on the
 "other side" of a blank line from a declaration — including an unrelated section-header
 comment several lines above, or (caught directly by the golden-file line-numbering
 fixture) an incidental line comment sharing the same tree-sibling relationship purely by
@@ -414,12 +414,12 @@ line in between, correctly does.
 Sub-task 2.6 asked for "a file that is valid JS but not valid TS, and vice versa."
 The reverse direction (valid TS, invalid JS) is trivial and pervasive — any type
 annotation, `interface`, or `type` alias is a real, verified example (confirmed
-empirically: feeding `ts-only-syntax.ts`'s content to the *plain javascript* grammar
+empirically: feeding `ts-only-syntax.ts`'s content to the _plain javascript_ grammar
 produces real `ERROR` nodes, not just a different-looking parse). The forward direction
 has no equally clean example at the tree-sitter grammar level for anything in this phase's
 scope: `tree-sitter-typescript`'s grammar is, for every construct this phase cares about, a
 strict syntactic superset of `tree-sitter-javascript`'s. Probed candidates that are
-often cited as "JS-only" (a legacy `with` statement) parse without error under *both*
+often cited as "JS-only" (a legacy `with` statement) parse without error under _both_
 grammars — TypeScript's real compiler rejects `with` as a matter of its own stricter
 semantic/parser rules, not something encoded in this grammar's context-free structure. Not
 fabricated as a fixture; recorded here as a genuine finding instead (see the report-back's
@@ -508,7 +508,7 @@ conditions object, an exact subpath key, and a single-wildcard subpath pattern
 condition arrays are not attempted — bucketed `UNRESOLVED` per §0 rule 3 (a wrong file
 edge costs more than a missing one). When a package has no `exports` field at all, a
 subpath import falls back to a direct relative-path attempt from the package root (the
-common shape for workspace packages with no `exports` map); when `exports` *is* present
+common shape for workspace packages with no `exports` map); when `exports` _is_ present
 but does not cover the requested subpath, no further fallback is attempted for that
 subpath specifically — an `exports` map is usually intentionally restrictive.
 
@@ -537,7 +537,7 @@ worse.
 member-expression forms); there is no `new_expression` pattern at all. A `new Foo()`
 constructor call is therefore never a `ParsedCall`, and rule 5's "imported **or**
 instantiated" receiver check can only ever check the "imported" half. This is a real,
-documented recall gap (not a precision one — the missing signal makes the check *more*
+documented recall gap (not a precision one — the missing signal makes the check _more_
 conservative, not less), stated loudly per this prompt's own instruction: it does not
 lower the precision number prompt 5 measures, but it does mean a class instantiated only
 through a local factory/variable with no direct import of the class name will fail rule
@@ -554,7 +554,7 @@ at all" is used instead — the actual checkable proxy for "in scope."
 **Ambiguity narrowing (rule 4), read literally**: narrow the raw candidate set to
 same-package members; if that narrows to nothing at all, try same-top-level-directory
 instead; apply the `0.4/N` spread (or the `N > 3` skip) to whichever set survives —
-*including* the case where narrowing already reduced the set to exactly one (still scored
+_including_ the case where narrowing already reduced the set to exactly one (still scored
 `0.4/1 = 0.4`, deliberately below rule 3's `0.7`, since the call started genuinely
 ambiguous rather than repo-wide-unique). "Top-level directory" is read as the first
 path segment (`apps`, `packages`, …) — a judgment call, since `plan.md` does not define
@@ -586,15 +586,15 @@ Every regular expression literal added by prompts 2 and 3, across
 `apps/worker/src/indexing/parsing/` and `apps/worker/src/indexing/graph/` (grepped
 directly, not assumed complete from memory):
 
-| File | Pattern | Safety justification |
-|---|---|---|
-| `parsing/adapters/typescript.adapter.ts:145` | `/^\/\*+/`, `/\*+\/$/` | Anchored at one end each; a single quantified literal-character class (`\/*+` is "one or more `*` chars", not nested); no alternation. Linear. |
-| `parsing/adapters/typescript.adapter.ts:148` | `/^\*/` | Anchored, no quantifier at all — matches exactly one optional leading `*`. O(1) per line. |
-| `parsing/adapters/typescript.adapter.ts:152` | `/^\/\/\s?/` | Anchored, `?` (zero-or-one) on a single character class — no repetition that can backtrack. |
-| `parsing/adapters/typescript.adapter.ts:608` | `HOOK_NAME_PATTERN = /^use[A-Z0-9]/` | Anchored, fixed-width (no quantifier at all). O(1). |
-| `parsing/adapters/typescript.adapter.ts:609` | `PASCAL_CASE_PATTERN = /^[A-Z][A-Za-z0-9]*$/` | Anchored both ends, exactly one quantified group (`[A-Za-z0-9]*`) with no alternation and no nested quantifier — the classic *safe* shape (a single `(charclass)*`), not the `(a+)+` shape §0 rule 4 warns against. Linear in input length. |
-| `graph/repo-context.ts:371` | `rawLine.replace(/\r$/, "")` | Anchored, no quantifier. O(1) per line, and each line is already bounded by `MAX_MANIFEST_BYTES` (256 KB) before this ever runs. |
-| `graph/import-resolver.ts:427` | `/^[a-zA-Z]:[\\/]/` | Fully fixed-width — every atom matches exactly one character, no quantifier anywhere. Runs only against `bounded`, already capped to `MAX_SPECIFIER_LENGTH` (2000 chars) before this line. |
+| File                                         | Pattern                                       | Safety justification                                                                                                                                                                                                                        |
+| -------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parsing/adapters/typescript.adapter.ts:145` | `/^\/\*+/`, `/\*+\/$/`                        | Anchored at one end each; a single quantified literal-character class (`\/*+` is "one or more `*` chars", not nested); no alternation. Linear.                                                                                              |
+| `parsing/adapters/typescript.adapter.ts:148` | `/^\*/`                                       | Anchored, no quantifier at all — matches exactly one optional leading `*`. O(1) per line.                                                                                                                                                   |
+| `parsing/adapters/typescript.adapter.ts:152` | `/^\/\/\s?/`                                  | Anchored, `?` (zero-or-one) on a single character class — no repetition that can backtrack.                                                                                                                                                 |
+| `parsing/adapters/typescript.adapter.ts:608` | `HOOK_NAME_PATTERN = /^use[A-Z0-9]/`          | Anchored, fixed-width (no quantifier at all). O(1).                                                                                                                                                                                         |
+| `parsing/adapters/typescript.adapter.ts:609` | `PASCAL_CASE_PATTERN = /^[A-Z][A-Za-z0-9]*$/` | Anchored both ends, exactly one quantified group (`[A-Za-z0-9]*`) with no alternation and no nested quantifier — the classic _safe_ shape (a single `(charclass)*`), not the `(a+)+` shape §0 rule 4 warns against. Linear in input length. |
+| `graph/repo-context.ts:371`                  | `rawLine.replace(/\r$/, "")`                  | Anchored, no quantifier. O(1) per line, and each line is already bounded by `MAX_MANIFEST_BYTES` (256 KB) before this ever runs.                                                                                                            |
+| `graph/import-resolver.ts:427`               | `/^[a-zA-Z]:[\\/]/`                           | Fully fixed-width — every atom matches exactly one character, no quantifier anywhere. Runs only against `bounded`, already capped to `MAX_SPECIFIER_LENGTH` (2000 chars) before this line.                                                  |
 
 **No pattern above has a nested quantifier or an alternation-inside-repetition shape**
 (the `(a+)+`/`(a|aa)+` family this audit was specifically checking for), and every one

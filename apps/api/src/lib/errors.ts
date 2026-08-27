@@ -23,7 +23,10 @@ export abstract class AppError extends Error {
   readonly details: Record<string, unknown>;
 
   constructor(message: string, options: AppErrorOptions = {}) {
-    super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
+    super(
+      message,
+      options.cause !== undefined ? { cause: options.cause } : undefined,
+    );
     this.name = this.constructor.name;
     this.details = options.details ?? {};
   }

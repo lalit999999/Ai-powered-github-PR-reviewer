@@ -4,7 +4,12 @@ import pino from "pino";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { NotFoundError, ValidationError } from "./errors.js";
-import { createRequestContext, errorHandler, requestContext, withRoute } from "./http.js";
+import {
+  createRequestContext,
+  errorHandler,
+  requestContext,
+  withRoute,
+} from "./http.js";
 
 function buildTestApp(context = requestContext): Express {
   const app = express();
@@ -24,7 +29,9 @@ function buildTestApp(context = requestContext): Express {
     "/validation-error",
     withRoute(
       () => {
-        throw new ValidationError("bad input", { details: { fieldErrors: { name: ["required"] } } });
+        throw new ValidationError("bad input", {
+          details: { fieldErrors: { name: ["required"] } },
+        });
       },
       { component: "test.validation" },
     ),
@@ -51,7 +58,9 @@ function buildTestApp(context = requestContext): Express {
     ),
   );
 
-  app.use((req, _res, next) => next(new NotFoundError(`Route ${req.method} ${req.originalUrl} not found`)));
+  app.use((req, _res, next) =>
+    next(new NotFoundError(`Route ${req.method} ${req.originalUrl} not found`)),
+  );
   app.use(errorHandler);
   return app;
 }
@@ -65,7 +74,9 @@ describe("requestContext + withRoute + errorHandler", () => {
   });
 
   it("seeds the trace id from an inbound x-trace-id header instead of generating one", async () => {
-    const res = await request(buildTestApp()).get("/ok").set("x-trace-id", "seeded-trace-id");
+    const res = await request(buildTestApp())
+      .get("/ok")
+      .set("x-trace-id", "seeded-trace-id");
     expect(res.headers["x-trace-id"]).toBe("seeded-trace-id");
   });
 
@@ -85,7 +96,11 @@ describe("requestContext + withRoute + errorHandler", () => {
     const res = await request(buildTestApp()).get("/boom");
     expect(res.status).toBe(500);
     expect(res.body).toEqual({
-      error: { code: "INTERNAL_ERROR", message: "Internal server error", details: {} },
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Internal server error",
+        details: {},
+      },
     });
     const raw = JSON.stringify(res.body);
     expect(raw).not.toContain("unexpected failure");
@@ -113,15 +128,28 @@ describe("requestContext + withRoute + errorHandler", () => {
       },
     });
     const instance = pino(
-      { level: "debug", base: null, timestamp: false, messageKey: "msg", formatters: { level: (label) => ({ level: label }) } },
+      {
+        level: "debug",
+        base: null,
+        timestamp: false,
+        messageKey: "msg",
+        formatters: { level: (label) => ({ level: label }) },
+      },
       stream,
     );
 
-    const res = await request(buildTestApp(createRequestContext(instance))).get("/ok");
+    const res = await request(buildTestApp(createRequestContext(instance))).get(
+      "/ok",
+    );
 
     expect(res.status).toBe(200);
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatchObject({ level: "info", msg: "request completed", component: "test.ok", statusCode: 200 });
+    expect(lines[0]).toMatchObject({
+      level: "info",
+      msg: "request completed",
+      component: "test.ok",
+      statusCode: 200,
+    });
     expect(typeof lines[0]?.traceId).toBe("string");
     expect(typeof lines[0]?.durationMs).toBe("number");
   });
@@ -135,14 +163,26 @@ describe("requestContext + withRoute + errorHandler", () => {
       },
     });
     const instance = pino(
-      { level: "debug", base: null, timestamp: false, messageKey: "msg", formatters: { level: (label) => ({ level: label }) } },
+      {
+        level: "debug",
+        base: null,
+        timestamp: false,
+        messageKey: "msg",
+        formatters: { level: (label) => ({ level: label }) },
+      },
       stream,
     );
 
     await request(buildTestApp(createRequestContext(instance))).get("/boom");
 
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatchObject({ level: "error", msg: "request failed", component: "test.boom", statusCode: 500, code: "INTERNAL_ERROR" });
+    expect(lines[0]).toMatchObject({
+      level: "error",
+      msg: "request failed",
+      component: "test.boom",
+      statusCode: 500,
+      code: "INTERNAL_ERROR",
+    });
     expect(typeof lines[0]?.stack).toBe("string");
   });
 });

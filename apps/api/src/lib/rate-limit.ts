@@ -37,7 +37,10 @@ export interface RateLimitResult {
 
 const WINDOW_SECONDS = 60 * 60;
 
-export async function checkRateLimit(key: string, limit: number): Promise<RateLimitResult> {
+export async function checkRateLimit(
+  key: string,
+  limit: number,
+): Promise<RateLimitResult> {
   const windowKey = `ratelimit:${key}:${Math.floor(Date.now() / 1000 / WINDOW_SECONDS).toString()}`;
 
   try {
@@ -49,7 +52,10 @@ export async function checkRateLimit(key: string, limit: number): Promise<RateLi
 
     if (count > limit) {
       const ttl = await redis.ttl(windowKey);
-      return { allowed: false, retryAfterSeconds: ttl > 0 ? ttl : WINDOW_SECONDS };
+      return {
+        allowed: false,
+        retryAfterSeconds: ttl > 0 ? ttl : WINDOW_SECONDS,
+      };
     }
 
     return { allowed: true };

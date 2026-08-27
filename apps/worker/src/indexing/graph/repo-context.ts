@@ -166,7 +166,8 @@ function sanitizeJsonc(text: string): string {
 
     if (ch === "/" && text.charAt(i + 1) === "*") {
       i += 2;
-      while (i < n && !(text.charAt(i) === "*" && text.charAt(i + 1) === "/")) i += 1;
+      while (i < n && !(text.charAt(i) === "*" && text.charAt(i + 1) === "/"))
+        i += 1;
       i += 2;
       continue;
     }
@@ -195,7 +196,11 @@ function parseJsoncObject(text: string): Record<string, unknown> | null {
   if (Buffer.byteLength(text, "utf8") > MAX_MANIFEST_BYTES) return null;
   try {
     const parsed: unknown = JSON.parse(sanitizeJsonc(text));
-    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+    if (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed)
+    ) {
       return parsed as Record<string, unknown>;
     }
     return null;
@@ -233,8 +238,12 @@ interface RawTsconfig {
  * "Phase 03 never runs `npm install`"); such a chain simply stops here, degrading to
  * whatever `baseUrl`/`paths` were gathered so far, not a hard failure.
  */
-function resolveExtendsPath(extendsValue: string, fromDir: string): string | null {
-  if (!extendsValue.startsWith("./") && !extendsValue.startsWith("../")) return null;
+function resolveExtendsPath(
+  extendsValue: string,
+  fromDir: string,
+): string | null {
+  if (!extendsValue.startsWith("./") && !extendsValue.startsWith("../"))
+    return null;
   const joined = path.posix.normalize(joinRel(fromDir, extendsValue));
   if (joined.startsWith("..")) return null; // never leave the repository root
   return joined.endsWith(".json") ? joined : `${joined}.json`;
@@ -264,7 +273,11 @@ interface MergeExtendsChainResult {
   entryReadable: boolean;
 }
 
-async function mergeExtendsChain(rootDir: string, entryPath: string, manifestBytes: Map<string, string | null>): Promise<MergeExtendsChainResult> {
+async function mergeExtendsChain(
+  rootDir: string,
+  entryPath: string,
+  manifestBytes: Map<string, string | null>,
+): Promise<MergeExtendsChainResult> {
   const chain: { dir: string; raw: RawTsconfig }[] = [];
   const visited = new Set<string>();
   let currentPath: string | null = entryPath;
@@ -279,7 +292,9 @@ async function mergeExtendsChain(rootDir: string, entryPath: string, manifestByt
     if (text === undefined) {
       text = await fs
         .readFile(path.join(rootDir, currentPath), "utf8")
-        .then((t) => (Buffer.byteLength(t, "utf8") > MAX_MANIFEST_BYTES ? null : t))
+        .then((t) =>
+          Buffer.byteLength(t, "utf8") > MAX_MANIFEST_BYTES ? null : t,
+        )
         .catch(() => null);
       manifestBytes.set(currentPath, text);
     }
@@ -293,7 +308,10 @@ async function mergeExtendsChain(rootDir: string, entryPath: string, manifestByt
     chain.push({ dir, raw });
 
     const extendsValue = raw.extends;
-    currentPath = typeof extendsValue === "string" ? resolveExtendsPath(extendsValue, dir) : null;
+    currentPath =
+      typeof extendsValue === "string"
+        ? resolveExtendsPath(extendsValue, dir)
+        : null;
   }
 
   // Apply furthest-ancestor first so a closer declaration overwrites it.
@@ -308,9 +326,16 @@ async function mergeExtendsChain(rootDir: string, entryPath: string, manifestByt
       // `normalize` is called on a value that can legitimately resolve to the root.
       merged.baseUrl = normalized === "." ? "" : normalized;
     }
-    if (co && co.paths && typeof co.paths === "object" && !Array.isArray(co.paths)) {
+    if (
+      co &&
+      co.paths &&
+      typeof co.paths === "object" &&
+      !Array.isArray(co.paths)
+    ) {
       const pathsRecord: Record<string, string[]> = {};
-      for (const [key, value] of Object.entries(co.paths as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(
+        co.paths as Record<string, unknown>,
+      )) {
         if (Array.isArray(value) && value.every((v) => typeof v === "string")) {
           pathsRecord[key] = value;
         }
@@ -334,14 +359,23 @@ function readStringDeps(value: unknown): Record<string, string> {
   return out;
 }
 
-function parsePackageManifest(dir: string, manifestPath: string, raw: Record<string, unknown>): PackageManifest {
+function parsePackageManifest(
+  dir: string,
+  manifestPath: string,
+  raw: Record<string, unknown>,
+): PackageManifest {
   return {
     dir,
     path: manifestPath,
     name: typeof raw.name === "string" ? raw.name : null,
     main: typeof raw.main === "string" ? raw.main : undefined,
     module: typeof raw.module === "string" ? raw.module : undefined,
-    types: typeof raw.types === "string" ? raw.types : typeof raw.typings === "string" ? (raw.typings as string) : undefined,
+    types:
+      typeof raw.types === "string"
+        ? raw.types
+        : typeof raw.typings === "string"
+          ? (raw.typings as string)
+          : undefined,
     exports: raw.exports,
     imports: raw.imports,
     dependencies: readStringDeps(raw.dependencies),
@@ -379,7 +413,9 @@ function parsePnpmWorkspaceYaml(text: string): string[] {
     if (trimmed.startsWith("- ")) {
       const item = trimmed.slice(2).trim();
       const unquoted =
-        item.length >= 2 && ((item.startsWith('"') && item.endsWith('"')) || (item.startsWith("'") && item.endsWith("'")))
+        item.length >= 2 &&
+        ((item.startsWith('"') && item.endsWith('"')) ||
+          (item.startsWith("'") && item.endsWith("'")))
           ? item.slice(1, -1)
           : item;
       if (unquoted.length > 0) globs.push(unquoted);
@@ -395,9 +431,16 @@ function parsePnpmWorkspaceYaml(text: string): string[] {
 
 function readNpmWorkspacesField(raw: Record<string, unknown>): string[] {
   const value = raw.workspaces;
-  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
-  if (value && typeof value === "object" && Array.isArray((value as { packages?: unknown }).packages)) {
-    return (value as { packages: unknown[] }).packages.filter((v): v is string => typeof v === "string");
+  if (Array.isArray(value))
+    return value.filter((v): v is string => typeof v === "string");
+  if (
+    value &&
+    typeof value === "object" &&
+    Array.isArray((value as { packages?: unknown }).packages)
+  ) {
+    return (value as { packages: unknown[] }).packages.filter(
+      (v): v is string => typeof v === "string",
+    );
   }
   return [];
 }
@@ -406,10 +449,20 @@ function readNpmWorkspacesField(raw: Record<string, unknown>): string[] {
 // The builder
 // ---------------------------------------------------------------------------
 
-const MANIFEST_BASENAMES = new Set(["package.json", "pnpm-workspace.yaml", "nx.json", "turbo.json", "go.work"]);
+const MANIFEST_BASENAMES = new Set([
+  "package.json",
+  "pnpm-workspace.yaml",
+  "nx.json",
+  "turbo.json",
+  "go.work",
+]);
 
 function isTsconfigLike(basename: string): boolean {
-  return basename === "tsconfig.json" || basename === "jsconfig.json" || (basename.startsWith("tsconfig.") && basename.endsWith(".json"));
+  return (
+    basename === "tsconfig.json" ||
+    basename === "jsconfig.json" ||
+    (basename.startsWith("tsconfig.") && basename.endsWith(".json"))
+  );
 }
 
 /**
@@ -421,7 +474,10 @@ function isTsconfigLike(basename: string): boolean {
  * contain a hard-ignored path in the first place, but this module has no way to verify
  * that invariant holds for whatever produced its input).
  */
-export async function buildRepoContext(rootDir: string, indexedFilePaths: readonly string[]): Promise<RepoContext> {
+export async function buildRepoContext(
+  rootDir: string,
+  indexedFilePaths: readonly string[],
+): Promise<RepoContext> {
   const files = new Set(indexedFilePaths);
 
   const candidateManifestPaths = indexedFilePaths.filter((p) => {
@@ -430,7 +486,8 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
     return MANIFEST_BASENAMES.has(basename) || isTsconfigLike(basename);
   });
 
-  const manifestScanTruncated = candidateManifestPaths.length > MAX_MANIFESTS_SCANNED;
+  const manifestScanTruncated =
+    candidateManifestPaths.length > MAX_MANIFESTS_SCANNED;
   const scannedPaths = candidateManifestPaths.slice(0, MAX_MANIFESTS_SCANNED);
 
   let malformedManifestCount = 0;
@@ -463,7 +520,9 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
       continue;
     }
 
-    const text = await fs.readFile(path.join(rootDir, manifestPath), "utf8").catch(() => null);
+    const text = await fs
+      .readFile(path.join(rootDir, manifestPath), "utf8")
+      .catch(() => null);
     if (text === null) {
       malformedManifestCount += 1;
       continue;
@@ -485,8 +544,15 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
     if (isTsconfigLike(basename)) {
       // Seed the extends-chain cache with the entry file's already-read text (bounded the
       // same way `mergeExtendsChain`'s own reads are) so it is never read from disk twice.
-      manifestBytes.set(manifestPath, Buffer.byteLength(text, "utf8") > MAX_MANIFEST_BYTES ? null : text);
-      const { merged, entryReadable } = await mergeExtendsChain(rootDir, manifestPath, manifestBytes);
+      manifestBytes.set(
+        manifestPath,
+        Buffer.byteLength(text, "utf8") > MAX_MANIFEST_BYTES ? null : text,
+      );
+      const { merged, entryReadable } = await mergeExtendsChain(
+        rootDir,
+        manifestPath,
+        manifestBytes,
+      );
       if (!entryReadable) {
         // The entry manifest itself (already read into `text` above) failed to parse as
         // JSONC — a genuinely malformed tsconfig, not merely an incomplete `extends`
@@ -495,7 +561,12 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
         malformedManifestCount += 1;
         continue;
       }
-      tsconfigs.push({ dir, path: manifestPath, baseUrl: merged.baseUrl, paths: merged.paths });
+      tsconfigs.push({
+        dir,
+        path: manifestPath,
+        baseUrl: merged.baseUrl,
+        paths: merged.paths,
+      });
       continue;
     }
 
@@ -521,9 +592,13 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
   const workspaceRoots =
     workspaceGlobs.length === 0
       ? []
-      : [...new Set(packageDirs.filter((dir) => micromatch.isMatch(dir === "" ? "." : dir, workspaceGlobs)))].sort(
-          (a, b) => b.length - a.length,
-        );
+      : [
+          ...new Set(
+            packageDirs.filter((dir) =>
+              micromatch.isMatch(dir === "" ? "." : dir, workspaceGlobs),
+            ),
+          ),
+        ].sort((a, b) => b.length - a.length);
 
   return {
     tsconfigs,
@@ -545,11 +620,19 @@ export async function buildRepoContext(rootDir: string, indexedFilePaths: readon
  * `paths`/`baseUrl` declared in a *sibling* package's tsconfig, or a repository with no
  * tsconfig at all, correctly yields `null` — the import-resolver's own fallback to
  * relative-only resolution. */
-export function findTsconfigForFile(context: RepoContext, filePath: string): TsconfigEntry | null {
+export function findTsconfigForFile(
+  context: RepoContext,
+  filePath: string,
+): TsconfigEntry | null {
   const dir = dirOf(filePath);
   let best: TsconfigEntry | null = null;
   for (const entry of context.tsconfigs) {
-    if (entry.dir !== "" && dir !== entry.dir && !dir.startsWith(`${entry.dir}/`)) continue;
+    if (
+      entry.dir !== "" &&
+      dir !== entry.dir &&
+      !dir.startsWith(`${entry.dir}/`)
+    )
+      continue;
     // Longest matching directory wins regardless of the array's own order — correctness
     // here must not depend on `buildRepoContext` having sorted `tsconfigs` first (it
     // does, for its own O(n) construction reasons, but a public lookup function should
@@ -564,11 +647,15 @@ export function findTsconfigForFile(context: RepoContext, filePath: string): Tsc
  * (a repository with no `package.json` anywhere above this file). Longest-matching-
  * directory wins regardless of `context.packages`'s own order — see
  * {@link findTsconfigForFile}'s own comment on why this does not rely on caller sorting. */
-export function findPackageForFile(context: RepoContext, filePath: string): PackageManifest | null {
+export function findPackageForFile(
+  context: RepoContext,
+  filePath: string,
+): PackageManifest | null {
   const dir = dirOf(filePath);
   let best: PackageManifest | null = null;
   for (const pkg of context.packages) {
-    if (pkg.dir !== "" && dir !== pkg.dir && !dir.startsWith(`${pkg.dir}/`)) continue;
+    if (pkg.dir !== "" && dir !== pkg.dir && !dir.startsWith(`${pkg.dir}/`))
+      continue;
     if (best === null || pkg.dir.length > best.dir.length) best = pkg;
   }
   return best;
@@ -583,7 +670,10 @@ export function findPackageForFile(context: RepoContext, filePath: string): Pack
  * result (prompt 4's job) never needs a schema change — it either keeps the same
  * directory-path value or improves it to a real package name.
  */
-export function getPackageNameForFile(context: RepoContext, filePath: string): string | null {
+export function getPackageNameForFile(
+  context: RepoContext,
+  filePath: string,
+): string | null {
   const pkg = findPackageForFile(context, filePath);
   if (!pkg) return null;
   return pkg.name ?? pkg.dir;

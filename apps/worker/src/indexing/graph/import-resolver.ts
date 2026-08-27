@@ -45,7 +45,14 @@ export const MAX_SPECIFIER_LENGTH = 2000;
 // ---------------------------------------------------------------------------
 
 /** `.ts` before `.js`: in a TypeScript repository, `./foo` almost always means `foo.ts`. */
-const RESOLUTION_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"] as const;
+const RESOLUTION_EXTENSIONS = [
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+] as const;
 
 /** ESM/NodeNext interop (this very repository's own convention): a `.js`/`.jsx`/`.mjs`/
  * `.cjs` specifier resolves to its `.ts`/`.tsx`/`.mts`/`.cts` sibling first, when one
@@ -71,7 +78,10 @@ function posixExtname(p: string): string {
  * extension appended in order, then — last, per §0's explicit ordering requirement —
  * directory `/index.*` forms. Returns the resolved repository-relative path, or `null`.
  */
-function resolveViaExtensionLadder(basePath: string, files: ReadonlySet<string>): string | null {
+function resolveViaExtensionLadder(
+  basePath: string,
+  files: ReadonlySet<string>,
+): string | null {
   const ext = posixExtname(basePath);
 
   const swap = JS_TO_TS_SWAP[ext];
@@ -113,7 +123,10 @@ function resolveViaExtensionLadder(basePath: string, files: ReadonlySet<string>)
  * A plain loop over `split("/")`, not a regex — linear in the number of path segments,
  * with no backtracking to reason about at all.
  */
-function resolveRepoRelativePath(fromDir: string, specifier: string): string | null {
+function resolveRepoRelativePath(
+  fromDir: string,
+  specifier: string,
+): string | null {
   const combined = fromDir === "" ? specifier : `${fromDir}/${specifier}`;
   const segments = combined.split("/");
   const stack: string[] = [];
@@ -139,14 +152,25 @@ function dirOf(filePath: string): string {
 // ---------------------------------------------------------------------------
 
 function isRelativeSpecifier(specifier: string): boolean {
-  return specifier.startsWith("./") || specifier.startsWith("../") || specifier === "." || specifier === "..";
+  return (
+    specifier.startsWith("./") ||
+    specifier.startsWith("../") ||
+    specifier === "." ||
+    specifier === ".."
+  );
 }
 
-function resolveRelative(specifier: string, fromFilePath: string, files: ReadonlySet<string>): ImportResolution {
+function resolveRelative(
+  specifier: string,
+  fromFilePath: string,
+  files: ReadonlySet<string>,
+): ImportResolution {
   const target = resolveRepoRelativePath(dirOf(fromFilePath), specifier);
   if (target === null) return { status: "UNRESOLVED", specifier };
   const resolved = resolveViaExtensionLadder(target, files);
-  return resolved ? { status: "RESOLVED", targetFilePath: resolved } : { status: "UNRESOLVED", specifier };
+  return resolved
+    ? { status: "RESOLVED", targetFilePath: resolved }
+    : { status: "UNRESOLVED", specifier };
 }
 
 // ---------------------------------------------------------------------------
@@ -161,10 +185,17 @@ function resolveRelative(specifier: string, fromFilePath: string, files: Readonl
  * `prefix*` — no suffix — is the overwhelmingly common case, handled identically as
  * `suffix === ""`).
  */
-function matchPathsAlias(specifier: string, paths: Record<string, string[]>): { targets: string[]; wildcard: string } | null {
+function matchPathsAlias(
+  specifier: string,
+  paths: Record<string, string[]>,
+): { targets: string[]; wildcard: string } | null {
   if (paths[specifier]) return { targets: paths[specifier], wildcard: "" };
 
-  let best: { targets: string[]; wildcard: string; prefixLength: number } | null = null;
+  let best: {
+    targets: string[];
+    wildcard: string;
+    prefixLength: number;
+  } | null = null;
   for (const [key, targets] of Object.entries(paths)) {
     const starIndex = key.indexOf("*");
     if (starIndex === -1) continue;
@@ -172,7 +203,10 @@ function matchPathsAlias(specifier: string, paths: Record<string, string[]>): { 
     const suffix = key.slice(starIndex + 1);
     if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) continue;
     if (specifier.length < prefix.length + suffix.length) continue;
-    const wildcard = specifier.slice(prefix.length, specifier.length - suffix.length);
+    const wildcard = specifier.slice(
+      prefix.length,
+      specifier.length - suffix.length,
+    );
     if (best === null || prefix.length > best.prefixLength) {
       best = { targets, wildcard, prefixLength: prefix.length };
     }
@@ -194,7 +228,11 @@ function substituteWildcard(target: string, wildcard: string): string {
  * per `plan.md`'s own "apply mapping, then step 1" framing — a matched alias whose target
  * cannot be found on disk is `UNRESOLVED`, not silently retried as a workspace package.
  */
-function resolveViaPathsOrBaseUrl(specifier: string, tsconfig: TsconfigEntry, files: ReadonlySet<string>): ImportResolution | null {
+function resolveViaPathsOrBaseUrl(
+  specifier: string,
+  tsconfig: TsconfigEntry,
+  files: ReadonlySet<string>,
+): ImportResolution | null {
   if (tsconfig.paths) {
     const match = matchPathsAlias(specifier, tsconfig.paths);
     if (match) {
@@ -225,17 +263,21 @@ function resolveViaPathsOrBaseUrl(specifier: string, tsconfig: TsconfigEntry, fi
 // Step 3 — workspace package name
 // ---------------------------------------------------------------------------
 
-function splitBareSpecifier(specifier: string): { packageName: string; subpath: string } | null {
+function splitBareSpecifier(
+  specifier: string,
+): { packageName: string; subpath: string } | null {
   if (specifier.startsWith("@")) {
     const secondSlash = specifier.indexOf("/", specifier.indexOf("/") + 1);
     const firstSlash = specifier.indexOf("/");
     if (firstSlash === -1) return null; // "@scope" alone is not a valid package specifier
-    const packageName = secondSlash === -1 ? specifier : specifier.slice(0, secondSlash);
+    const packageName =
+      secondSlash === -1 ? specifier : specifier.slice(0, secondSlash);
     const subpath = secondSlash === -1 ? "" : specifier.slice(secondSlash + 1);
     return { packageName, subpath };
   }
   const firstSlash = specifier.indexOf("/");
-  const packageName = firstSlash === -1 ? specifier : specifier.slice(0, firstSlash);
+  const packageName =
+    firstSlash === -1 ? specifier : specifier.slice(0, firstSlash);
   const subpath = firstSlash === -1 ? "" : specifier.slice(firstSlash + 1);
   return { packageName, subpath };
 }
@@ -250,7 +292,10 @@ function splitBareSpecifier(specifier: string): { packageName: string; subpath: 
  * returned and the caller buckets the whole import `UNRESOLVED` rather than risk a wrong
  * file edge (§0 rule 3: ambiguity is worse than absence).
  */
-function resolveExportsEntry(exportsField: unknown, subpath: string): string | null {
+function resolveExportsEntry(
+  exportsField: unknown,
+  subpath: string,
+): string | null {
   const key = subpath === "" ? "." : `./${subpath}`;
 
   function unwrapConditions(value: unknown): string | null {
@@ -269,7 +314,12 @@ function resolveExportsEntry(exportsField: unknown, subpath: string): string | n
     return subpath === "" ? exportsField : null;
   }
 
-  if (!exportsField || typeof exportsField !== "object" || Array.isArray(exportsField)) return null;
+  if (
+    !exportsField ||
+    typeof exportsField !== "object" ||
+    Array.isArray(exportsField)
+  )
+    return null;
   const map = exportsField as Record<string, unknown>;
 
   if (key in map) {
@@ -289,8 +339,15 @@ function resolveExportsEntry(exportsField: unknown, subpath: string): string | n
       if (starIndex === -1 || !mapKey.startsWith("./")) continue;
       const prefix = mapKey.slice(2, starIndex);
       const suffix = mapKey.slice(starIndex + 1);
-      if (subpath.startsWith(prefix) && subpath.endsWith(suffix) && subpath.length >= prefix.length + suffix.length) {
-        const wildcard = subpath.slice(prefix.length, subpath.length - suffix.length);
+      if (
+        subpath.startsWith(prefix) &&
+        subpath.endsWith(suffix) &&
+        subpath.length >= prefix.length + suffix.length
+      ) {
+        const wildcard = subpath.slice(
+          prefix.length,
+          subpath.length - suffix.length,
+        );
         const resolved = unwrapConditions(value);
         if (resolved) return substituteWildcard(resolved, wildcard);
       }
@@ -300,12 +357,17 @@ function resolveExportsEntry(exportsField: unknown, subpath: string): string | n
   return null;
 }
 
-function resolvePackageEntryPoint(pkg: PackageManifest, subpath: string, files: ReadonlySet<string>): string | null {
+function resolvePackageEntryPoint(
+  pkg: PackageManifest,
+  subpath: string,
+  files: ReadonlySet<string>,
+): string | null {
   if (pkg.exports !== undefined) {
     const fromExports = resolveExportsEntry(pkg.exports, subpath);
     if (fromExports) {
       const joined = resolveRepoRelativePath(pkg.dir, fromExports);
-      const resolved = joined === null ? null : resolveViaExtensionLadder(joined, files);
+      const resolved =
+        joined === null ? null : resolveViaExtensionLadder(joined, files);
       if (resolved) return resolved;
     }
     // `exports` present but this subpath is not covered by it (or resolved to a
@@ -320,7 +382,8 @@ function resolvePackageEntryPoint(pkg: PackageManifest, subpath: string, files: 
     for (const field of [pkg.types, pkg.module, pkg.main]) {
       if (!field) continue;
       const joined = resolveRepoRelativePath(pkg.dir, field);
-      const resolved = joined === null ? null : resolveViaExtensionLadder(joined, files);
+      const resolved =
+        joined === null ? null : resolveViaExtensionLadder(joined, files);
       if (resolved) return resolved;
     }
     const indexResolved = resolveViaExtensionLadder(pkg.dir, files);
@@ -334,16 +397,23 @@ function resolvePackageEntryPoint(pkg: PackageManifest, subpath: string, files: 
   return joined === null ? null : resolveViaExtensionLadder(joined, files);
 }
 
-function resolveWorkspacePackage(specifier: string, context: RepoContext): ImportResolution | null {
+function resolveWorkspacePackage(
+  specifier: string,
+  context: RepoContext,
+): ImportResolution | null {
   const split = splitBareSpecifier(specifier);
   if (!split) return null;
 
   const workspaceRootSet = new Set(context.workspaceRoots);
-  const pkg = context.packages.find((p) => p.name === split.packageName && workspaceRootSet.has(p.dir));
+  const pkg = context.packages.find(
+    (p) => p.name === split.packageName && workspaceRootSet.has(p.dir),
+  );
   if (!pkg) return null;
 
   const resolved = resolvePackageEntryPoint(pkg, split.subpath, context.files);
-  return resolved ? { status: "RESOLVED", targetFilePath: resolved } : { status: "UNRESOLVED", specifier };
+  return resolved
+    ? { status: "RESOLVED", targetFilePath: resolved }
+    : { status: "UNRESOLVED", specifier };
 }
 
 // ---------------------------------------------------------------------------
@@ -358,15 +428,25 @@ const BARE_BUILTIN_NAMES = new Set(builtinModules);
 function matchNodeBuiltin(specifier: string): string | null {
   if (specifier.startsWith("node:")) return specifier;
   const split = splitBareSpecifier(specifier);
-  if (split && BARE_BUILTIN_NAMES.has(split.packageName)) return split.packageName;
+  if (split && BARE_BUILTIN_NAMES.has(split.packageName))
+    return split.packageName;
   return null;
 }
 
-function lookupDependencyVersion(packageName: string, fromFilePath: string, context: RepoContext): string | undefined {
+function lookupDependencyVersion(
+  packageName: string,
+  fromFilePath: string,
+  context: RepoContext,
+): string | undefined {
   const owner = findPackageForFile(context, fromFilePath);
-  const candidates = owner ? [owner, ...context.packages.filter((p) => p.dir === "")] : context.packages.filter((p) => p.dir === "");
+  const candidates = owner
+    ? [owner, ...context.packages.filter((p) => p.dir === "")]
+    : context.packages.filter((p) => p.dir === "");
   for (const pkg of candidates) {
-    const version = pkg.dependencies[packageName] ?? pkg.devDependencies[packageName] ?? pkg.peerDependencies[packageName];
+    const version =
+      pkg.dependencies[packageName] ??
+      pkg.devDependencies[packageName] ??
+      pkg.peerDependencies[packageName];
     if (version) return version;
   }
   return undefined;
@@ -379,10 +459,19 @@ function lookupDependencyVersion(packageName: string, fromFilePath: string, cont
 /** Only the direct, non-wildcard case (`"#internal/x": "./src/internal/x.ts"`) is
  * handled — cheap and unambiguous. A wildcard `imports` pattern is bucketed `UNRESOLVED`
  * rather than guessed at, per §0's own instruction for this exact feature. */
-function resolveSubpathImport(specifier: string, fromFilePath: string, context: RepoContext): ImportResolution | null {
+function resolveSubpathImport(
+  specifier: string,
+  fromFilePath: string,
+  context: RepoContext,
+): ImportResolution | null {
   const owner = findPackageForFile(context, fromFilePath);
   const importsField = owner?.imports;
-  if (!importsField || typeof importsField !== "object" || Array.isArray(importsField)) return null;
+  if (
+    !importsField ||
+    typeof importsField !== "object" ||
+    Array.isArray(importsField)
+  )
+    return null;
   const map = importsField as Record<string, unknown>;
   const value = map[specifier];
   if (value === undefined) return null;
@@ -391,15 +480,18 @@ function resolveSubpathImport(specifier: string, fromFilePath: string, context: 
     typeof value === "string"
       ? value
       : value && typeof value === "object" && !Array.isArray(value)
-        ? (["import", "default"].map((c) => (value as Record<string, unknown>)[c]).find((v) => typeof v === "string") as
-            | string
-            | undefined)
+        ? (["import", "default"]
+            .map((c) => (value as Record<string, unknown>)[c])
+            .find((v) => typeof v === "string") as string | undefined)
         : undefined;
   if (!target) return { status: "UNRESOLVED", specifier };
 
   const joined = resolveRepoRelativePath(owner?.dir ?? "", target);
-  const resolved = joined === null ? null : resolveViaExtensionLadder(joined, context.files);
-  return resolved ? { status: "RESOLVED", targetFilePath: resolved } : { status: "UNRESOLVED", specifier };
+  const resolved =
+    joined === null ? null : resolveViaExtensionLadder(joined, context.files);
+  return resolved
+    ? { status: "RESOLVED", targetFilePath: resolved }
+    : { status: "UNRESOLVED", specifier };
 }
 
 // ---------------------------------------------------------------------------
@@ -413,9 +505,16 @@ function resolveSubpathImport(specifier: string, fromFilePath: string, context: 
  * repository source and resolves to `UNRESOLVED` immediately — it is not relative (step
  * 1 requires `./`/`../`), not alias-shaped, not a workspace/bare package name.
  */
-export function resolveImport(specifier: string, fromFilePath: string, context: RepoContext): ImportResolution {
+export function resolveImport(
+  specifier: string,
+  fromFilePath: string,
+  context: RepoContext,
+): ImportResolution {
   if (specifier.length === 0) return { status: "UNRESOLVED", specifier };
-  const bounded = specifier.length > MAX_SPECIFIER_LENGTH ? specifier.slice(0, MAX_SPECIFIER_LENGTH) : specifier;
+  const bounded =
+    specifier.length > MAX_SPECIFIER_LENGTH
+      ? specifier.slice(0, MAX_SPECIFIER_LENGTH)
+      : specifier;
 
   if (isRelativeSpecifier(bounded)) {
     return resolveRelative(bounded, fromFilePath, context.files);
@@ -430,7 +529,11 @@ export function resolveImport(specifier: string, fromFilePath: string, context: 
 
   const tsconfig = findTsconfigForFile(context, fromFilePath);
   if (tsconfig) {
-    const aliasResult = resolveViaPathsOrBaseUrl(bounded, tsconfig, context.files);
+    const aliasResult = resolveViaPathsOrBaseUrl(
+      bounded,
+      tsconfig,
+      context.files,
+    );
     if (aliasResult) return aliasResult;
   }
 
@@ -447,7 +550,15 @@ export function resolveImport(specifier: string, fromFilePath: string, context: 
 
   const split = splitBareSpecifier(bounded);
   if (split && split.packageName.length > 0) {
-    return { status: "EXTERNAL", packageName: split.packageName, version: lookupDependencyVersion(split.packageName, fromFilePath, context) };
+    return {
+      status: "EXTERNAL",
+      packageName: split.packageName,
+      version: lookupDependencyVersion(
+        split.packageName,
+        fromFilePath,
+        context,
+      ),
+    };
   }
 
   return { status: "UNRESOLVED", specifier: bounded };

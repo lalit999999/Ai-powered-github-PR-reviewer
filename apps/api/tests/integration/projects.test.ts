@@ -46,7 +46,9 @@ describe("authentication — every project route is 401 without a session (phase
   }
 
   it("treats an unknown session token as signed out rather than falling open", async () => {
-    const res = await request(app).get("/api/projects").set("Cookie", "authjs.session-token=not-a-real-token");
+    const res = await request(app)
+      .get("/api/projects")
+      .set("Cookie", "authjs.session-token=not-a-real-token");
 
     expect(res.status).toBe(401);
   });
@@ -54,10 +56,16 @@ describe("authentication — every project route is 401 without a session (phase
   it("treats an expired session as signed out", async () => {
     const expiredToken = "expired-session-token";
     await prisma.session.create({
-      data: { sessionToken: expiredToken, userId: user.id, expires: new Date(Date.now() - 60_000) },
+      data: {
+        sessionToken: expiredToken,
+        userId: user.id,
+        expires: new Date(Date.now() - 60_000),
+      },
     });
 
-    const res = await request(app).get("/api/projects").set("Cookie", `authjs.session-token=${expiredToken}`);
+    const res = await request(app)
+      .get("/api/projects")
+      .set("Cookie", `authjs.session-token=${expiredToken}`);
 
     expect(res.status).toBe(401);
   });
@@ -65,21 +73,32 @@ describe("authentication — every project route is 401 without a session (phase
 
 describe("POST /api/projects", () => {
   it("creates a project owned by the caller and returns 201 { project }", async () => {
-    const res = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Test Project" });
+    const res = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Test Project" });
 
     expect(res.status).toBe(201);
-    expect(res.body.project).toMatchObject({ name: "Test Project", slug: "test-project" });
+    expect(res.body.project).toMatchObject({
+      name: "Test Project",
+      slug: "test-project",
+    });
 
-    const row = await prisma.project.findUniqueOrThrow({ where: { id: res.body.project.id } });
+    const row = await prisma.project.findUniqueOrThrow({
+      where: { id: res.body.project.id },
+    });
     expect(row.userId).toBe(user.id);
     expect(row.deletedAt).toBeNull();
   });
 
   it("does not leak userId or deletedAt into the DTO", async () => {
-    const res = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Test Project" });
+    const res = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Test Project" });
 
     expect(Object.keys(res.body.project).sort()).toEqual(
-      ["createdAt", "id", "name", "settings", "slug", "updatedAt"].sort()
+      ["createdAt", "id", "name", "settings", "slug", "updatedAt"].sort(),
     );
   });
 
@@ -90,16 +109,26 @@ describe("POST /api/projects", () => {
     ["a name over 100 characters", { name: "x".repeat(101) }],
     ["a non-string name", { name: 42 }],
   ])("returns 400 for %s", async (_label, body) => {
-    const res = await request(app).post("/api/projects").set("Cookie", user.cookie).send(body);
+    const res = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send(body);
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("suffixes the slug rather than failing when the same user reuses a name", async () => {
-    await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Duplicate" }).expect(201);
+    await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Duplicate" })
+      .expect(201);
 
-    const second = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Duplicate" });
+    const second = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Duplicate" });
 
     expect(second.status).toBe(201);
     expect(second.body.project.slug).toBe("duplicate-2");
@@ -113,9 +142,15 @@ describe("POST /api/projects", () => {
       .set("Cookie", user.cookie)
       .send({ name: "Recycled" })
       .expect(201);
-    await request(app).delete(`/api/projects/${first.body.project.id}`).set("Cookie", user.cookie).expect(202);
+    await request(app)
+      .delete(`/api/projects/${first.body.project.id}`)
+      .set("Cookie", user.cookie)
+      .expect(202);
 
-    const second = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Recycled" });
+    const second = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Recycled" });
 
     expect(second.status).toBe(201);
     expect(second.body.project.slug).toBe("recycled-2");
@@ -125,8 +160,14 @@ describe("POST /api/projects", () => {
 describe("POST /api/projects — concurrent identical names (phase-01 §14 Database Verification, §22)", () => {
   it("two simultaneous creates produce no duplicate and no crash", async () => {
     const [first, second] = await Promise.all([
-      request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Race Condition" }),
-      request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Race Condition" }),
+      request(app)
+        .post("/api/projects")
+        .set("Cookie", user.cookie)
+        .send({ name: "Race Condition" }),
+      request(app)
+        .post("/api/projects")
+        .set("Cookie", user.cookie)
+        .send({ name: "Race Condition" }),
     ]);
 
     // The contract: either two distinct slugs, or one success plus a clean 409 —
@@ -139,7 +180,9 @@ describe("POST /api/projects — concurrent identical names (phase-01 §14 Datab
     const rows = await prisma.project.findMany({ where: { userId: user.id } });
     const slugs = rows.map((r) => r.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-    expect(rows.length).toBe([first.status, second.status].filter((s) => s === 201).length);
+    expect(rows.length).toBe(
+      [first.status, second.status].filter((s) => s === 201).length,
+    );
   });
 
   it("survives five simultaneous creates of the same name without a 500 or a duplicate", async () => {
@@ -147,8 +190,11 @@ describe("POST /api/projects — concurrent identical names (phase-01 §14 Datab
     // 409s — the deliberate "one retry, not a loop" outcome (phase-01 §12).
     const results = await Promise.all(
       Array.from({ length: 5 }, () =>
-        request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Thundering Herd" })
-      )
+        request(app)
+          .post("/api/projects")
+          .set("Cookie", user.cookie)
+          .send({ name: "Thundering Herd" }),
+      ),
     );
 
     for (const res of results) {
@@ -164,23 +210,42 @@ describe("POST /api/projects — concurrent identical names (phase-01 §14 Datab
 
 describe("GET /api/projects", () => {
   it("returns only the caller's non-deleted projects", async () => {
-    const kept = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Kept" });
-    const removed = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name: "Removed" });
-    await request(app).delete(`/api/projects/${removed.body.project.id}`).set("Cookie", user.cookie).expect(202);
+    const kept = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Kept" });
+    const removed = await request(app)
+      .post("/api/projects")
+      .set("Cookie", user.cookie)
+      .send({ name: "Removed" });
+    await request(app)
+      .delete(`/api/projects/${removed.body.project.id}`)
+      .set("Cookie", user.cookie)
+      .expect(202);
 
-    const res = await request(app).get("/api/projects").set("Cookie", user.cookie);
+    const res = await request(app)
+      .get("/api/projects")
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body.projects.map((p: { id: string }) => p.id)).toEqual([kept.body.project.id]);
+    expect(res.body.projects.map((p: { id: string }) => p.id)).toEqual([
+      kept.body.project.id,
+    ]);
     expect(res.body.nextCursor).toBeNull();
   });
 
   it("paginates with a bounded limit and a cursor", async () => {
     for (const name of ["One", "Two", "Three"]) {
-      await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name }).expect(201);
+      await request(app)
+        .post("/api/projects")
+        .set("Cookie", user.cookie)
+        .send({ name })
+        .expect(201);
     }
 
-    const firstPage = await request(app).get("/api/projects?limit=2").set("Cookie", user.cookie);
+    const firstPage = await request(app)
+      .get("/api/projects?limit=2")
+      .set("Cookie", user.cookie);
     expect(firstPage.status).toBe(200);
     expect(firstPage.body.projects).toHaveLength(2);
     expect(firstPage.body.nextCursor).toBeTruthy();
@@ -195,7 +260,9 @@ describe("GET /api/projects", () => {
 
     const firstIds = firstPage.body.projects.map((p: { id: string }) => p.id);
     const secondIds = secondPage.body.projects.map((p: { id: string }) => p.id);
-    expect(firstIds.filter((id: string) => secondIds.includes(id))).toHaveLength(0);
+    expect(
+      firstIds.filter((id: string) => secondIds.includes(id)),
+    ).toHaveLength(0);
   });
 
   it.each([
@@ -203,7 +270,9 @@ describe("GET /api/projects", () => {
     ["a zero limit", "?limit=0"],
     ["a non-numeric limit", "?limit=lots"],
   ])("returns 400 for %s", async (_label, query) => {
-    const res = await request(app).get(`/api/projects${query}`).set("Cookie", user.cookie);
+    const res = await request(app)
+      .get(`/api/projects${query}`)
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
@@ -218,7 +287,9 @@ describe("GET /api/projects/:id", () => {
       .send({ name: "Detail Project" })
       .expect(201);
 
-    const res = await request(app).get(`/api/projects/${created.body.project.id}`).set("Cookie", user.cookie);
+    const res = await request(app)
+      .get(`/api/projects/${created.body.project.id}`)
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.project.id).toBe(created.body.project.id);
@@ -233,15 +304,22 @@ describe("GET /api/projects/:id", () => {
       .set("Cookie", user.cookie)
       .send({ name: "Gone" })
       .expect(201);
-    await request(app).delete(`/api/projects/${created.body.project.id}`).set("Cookie", user.cookie).expect(202);
+    await request(app)
+      .delete(`/api/projects/${created.body.project.id}`)
+      .set("Cookie", user.cookie)
+      .expect(202);
 
-    const res = await request(app).get(`/api/projects/${created.body.project.id}`).set("Cookie", user.cookie);
+    const res = await request(app)
+      .get(`/api/projects/${created.body.project.id}`)
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(404);
   });
 
   it("returns 404 for an id that was never a project", async () => {
-    const res = await request(app).get("/api/projects/definitely-not-an-id").set("Cookie", user.cookie);
+    const res = await request(app)
+      .get("/api/projects/definitely-not-an-id")
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
@@ -258,15 +336,21 @@ describe("DELETE /api/projects/:id — soft delete (phase-01 §11, §4 Reliabili
     const projectId = created.body.project.id;
     const countBefore = await prisma.project.count();
 
-    const res = await request(app).delete(`/api/projects/${projectId}`).set("Cookie", user.cookie);
+    const res = await request(app)
+      .delete(`/api/projects/${projectId}`)
+      .set("Cookie", user.cookie);
     expect(res.status).toBe(202);
 
-    const row = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+    const row = await prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+    });
     expect(row.deletedAt).toBeInstanceOf(Date);
     // No hard delete happened — the row count is unchanged (§14 Database Verification).
     expect(await prisma.project.count()).toBe(countBefore);
 
-    const list = await request(app).get("/api/projects").set("Cookie", user.cookie);
+    const list = await request(app)
+      .get("/api/projects")
+      .set("Cookie", user.cookie);
     expect(list.body.projects).toHaveLength(0);
   });
 
@@ -278,16 +362,24 @@ describe("DELETE /api/projects/:id — soft delete (phase-01 §11, §4 Reliabili
       .expect(201);
     const projectId = created.body.project.id;
 
-    const first = await request(app).delete(`/api/projects/${projectId}`).set("Cookie", user.cookie);
-    const firstDeletedAt = (await prisma.project.findUniqueOrThrow({ where: { id: projectId } })).deletedAt;
+    const first = await request(app)
+      .delete(`/api/projects/${projectId}`)
+      .set("Cookie", user.cookie);
+    const firstDeletedAt = (
+      await prisma.project.findUniqueOrThrow({ where: { id: projectId } })
+    ).deletedAt;
 
-    const second = await request(app).delete(`/api/projects/${projectId}`).set("Cookie", user.cookie);
+    const second = await request(app)
+      .delete(`/api/projects/${projectId}`)
+      .set("Cookie", user.cookie);
 
     expect(first.status).toBe(202);
     expect(second.status).toBe(202);
 
     // The repeat call must not move the original deletion timestamp.
-    const after = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+    const after = await prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+    });
     expect(after.deletedAt?.toISOString()).toBe(firstDeletedAt?.toISOString());
   });
 
@@ -299,15 +391,23 @@ describe("DELETE /api/projects/:id — soft delete (phase-01 §11, §4 Reliabili
       .expect(201);
     const projectId = created.body.project.id;
 
-    await request(app).delete(`/api/projects/${projectId}`).set("Cookie", user.cookie).expect(202);
-    await request(app).delete(`/api/projects/${projectId}`).set("Cookie", user.cookie).expect(202);
+    await request(app)
+      .delete(`/api/projects/${projectId}`)
+      .set("Cookie", user.cookie)
+      .expect(202);
+    await request(app)
+      .delete(`/api/projects/${projectId}`)
+      .set("Cookie", user.cookie)
+      .expect(202);
 
     expect(emitProjectDeleted).toHaveBeenCalledTimes(1);
     expect(emitProjectDeleted).toHaveBeenCalledWith({ projectId });
   });
 
   it("returns 404 for a project that never existed", async () => {
-    const res = await request(app).delete("/api/projects/never-existed").set("Cookie", user.cookie);
+    const res = await request(app)
+      .delete("/api/projects/never-existed")
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(404);
   });

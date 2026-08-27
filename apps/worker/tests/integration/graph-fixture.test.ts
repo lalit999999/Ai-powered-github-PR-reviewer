@@ -1,10 +1,17 @@
 import { prisma } from "@repo/db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { buildKnowledgeGraph } from "../../src/indexing/graph/graph-builder.js";
-import { getFilesImportingFile, getInboundCallers } from "../../src/indexing/graph/graph-queries.repository.js";
+import {
+  getFilesImportingFile,
+  getInboundCallers,
+} from "../../src/indexing/graph/graph-queries.repository.js";
 import { findRepositoryFilesByCommit } from "../../src/indexing/persistence/repository-file.repository.js";
 import { resetDatabase } from "./db-helpers.js";
-import { GRAPH_REPO_COMMIT_SHA, GRAPH_REPO_FIXTURE_ROOT, indexGraphRepoFixture } from "./graph-repo-fixture-helpers.js";
+import {
+  GRAPH_REPO_COMMIT_SHA,
+  GRAPH_REPO_FIXTURE_ROOT,
+  indexGraphRepoFixture,
+} from "./graph-repo-fixture-helpers.js";
 
 /**
  * Prompt 5, sub-task 5.1: structural facts about `tests/fixtures/graph-repo/`, verified by
@@ -52,19 +59,34 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
   it("tags every workspace package's files with the declared packageName, and top-level files with the root package's name", async () => {
     const { repository, repoContext } = await indexGraphRepoFixture();
 
-    expect([...repoContext.workspaceRoots].sort()).toEqual(["apps/web", "packages/core", "packages/utils"]);
+    expect([...repoContext.workspaceRoots].sort()).toEqual([
+      "apps/web",
+      "packages/core",
+      "packages/utils",
+    ]);
 
     const byPath = async (path: string) =>
-      prisma.repositoryFile.findFirstOrThrow({ where: { repositoryId: repository.id, path }, select: { packageName: true, isTest: true } });
+      prisma.repositoryFile.findFirstOrThrow({
+        where: { repositoryId: repository.id, path },
+        select: { packageName: true, isTest: true },
+      });
 
-    await expect(byPath("packages/core/src/auth/login.ts")).resolves.toMatchObject({ packageName: "@fixture/core" });
-    await expect(byPath("packages/utils/src/hash.ts")).resolves.toMatchObject({ packageName: "@fixture/utils" });
-    await expect(byPath("apps/web/src/main.ts")).resolves.toMatchObject({ packageName: "@fixture/web" });
+    await expect(
+      byPath("packages/core/src/auth/login.ts"),
+    ).resolves.toMatchObject({ packageName: "@fixture/core" });
+    await expect(byPath("packages/utils/src/hash.ts")).resolves.toMatchObject({
+      packageName: "@fixture/utils",
+    });
+    await expect(byPath("apps/web/src/main.ts")).resolves.toMatchObject({
+      packageName: "@fixture/web",
+    });
     // A file with no closer ancestor package.json than the repo root still resolves to
     // *that* manifest's declared name — not null. `getPackageNameForFile`'s
     // nearest-ancestor lookup has no concept of "outside every workspace"; it only knows
     // "no package.json above this file at all", which does not happen here.
-    await expect(byPath("src/api/handler.ts")).resolves.toMatchObject({ packageName: "graph-repo-fixture" });
+    await expect(byPath("src/api/handler.ts")).resolves.toMatchObject({
+      packageName: "graph-repo-fixture",
+    });
   });
 
   it("produces TESTS edges from both a path-convention and a framework-import test file to the non-test files they import", async () => {
@@ -74,18 +96,36 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
       where: { repositoryId: repository.id, kind: "TESTS" },
       select: { fromFileId: true, toFileId: true },
     });
-    const files = await prisma.repositoryFile.findMany({ where: { repositoryId: repository.id }, select: { id: true, path: true, isTest: true } });
+    const files = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repository.id },
+      select: { id: true, path: true, isTest: true },
+    });
     const pathOf = new Map(files.map((f) => [f.id, f.path]));
 
-    const pairs = testEdges.map((e) => ({ from: pathOf.get(e.fromFileId ?? ""), to: pathOf.get(e.toFileId ?? "") })).sort((a, b) => (a.from ?? "").localeCompare(b.from ?? ""));
+    const pairs = testEdges
+      .map((e) => ({
+        from: pathOf.get(e.fromFileId ?? ""),
+        to: pathOf.get(e.toFileId ?? ""),
+      }))
+      .sort((a, b) => (a.from ?? "").localeCompare(b.from ?? ""));
 
     expect(pairs).toEqual([
-      { from: "apps/web/tests/user-card.test.tsx", to: "apps/web/src/components/user-card.tsx" },
-      { from: "src/checks/verify-utils.ts", to: "packages/utils/src/string-utils.ts" },
+      {
+        from: "apps/web/tests/user-card.test.tsx",
+        to: "apps/web/src/components/user-card.tsx",
+      },
+      {
+        from: "src/checks/verify-utils.ts",
+        to: "packages/utils/src/string-utils.ts",
+      },
     ]);
 
-    const pathConventionFile = files.find((f) => f.path === "apps/web/tests/user-card.test.tsx")!;
-    const frameworkImportFile = files.find((f) => f.path === "src/checks/verify-utils.ts")!;
+    const pathConventionFile = files.find(
+      (f) => f.path === "apps/web/tests/user-card.test.tsx",
+    )!;
+    const frameworkImportFile = files.find(
+      (f) => f.path === "src/checks/verify-utils.ts",
+    )!;
     expect(pathConventionFile.isTest).toBe(true);
     expect(frameworkImportFile.isTest).toBe(true);
   });
@@ -94,15 +134,27 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
     const { repository } = await indexGraphRepoFixture();
 
     const loginFile = await prisma.repositoryFile.findFirstOrThrow({
-      where: { repositoryId: repository.id, path: "packages/core/src/auth/login.ts" },
+      where: {
+        repositoryId: repository.id,
+        path: "packages/core/src/auth/login.ts",
+      },
       select: { id: true },
     });
 
-    const importers = await getFilesImportingFile(repository.id, loginFile.id, 2);
-    const files = await prisma.repositoryFile.findMany({ where: { repositoryId: repository.id }, select: { id: true, path: true } });
+    const importers = await getFilesImportingFile(
+      repository.id,
+      loginFile.id,
+      2,
+    );
+    const files = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repository.id },
+      select: { id: true, path: true },
+    });
     const pathOf = new Map(files.map((f) => [f.id, f.path]));
 
-    const byPath = new Map(importers.map((r) => [pathOf.get(r.fileId), r.depth]));
+    const byPath = new Map(
+      importers.map((r) => [pathOf.get(r.fileId), r.depth]),
+    );
     // The barrel itself, one hop away (its `export * from "./auth/login"` folds into
     // an IMPORTS edge — see graph-repo/packages/core/src/index.ts's own comment).
     expect(byPath.get("packages/core/src/index.ts")).toBe(1);
@@ -137,18 +189,30 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
     it("handler (packages/core/src/http/handler.ts) — one clean named-import caller, one ambiguous", async () => {
       const { repository } = await indexGraphRepoFixture();
       const file = await prisma.repositoryFile.findFirstOrThrow({
-        where: { repositoryId: repository.id, path: "packages/core/src/http/handler.ts" },
+        where: {
+          repositoryId: repository.id,
+          path: "packages/core/src/http/handler.ts",
+        },
         select: { id: true },
       });
       const symbol = await prisma.codeSymbol.findFirstOrThrow({
-        where: { repositoryId: repository.id, fileId: file.id, name: "handler" },
+        where: {
+          repositoryId: repository.id,
+          fileId: file.id,
+          name: "handler",
+        },
         select: { id: true },
       });
 
       const callers = await getInboundCallers(repository.id, [symbol.id]);
       const set = callers.map((c) => `${c.filePath}::${c.symbolName}`).sort();
 
-      expect(set).toEqual(["packages/core/src/http/router.ts::route", "packages/core/src/jobs/dispatch.ts::dispatch"].sort());
+      expect(set).toEqual(
+        [
+          "packages/core/src/http/router.ts::route",
+          "packages/core/src/jobs/dispatch.ts::dispatch",
+        ].sort(),
+      );
     });
 
     it("bump (packages/core/src/models/entity.ts) — one same-file caller, one caller inherited through NamedEntity", async () => {
@@ -162,7 +226,10 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
       const set = callers.map((c) => `${c.filePath}::${c.symbolName}`).sort();
 
       expect(set).toEqual(
-        ["packages/core/src/models/entity.ts::bumpTwice", "packages/core/src/models/named-entity.ts::rename"].sort(),
+        [
+          "packages/core/src/models/entity.ts::bumpTwice",
+          "packages/core/src/models/named-entity.ts::rename",
+        ].sort(),
       );
     });
   });
@@ -175,7 +242,11 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
       select: { id: true },
     });
     const callerSymbol = await prisma.codeSymbol.findFirstOrThrow({
-      where: { repositoryId: repository.id, fileId: callerFile.id, name: "handle" },
+      where: {
+        repositoryId: repository.id,
+        fileId: callerFile.id,
+        name: "handle",
+      },
       select: { id: true },
     });
 
@@ -186,7 +257,11 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
     expect(renderSymbols).toHaveLength(4);
 
     const edges = await prisma.codeDependency.findMany({
-      where: { repositoryId: repository.id, kind: "CALLS", fromSymbolId: callerSymbol.id },
+      where: {
+        repositoryId: repository.id,
+        kind: "CALLS",
+        fromSymbolId: callerSymbol.id,
+      },
     });
     expect(edges).toHaveLength(0);
   });
@@ -198,7 +273,10 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
     // own full-replace design (delete every existing edge/symbol row for this
     // repositoryId, then insert fresh ones) is what this asserts actually holds, not
     // just what its header comment claims.
-    const persistedFiles = await findRepositoryFilesByCommit(repository.id, GRAPH_REPO_COMMIT_SHA);
+    const persistedFiles = await findRepositoryFilesByCommit(
+      repository.id,
+      GRAPH_REPO_COMMIT_SHA,
+    );
     const second = await buildKnowledgeGraph({
       rootDir: GRAPH_REPO_FIXTURE_ROOT,
       files: persistedFiles,
@@ -211,8 +289,12 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
     expect(second.symbolsCreated).toBe(graph.symbolsCreated);
     expect(second.edgesCreated).toBe(graph.edgesCreated);
 
-    const totalEdges = await prisma.codeDependency.count({ where: { repositoryId: repository.id } });
-    const totalSymbols = await prisma.codeSymbol.count({ where: { repositoryId: repository.id } });
+    const totalEdges = await prisma.codeDependency.count({
+      where: { repositoryId: repository.id },
+    });
+    const totalSymbols = await prisma.codeSymbol.count({
+      where: { repositoryId: repository.id },
+    });
     // Not double — the second pass replaced the first pass's rows, it did not add to them.
     expect(totalEdges).toBe(graph.edgesCreated);
     expect(totalSymbols).toBe(graph.symbolsCreated);

@@ -6,11 +6,11 @@ deploy is a manual step (see [Outstanding](#outstanding-manual-steps)).
 
 ## Deployables
 
-| Deployable | Build | Start | Serves |
-|---|---|---|---|
-| `apps/web` | `pnpm --filter web build` | `pnpm --filter web start` | Next.js UI |
-| `apps/api` | `pnpm --filter api build` | `pnpm --filter api start` | Express API, `/api/health`, `/api/auth/*`, `/api/projects*`, `/auth/*` (sign-in/error bridge) |
-| `apps/worker` | `pnpm --filter worker build` | `pnpm --filter worker start` | Inngest functions at `/api/inngest` |
+| Deployable    | Build                        | Start                        | Serves                                                                                        |
+| ------------- | ---------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `apps/web`    | `pnpm --filter web build`    | `pnpm --filter web start`    | Next.js UI                                                                                    |
+| `apps/api`    | `pnpm --filter api build`    | `pnpm --filter api start`    | Express API, `/api/health`, `/api/auth/*`, `/api/projects*`, `/auth/*` (sign-in/error bridge) |
+| `apps/worker` | `pnpm --filter worker build` | `pnpm --filter worker start` | Inngest functions at `/api/inngest`                                                           |
 
 `apps/worker` has its own Postgres and GitHub App access as of Phase 03 (`Dockerfile.worker`
 at the repo root — see [Worker container](#worker-container) below), but still registers only
@@ -37,29 +37,29 @@ which is local-only).
 
 Names only — never commit values. `.env.example` is the authoritative list.
 
-| Variable | api | worker | web | Notes |
-|---|:--:|:--:|:--:|---|
-| `NODE_ENV` | ✅ | ✅ | ✅ | `production` in staging and production |
-| `LOG_LEVEL` | ○ | ○ | — | defaults to `info` |
-| `DATABASE_URL` | ✅ | ✅ | — | also needed by the release-step `migrate deploy`; same database, two deployables |
-| `INNGEST_EVENT_KEY` | ✅ | ✅ | — | per-environment key |
-| `INNGEST_SIGNING_KEY` | ✅ | ✅ | — | per-environment key |
-| `PORT` | ✅ | — | — | api's listen port (defaults to 4000) |
-| `WORKER_PORT` | — | ✅ | — | worker's listen port (defaults to 4500) |
-| `FRONTEND_URL` | ✅ | — | — | CORS origin — the deployed `apps/web` origin |
-| `GITHUB_OAUTH_CLIENT_ID` | ✅ | — | — | **per-environment** — see below |
-| `GITHUB_OAUTH_CLIENT_SECRET` | ✅ | — | — | **per-environment** — see below |
-| `AUTH_SECRET` | ✅ | — | — | `openssl rand -hex 32`; distinct per environment |
-| `AUTH_URL` | ✅ | — | — | **per-environment** — see below |
-| `NEXT_PUBLIC_API_URL` | — | — | ✅ | the deployed `apps/api` origin |
-| `GITHUB_APP_ID` | ✅ | ✅ | — | Phase 02/03 — the GitHub **App**, not the OAuth App; same App, two deployables |
-| `GITHUB_APP_PRIVATE_KEY` | ✅ | ✅ | — | base64 of the `.pem` — see below |
-| `GITHUB_APP_SLUG` | ✅ | — | — | builds the install link; worker never needs it |
-| `GITHUB_APP_WEBHOOK_SECRET` | ✅ | — | — | set on GitHub now; unread until Phase 06; worker never receives webhooks |
-| `REDIS_URL` | ✅ | ✅ | — | Phase 02/03 — installation-token cache, shared by both deployables |
-| `WORKER_TEMP_DIR` | — | ○ | — | Phase 03 — tarball extraction scratch dir; defaults to a container-standard temp path |
-| `INDEX_MAX_TOTAL_BYTES` | — | ○ | — | Phase 03 — zip-bomb defense; defaults to 2 GiB |
-| `INDEX_MAX_FILE_COUNT` | — | ○ | — | Phase 03 — defaults to 200,000 |
+| Variable                     | api | worker | web | Notes                                                                                 |
+| ---------------------------- | :-: | :----: | :-: | ------------------------------------------------------------------------------------- |
+| `NODE_ENV`                   | ✅  |   ✅   | ✅  | `production` in staging and production                                                |
+| `LOG_LEVEL`                  |  ○  |   ○    |  —  | defaults to `info`                                                                    |
+| `DATABASE_URL`               | ✅  |   ✅   |  —  | also needed by the release-step `migrate deploy`; same database, two deployables      |
+| `INNGEST_EVENT_KEY`          | ✅  |   ✅   |  —  | per-environment key                                                                   |
+| `INNGEST_SIGNING_KEY`        | ✅  |   ✅   |  —  | per-environment key                                                                   |
+| `PORT`                       | ✅  |   —    |  —  | api's listen port (defaults to 4000)                                                  |
+| `WORKER_PORT`                |  —  |   ✅   |  —  | worker's listen port (defaults to 4500)                                               |
+| `FRONTEND_URL`               | ✅  |   —    |  —  | CORS origin — the deployed `apps/web` origin                                          |
+| `GITHUB_OAUTH_CLIENT_ID`     | ✅  |   —    |  —  | **per-environment** — see below                                                       |
+| `GITHUB_OAUTH_CLIENT_SECRET` | ✅  |   —    |  —  | **per-environment** — see below                                                       |
+| `AUTH_SECRET`                | ✅  |   —    |  —  | `openssl rand -hex 32`; distinct per environment                                      |
+| `AUTH_URL`                   | ✅  |   —    |  —  | **per-environment** — see below                                                       |
+| `NEXT_PUBLIC_API_URL`        |  —  |   —    | ✅  | the deployed `apps/api` origin                                                        |
+| `GITHUB_APP_ID`              | ✅  |   ✅   |  —  | Phase 02/03 — the GitHub **App**, not the OAuth App; same App, two deployables        |
+| `GITHUB_APP_PRIVATE_KEY`     | ✅  |   ✅   |  —  | base64 of the `.pem` — see below                                                      |
+| `GITHUB_APP_SLUG`            | ✅  |   —    |  —  | builds the install link; worker never needs it                                        |
+| `GITHUB_APP_WEBHOOK_SECRET`  | ✅  |   —    |  —  | set on GitHub now; unread until Phase 06; worker never receives webhooks              |
+| `REDIS_URL`                  | ✅  |   ✅   |  —  | Phase 02/03 — installation-token cache, shared by both deployables                    |
+| `WORKER_TEMP_DIR`            |  —  |   ○    |  —  | Phase 03 — tarball extraction scratch dir; defaults to a container-standard temp path |
+| `INDEX_MAX_TOTAL_BYTES`      |  —  |   ○    |  —  | Phase 03 — zip-bomb defense; defaults to 2 GiB                                        |
+| `INDEX_MAX_FILE_COUNT`       |  —  |   ○    |  —  | Phase 03 — defaults to 200,000                                                        |
 
 ✅ required · ○ optional · — not used
 
@@ -84,11 +84,11 @@ no trailing slash:
 $AUTH_URL/api/auth/callback/github
 ```
 
-| Environment | `AUTH_URL` | Registered callback URL |
-|---|---|---|
-| Local | `http://localhost:4000` | `http://localhost:4000/api/auth/callback/github` |
-| Staging | `https://api-staging.example.com` | `https://api-staging.example.com/api/auth/callback/github` |
-| Production | `https://api.example.com` | `https://api.example.com/api/auth/callback/github` |
+| Environment | `AUTH_URL`                        | Registered callback URL                                    |
+| ----------- | --------------------------------- | ---------------------------------------------------------- |
+| Local       | `http://localhost:4000`           | `http://localhost:4000/api/auth/callback/github`           |
+| Staging     | `https://api-staging.example.com` | `https://api-staging.example.com/api/auth/callback/github` |
+| Production  | `https://api.example.com`         | `https://api.example.com/api/auth/callback/github`         |
 
 Notes that make this go wrong in practice:
 
@@ -110,12 +110,12 @@ The session cookie is `sameSite=lax` (phase-01 §4/§13, and Auth.js's default).
 cookie is sent on a cross-**origin** request but **not** on a cross-**site** one — and
 "site" means the registrable domain, ignoring scheme, port, and subdomain.
 
-| Frontend | API | Same site? | Cookie auth works? |
-|---|---|---|---|
-| `http://localhost:3000` | `http://localhost:4000` | yes (ports don't count) | ✅ |
-| `https://app.example.com` | `https://api.example.com` | yes (`example.com`) | ✅ |
-| `https://app.example.com` | `https://api.example.io` | **no** | ❌ sign-in appears to work, then every API call is 401 |
-| `https://app.vercel.app` | `https://api.fly.dev` | **no** | ❌ same |
+| Frontend                  | API                       | Same site?              | Cookie auth works?                                     |
+| ------------------------- | ------------------------- | ----------------------- | ------------------------------------------------------ |
+| `http://localhost:3000`   | `http://localhost:4000`   | yes (ports don't count) | ✅                                                     |
+| `https://app.example.com` | `https://api.example.com` | yes (`example.com`)     | ✅                                                     |
+| `https://app.example.com` | `https://api.example.io`  | **no**                  | ❌ sign-in appears to work, then every API call is 401 |
+| `https://app.vercel.app`  | `https://api.fly.dev`     | **no**                  | ❌ same                                                |
 
 This is easy to get wrong when the two deployables land on different platforms' default
 domains. **Put both behind subdomains of one registrable domain**, or the frontend will
@@ -124,10 +124,10 @@ origin, api) and `NEXT_PUBLIC_API_URL` (api origin, web) must point at that pair
 
 ## Infrastructure
 
-| Dependency | Used by | Since | Notes |
-|---|---|---|---|
+| Dependency | Used by                   | Since                           | Notes                                                |
+| ---------- | ------------------------- | ------------------------------- | ---------------------------------------------------- |
 | PostgreSQL | `apps/api`, `apps/worker` | Phase 00 (worker: **Phase 03**) | The system of record. One database, two deployables. |
-| Redis | `apps/api`, `apps/worker` | Phase 02 (worker: **Phase 03**) | Installation-access-token cache only. |
+| Redis      | `apps/api`, `apps/worker` | Phase 02 (worker: **Phase 03**) | Installation-access-token cache only.                |
 
 **Redis holds no durable state.** It caches GitHub installation tokens (50-minute TTL)
 and ETag entries. Losing it costs one extra token mint per installation and some
@@ -143,12 +143,12 @@ Locally, `docker compose up -d` starts both Postgres and Redis.
 From Phase 02 there are **two** GitHub registrations per environment, and they are not
 interchangeable:
 
-| | GitHub **OAuth App** (Phase 01) | GitHub **App** (Phase 02) |
-|---|---|---|
-| Answers | *Who is signed in?* | *What repository data may we read?* |
-| Credentials | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` |
-| Registered at | Developer settings → OAuth Apps | Developer settings → GitHub Apps |
-| Used for | Sign-in, session | Every repository read and every review comment |
+|               | GitHub **OAuth App** (Phase 01)                         | GitHub **App** (Phase 02)                                      |
+| ------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| Answers       | _Who is signed in?_                                     | _What repository data may we read?_                            |
+| Credentials   | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` |
+| Registered at | Developer settings → OAuth Apps                         | Developer settings → GitHub Apps                               |
+| Used for      | Sign-in, session                                        | Every repository read and every review comment                 |
 
 `plan.md` §45 names conflating the two as a top failure point for Phase 02. Registration
 is documented step by step in [`github-app-setup.md`](./github-app-setup.md); the

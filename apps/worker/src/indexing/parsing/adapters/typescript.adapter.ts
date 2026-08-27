@@ -1,9 +1,24 @@
 import type { Node, QueryMatch, Tree } from "web-tree-sitter";
 import { Query } from "web-tree-sitter";
 import type { SymbolKind } from "@repo/shared";
-import { ContentTooLargeError, getParseErrorInfo, withParsedTree, type ParserLanguage } from "../tree-sitter/parser-pool.js";
-import { JAVASCRIPT_QUERY, TSX_QUERY, TYPESCRIPT_QUERY } from "../tree-sitter/queries.js";
-import type { ParsedCall, ParsedExport, ParsedFile, ParsedImport, ParsedSymbol } from "../parsed-file.types.js";
+import {
+  ContentTooLargeError,
+  getParseErrorInfo,
+  withParsedTree,
+  type ParserLanguage,
+} from "../tree-sitter/parser-pool.js";
+import {
+  JAVASCRIPT_QUERY,
+  TSX_QUERY,
+  TYPESCRIPT_QUERY,
+} from "../tree-sitter/queries.js";
+import type {
+  ParsedCall,
+  ParsedExport,
+  ParsedFile,
+  ParsedImport,
+  ParsedSymbol,
+} from "../parsed-file.types.js";
 
 /**
  * Prompt 2's adapter: runs `queries.ts` against a tree from `parser-pool.ts` and
@@ -90,7 +105,11 @@ function lineOf(node: Node): number {
 
 function stripQuotes(text: string): string {
   const quoteChars = ['"', "'", "`"];
-  if (text.length >= 2 && quoteChars.includes(text.charAt(0)) && text.charAt(text.length - 1) === text.charAt(0)) {
+  if (
+    text.length >= 2 &&
+    quoteChars.includes(text.charAt(0)) &&
+    text.charAt(text.length - 1) === text.charAt(0)
+  ) {
     return text.slice(1, -1);
   }
   return text;
@@ -165,7 +184,11 @@ function stripDocComment(raw: string): string {
 function getStatementAnchor(node: Node): Node {
   let anchor = node;
   const wrapper = anchor.parent;
-  if (wrapper && (wrapper.type === "lexical_declaration" || wrapper.type === "variable_declaration")) {
+  if (
+    wrapper &&
+    (wrapper.type === "lexical_declaration" ||
+      wrapper.type === "variable_declaration")
+  ) {
     anchor = wrapper;
   }
   const exportWrapper = anchor.parent;
@@ -300,13 +323,20 @@ interface ImportStatementAccumulator {
  * per-specifier). A statement that is entirely type-only (or all-value) still produces
  * exactly one entry, as the common case.
  */
-function extractImports(matches: QueryMatch[], flat: Map<string, Node[]>): ParsedImport[] {
+function extractImports(
+  matches: QueryMatch[],
+  flat: Map<string, Node[]>,
+): ParsedImport[] {
   const byStatement = new Map<number, ImportStatementAccumulator>();
 
   function ensure(stmt: Node): ImportStatementAccumulator {
     const existing = byStatement.get(stmt.startIndex);
     if (existing) return existing;
-    const created: ImportStatementAccumulator = { statementNode: stmt, named: [], wholeStatementTypeOnly: false };
+    const created: ImportStatementAccumulator = {
+      statementNode: stmt,
+      named: [],
+      wholeStatementTypeOnly: false,
+    };
     byStatement.set(stmt.startIndex, created);
     return created;
   }
@@ -330,7 +360,9 @@ function extractImports(matches: QueryMatch[], flat: Map<string, Node[]>): Parse
     ensure(node).wholeStatementTypeOnly = true;
   }
 
-  const typeOnlySpecifierStarts = new Set((flat.get("import.named.typeOnly.name") ?? []).map((n) => n.startIndex));
+  const typeOnlySpecifierStarts = new Set(
+    (flat.get("import.named.typeOnly.name") ?? []).map((n) => n.startIndex),
+  );
 
   for (const match of matches) {
     const nameNode = captureIn(match, "import.named.name");
@@ -339,7 +371,10 @@ function extractImports(matches: QueryMatch[], flat: Map<string, Node[]>): Parse
     if (!stmt) continue;
     const aliasNode = captureIn(match, "import.named.alias");
     const local = aliasNode ? aliasNode.text : nameNode.text;
-    ensure(stmt).named.push({ local, typeOnly: typeOnlySpecifierStarts.has(nameNode.startIndex) });
+    ensure(stmt).named.push({
+      local,
+      typeOnly: typeOnlySpecifierStarts.has(nameNode.startIndex),
+    });
   }
 
   const imports: ParsedImport[] = [];
@@ -347,12 +382,25 @@ function extractImports(matches: QueryMatch[], flat: Map<string, Node[]>): Parse
     if (!acc.source) continue; // every real import_statement has one; structurally unreachable otherwise
     const specifier = stripQuotes(acc.source.text);
     const line = lineOf(acc.statementNode);
-    const mixedTypeOnly = !acc.wholeStatementTypeOnly && acc.named.some((n) => n.typeOnly) && acc.named.some((n) => !n.typeOnly);
+    const mixedTypeOnly =
+      !acc.wholeStatementTypeOnly &&
+      acc.named.some((n) => n.typeOnly) &&
+      acc.named.some((n) => !n.typeOnly);
 
     if (mixedTypeOnly) {
-      const typeOnlyLocals = acc.named.filter((n) => n.typeOnly).map((n) => n.local);
-      const valueLocals = acc.named.filter((n) => !n.typeOnly).map((n) => n.local);
-      imports.push({ specifier, named: typeOnlyLocals, line, isTypeOnly: true, syntax: "static" });
+      const typeOnlyLocals = acc.named
+        .filter((n) => n.typeOnly)
+        .map((n) => n.local);
+      const valueLocals = acc.named
+        .filter((n) => !n.typeOnly)
+        .map((n) => n.local);
+      imports.push({
+        specifier,
+        named: typeOnlyLocals,
+        line,
+        isTypeOnly: true,
+        syntax: "static",
+      });
       imports.push({
         specifier,
         named: valueLocals,
@@ -365,7 +413,8 @@ function extractImports(matches: QueryMatch[], flat: Map<string, Node[]>): Parse
       continue;
     }
 
-    const allNamedTypeOnly = acc.named.length > 0 && acc.named.every((n) => n.typeOnly);
+    const allNamedTypeOnly =
+      acc.named.length > 0 && acc.named.every((n) => n.typeOnly);
     imports.push({
       specifier,
       named: acc.named.map((n) => n.local),
@@ -385,12 +434,24 @@ function extractImports(matches: QueryMatch[], flat: Map<string, Node[]>): Parse
     const reqNode = captureIn(match, "import.require.node");
     const reqSource = captureIn(match, "import.require.source");
     if (reqNode && reqSource) {
-      imports.push({ specifier: stripQuotes(reqSource.text), named: [], line: lineOf(reqNode), isTypeOnly: false, syntax: "require" });
+      imports.push({
+        specifier: stripQuotes(reqSource.text),
+        named: [],
+        line: lineOf(reqNode),
+        isTypeOnly: false,
+        syntax: "require",
+      });
     }
     const dynNode = captureIn(match, "import.dynamic.node");
     const dynSource = captureIn(match, "import.dynamic.source");
     if (dynNode && dynSource) {
-      imports.push({ specifier: stripQuotes(dynSource.text), named: [], line: lineOf(dynNode), isTypeOnly: false, syntax: "dynamic" });
+      imports.push({
+        specifier: stripQuotes(dynSource.text),
+        named: [],
+        line: lineOf(dynNode),
+        isTypeOnly: false,
+        syntax: "dynamic",
+      });
     }
   }
 
@@ -426,10 +487,16 @@ interface ExportExtractionResult {
  * `named`), but the import-resolver (Prompt 3) still needs the file-level edge itself to
  * bucket `"./m"` as RESOLVED/EXTERNAL/UNRESOLVED.
  */
-function extractExports(matches: QueryMatch[], flat: Map<string, Node[]>): ExportExtractionResult {
+function extractExports(
+  matches: QueryMatch[],
+  flat: Map<string, Node[]>,
+): ExportExtractionResult {
   const exports: ParsedExport[] = [];
   const exportedLocalNames = new Set<string>();
-  const reExportStatements = new Map<number, { node: Node; specifier: string }>();
+  const reExportStatements = new Map<
+    number,
+    { node: Node; specifier: string }
+  >();
   const handledDefaultStatementStarts = new Set<number>();
 
   // Declaration-form exports: export function/class/interface/type-alias/enum/const foo.
@@ -458,7 +525,8 @@ function extractExports(matches: QueryMatch[], flat: Map<string, Node[]>): Expor
     if (handledDefaultStatementStarts.has(defaultNode.startIndex)) continue;
     handledDefaultStatementStarts.add(defaultNode.startIndex);
     const valueNode = captureIn(match, "export.default.value");
-    const name = valueNode && valueNode.type === "identifier" ? valueNode.text : "";
+    const name =
+      valueNode && valueNode.type === "identifier" ? valueNode.text : "";
     exports.push({ name, isDefault: true, line: lineOf(defaultNode) });
   }
 
@@ -473,10 +541,19 @@ function extractExports(matches: QueryMatch[], flat: Map<string, Node[]>): Expor
     const sourceField = stmt.childForFieldName("source");
     if (sourceField) {
       const specifier = stripQuotes(sourceField.text);
-      exports.push({ name: publicName, isDefault: false, line: lineOf(nameNode), reExportFrom: specifier });
+      exports.push({
+        name: publicName,
+        isDefault: false,
+        line: lineOf(nameNode),
+        reExportFrom: specifier,
+      });
       reExportStatements.set(stmt.startIndex, { node: stmt, specifier });
     } else {
-      exports.push({ name: publicName, isDefault: false, line: lineOf(nameNode) });
+      exports.push({
+        name: publicName,
+        isDefault: false,
+        line: lineOf(nameNode),
+      });
       exportedLocalNames.add(nameNode.text);
     }
   }
@@ -485,7 +562,12 @@ function extractExports(matches: QueryMatch[], flat: Map<string, Node[]>): Expor
   for (const node of flat.get("export.star.node") ?? []) {
     const sourceField = node.childForFieldName("source");
     const specifier = sourceField ? stripQuotes(sourceField.text) : "";
-    exports.push({ name: "", isDefault: false, line: lineOf(node), reExportFrom: specifier });
+    exports.push({
+      name: "",
+      isDefault: false,
+      line: lineOf(node),
+      reExportFrom: specifier,
+    });
     if (specifier) reExportStatements.set(node.startIndex, { node, specifier });
   }
 
@@ -496,8 +578,14 @@ function extractExports(matches: QueryMatch[], flat: Map<string, Node[]>): Expor
     const aliasNode = captureIn(match, "export.namespace.alias");
     const sourceNode = captureIn(match, "export.namespace.source");
     const specifier = sourceNode ? stripQuotes(sourceNode.text) : "";
-    exports.push({ name: aliasNode ? aliasNode.text : "", isDefault: false, line: lineOf(nsNode), reExportFrom: specifier });
-    if (specifier) reExportStatements.set(nsNode.startIndex, { node: nsNode, specifier });
+    exports.push({
+      name: aliasNode ? aliasNode.text : "",
+      isDefault: false,
+      line: lineOf(nsNode),
+      reExportFrom: specifier,
+    });
+    if (specifier)
+      reExportStatements.set(nsNode.startIndex, { node: nsNode, specifier });
   }
 
   // export = Foo; — TypeScript's CommonJS-interop form. Not a re-export (no `from`
@@ -507,17 +595,23 @@ function extractExports(matches: QueryMatch[], flat: Map<string, Node[]>): Expor
     const eqNameNode = captureIn(match, "export.equals.name");
     const eqStmtNode = captureIn(match, "export.equals.node");
     if (eqNameNode && eqStmtNode) {
-      exports.push({ name: eqNameNode.text, isDefault: false, line: lineOf(eqStmtNode) });
+      exports.push({
+        name: eqNameNode.text,
+        isDefault: false,
+        line: lineOf(eqStmtNode),
+      });
     }
   }
 
-  const reExportImports: ParsedImport[] = [...reExportStatements.values()].map(({ node, specifier }) => ({
-    specifier,
-    named: [],
-    line: lineOf(node),
-    isTypeOnly: false,
-    syntax: "static",
-  }));
+  const reExportImports: ParsedImport[] = [...reExportStatements.values()].map(
+    ({ node, specifier }) => ({
+      specifier,
+      named: [],
+      line: lineOf(node),
+      isTypeOnly: false,
+      syntax: "static",
+    }),
+  );
 
   return { exports, exportedLocalNames, reExportImports };
 }
@@ -569,7 +663,9 @@ function isEligibleTopLevelSymbol(declNode: Node): boolean {
   return true;
 }
 
-const FUNCTION_LIKE_CAPTURE_KINDS: ReadonlyArray<readonly [string, SymbolKind]> = [
+const FUNCTION_LIKE_CAPTURE_KINDS: ReadonlyArray<
+  readonly [string, SymbolKind]
+> = [
   ["symbol.function", "FUNCTION"],
   ["symbol.class", "CLASS"],
   ["symbol.method", "METHOD"],
@@ -578,7 +674,13 @@ const FUNCTION_LIKE_CAPTURE_KINDS: ReadonlyArray<readonly [string, SymbolKind]> 
   ["symbol.enum", "ENUM"],
 ];
 
-const COMPLEXITY_ELIGIBLE_KINDS = new Set<SymbolKind>(["FUNCTION", "ARROW_FUNCTION", "METHOD", "HOOK", "REACT_COMPONENT"]);
+const COMPLEXITY_ELIGIBLE_KINDS = new Set<SymbolKind>([
+  "FUNCTION",
+  "ARROW_FUNCTION",
+  "METHOD",
+  "HOOK",
+  "REACT_COMPONENT",
+]);
 
 /**
  * **React component / hook heuristic — false-positive and false-negative directions
@@ -607,12 +709,25 @@ const COMPLEXITY_ELIGIBLE_KINDS = new Set<SymbolKind>(["FUNCTION", "ARROW_FUNCTI
  */
 const HOOK_NAME_PATTERN = /^use[A-Z0-9]/;
 const PASCAL_CASE_PATTERN = /^[A-Z][A-Za-z0-9]*$/;
-const JSX_NODE_TYPES = ["jsx_element", "jsx_self_closing_element", "jsx_fragment"];
+const JSX_NODE_TYPES = [
+  "jsx_element",
+  "jsx_self_closing_element",
+  "jsx_fragment",
+];
 
-function classifyFunctionLikeKind(baseKind: SymbolKind, name: string, language: ParserLanguage, callableNode: Node): SymbolKind {
+function classifyFunctionLikeKind(
+  baseKind: SymbolKind,
+  name: string,
+  language: ParserLanguage,
+  callableNode: Node,
+): SymbolKind {
   if (baseKind !== "FUNCTION" && baseKind !== "ARROW_FUNCTION") return baseKind;
   if (HOOK_NAME_PATTERN.test(name)) return "HOOK";
-  if (language === "tsx" && PASCAL_CASE_PATTERN.test(name) && callableNode.descendantsOfType(JSX_NODE_TYPES).length > 0) {
+  if (
+    language === "tsx" &&
+    PASCAL_CASE_PATTERN.test(name) &&
+    callableNode.descendantsOfType(JSX_NODE_TYPES).length > 0
+  ) {
     return "REACT_COMPONENT";
   }
   return baseKind;
@@ -669,7 +784,9 @@ function computeComplexity(root: Node): number {
     for (;;) {
       if (!visitedChildren) {
         const node = cursor.currentNode;
-        const isRoot = node.startIndex === root.startIndex && node.endIndex === root.endIndex;
+        const isRoot =
+          node.startIndex === root.startIndex &&
+          node.endIndex === root.endIndex;
         if (!isRoot && COMPLEXITY_BOUNDARY_TYPES.has(node.type)) {
           if (cursor.gotoNextSibling()) {
             visitedChildren = false;
@@ -713,7 +830,12 @@ function extractSymbolRecords(
   const records: InternalSymbolRecord[] = [];
   const seenRanges = new Set<string>();
 
-  function addCandidate(kind: SymbolKind, nameNode: Node, declNode: Node, callableNode: Node): void {
+  function addCandidate(
+    kind: SymbolKind,
+    nameNode: Node,
+    declNode: Node,
+    callableNode: Node,
+  ): void {
     if (!isEligibleTopLevelSymbol(declNode)) return;
 
     // Defensive dedup — overloaded TS function signatures never reach here at all (the
@@ -729,9 +851,17 @@ function extractSymbolRecords(
     const anchor = getStatementAnchor(declNode);
     const trivia = collectLeadingTrivia(anchor);
     const isDirectExport = anchor.type === "export_statement";
-    const finalKind = classifyFunctionLikeKind(kind, name, language, callableNode);
+    const finalKind = classifyFunctionLikeKind(
+      kind,
+      name,
+      language,
+      callableNode,
+    );
 
-    const parentClass = findAncestorOfType(declNode, ["class_declaration", "abstract_class_declaration"]);
+    const parentClass = findAncestorOfType(declNode, [
+      "class_declaration",
+      "abstract_class_declaration",
+    ]);
     const parentSymbol = parentClass?.childForFieldName("name")?.text;
 
     const symbol: ParsedSymbol = {
@@ -744,7 +874,9 @@ function extractSymbolRecords(
       signature: getSignatureText(declNode, sourceText),
       docComment: trivia.docComment,
       parentSymbol,
-      complexity: COMPLEXITY_ELIGIBLE_KINDS.has(finalKind) ? computeComplexity(callableNode) : 1,
+      complexity: COMPLEXITY_ELIGIBLE_KINDS.has(finalKind)
+        ? computeComplexity(callableNode)
+        : 1,
       calls: [],
     };
 
@@ -755,13 +887,20 @@ function extractSymbolRecords(
     for (const [key, kind] of FUNCTION_LIKE_CAPTURE_KINDS) {
       const declNode = captureIn(match, `${key}.node`);
       const nameNode = captureIn(match, `${key}.name`);
-      if (declNode && nameNode) addCandidate(kind, nameNode, declNode, declNode);
+      if (declNode && nameNode)
+        addCandidate(kind, nameNode, declNode, declNode);
     }
     const arrowDeclNode = captureIn(match, "symbol.arrow.node");
     const arrowNameNode = captureIn(match, "symbol.arrow.name");
     if (arrowDeclNode && arrowNameNode) {
-      const callableNode = arrowDeclNode.childForFieldName("value") ?? arrowDeclNode;
-      addCandidate("ARROW_FUNCTION", arrowNameNode, arrowDeclNode, callableNode);
+      const callableNode =
+        arrowDeclNode.childForFieldName("value") ?? arrowDeclNode;
+      addCandidate(
+        "ARROW_FUNCTION",
+        arrowNameNode,
+        arrowDeclNode,
+        callableNode,
+      );
     }
   }
 
@@ -782,15 +921,22 @@ function extractSymbolRecords(
  * than fabricating "mixin" or "B" as the parent.
  */
 function extractNameableHeritageTarget(node: Node): string | null {
-  if (node.type === "identifier" || node.type === "type_identifier") return node.text;
+  if (node.type === "identifier" || node.type === "type_identifier")
+    return node.text;
   if (node.type === "generic_type") {
     const nameField = node.childForFieldName("name");
-    if (nameField && (nameField.type === "identifier" || nameField.type === "type_identifier")) {
+    if (
+      nameField &&
+      (nameField.type === "identifier" || nameField.type === "type_identifier")
+    ) {
       return nameField.text;
     }
     return null;
   }
-  if (node.type === "nested_type_identifier" || node.type === "member_expression") {
+  if (
+    node.type === "nested_type_identifier" ||
+    node.type === "member_expression"
+  ) {
     return node.text.includes("(") ? null : node.text;
   }
   return null;
@@ -807,11 +953,18 @@ function extractNameableHeritageTarget(node: Node): string | null {
  * file, because that symbol's declaration node happened to start at the same byte offset
  * as the enclosing `program` node the call's ancestor walk passed through.
  */
-function attachHeritage(flat: Map<string, Node[]>, records: InternalSymbolRecord[]): void {
+function attachHeritage(
+  flat: Map<string, Node[]>,
+  records: InternalSymbolRecord[],
+): void {
   const byDeclId = new Map<number, InternalSymbolRecord>();
   for (const record of records) byDeclId.set(record.declNode.id, record);
 
-  function attach(captureName: string, ownerTypes: string[], field: "extends" | "implements"): void {
+  function attach(
+    captureName: string,
+    ownerTypes: string[],
+    field: "extends" | "implements",
+  ): void {
     for (const node of flat.get(captureName) ?? []) {
       const owner = findAncestorOfType(node, ownerTypes);
       if (!owner) continue;
@@ -823,8 +976,16 @@ function attachHeritage(flat: Map<string, Node[]>, records: InternalSymbolRecord
     }
   }
 
-  attach("heritage.extends", ["class_declaration", "abstract_class_declaration"], "extends");
-  attach("heritage.implements", ["class_declaration", "abstract_class_declaration"], "implements");
+  attach(
+    "heritage.extends",
+    ["class_declaration", "abstract_class_declaration"],
+    "extends",
+  );
+  attach(
+    "heritage.implements",
+    ["class_declaration", "abstract_class_declaration"],
+    "implements",
+  );
   attach("heritage.interfaceExtends", ["interface_declaration"], "extends");
 }
 
@@ -845,7 +1006,10 @@ function isNameableReceiverNode(node: Node): boolean {
 
 /** See {@link attachHeritage}'s header comment for why this is keyed by `Node#id`, not
  * `startIndex`. */
-function findEnclosingRecord(node: Node, byCallableId: Map<number, InternalSymbolRecord>): InternalSymbolRecord | undefined {
+function findEnclosingRecord(
+  node: Node,
+  byCallableId: Map<number, InternalSymbolRecord>,
+): InternalSymbolRecord | undefined {
   let current = node.parent;
   while (current) {
     const record = byCallableId.get(current.id);
@@ -874,9 +1038,13 @@ function findEnclosingRecord(node: Node, byCallableId: Map<number, InternalSymbo
  * Deduplicates within a symbol by `receiver + name` — a function calling
  * `logger.info()` forty times produces one `ParsedCall`, not forty (§2.4's own example).
  */
-function attachCalls(matches: QueryMatch[], records: InternalSymbolRecord[]): void {
+function attachCalls(
+  matches: QueryMatch[],
+  records: InternalSymbolRecord[],
+): void {
   const byCallableId = new Map<number, InternalSymbolRecord>();
-  for (const record of records) byCallableId.set(record.callableNode.id, record);
+  for (const record of records)
+    byCallableId.set(record.callableNode.id, record);
 
   const dedupeByRecord = new Map<InternalSymbolRecord, Set<string>>();
   function dedupeSetFor(record: InternalSymbolRecord): Set<string> {
@@ -893,7 +1061,11 @@ function attachCalls(matches: QueryMatch[], records: InternalSymbolRecord[]): vo
     if (!callNode || !nameNode) continue;
 
     const functionNode = callNode.childForFieldName("function");
-    if (functionNode && (functionNode.type === "import" || (functionNode.type === "identifier" && functionNode.text === "require"))) {
+    if (
+      functionNode &&
+      (functionNode.type === "import" ||
+        (functionNode.type === "identifier" && functionNode.text === "require"))
+    ) {
       continue;
     }
 
@@ -901,14 +1073,21 @@ function attachCalls(matches: QueryMatch[], records: InternalSymbolRecord[]): vo
     if (!record) continue;
 
     const receiverNode = captureIn(match, "call.receiver");
-    const receiver = receiverNode && isNameableReceiverNode(receiverNode) ? receiverNode.text : undefined;
+    const receiver =
+      receiverNode && isNameableReceiverNode(receiverNode)
+        ? receiverNode.text
+        : undefined;
 
     const dedupeKey = `${receiver ?? ""} ${nameNode.text}`;
     const dedupeSet = dedupeSetFor(record);
     if (dedupeSet.has(dedupeKey)) continue;
     dedupeSet.add(dedupeKey);
 
-    const call: ParsedCall = { name: nameNode.text, receiver, line: lineOf(callNode) };
+    const call: ParsedCall = {
+      name: nameNode.text,
+      receiver,
+      line: lineOf(callNode),
+    };
     record.symbol.calls.push(call);
   }
 }
@@ -967,7 +1146,10 @@ function countTotalNodes(root: Node): number {
  * predicate itself (rather than inlining the ratio check) is what keeps that logic
  * independently testable regardless of which layer ends up calling it.
  */
-export function isTrustworthyParse(errorNodeCount: number, totalNodeCount: number): boolean {
+export function isTrustworthyParse(
+  errorNodeCount: number,
+  totalNodeCount: number,
+): boolean {
   if (totalNodeCount === 0) return errorNodeCount === 0;
   return errorNodeCount / totalNodeCount <= PARSE_ERROR_TOLERANCE_RATIO;
 }
@@ -992,7 +1174,9 @@ export interface ParseRefusal {
 
 export type ParseFileResult = ParsedFile | ParseRefusal;
 
-export function isParseRefusal(result: ParseFileResult): result is ParseRefusal {
+export function isParseRefusal(
+  result: ParseFileResult,
+): result is ParseRefusal {
   return (result as Partial<ParseRefusal>).refused === true;
 }
 
@@ -1021,15 +1205,28 @@ function getQuery(language: ParserLanguage, tree: Tree): Query {
   return query;
 }
 
-function buildParsedFile(filePath: string, language: ParserLanguage, sourceText: string, tree: Tree): ParsedFile {
+function buildParsedFile(
+  filePath: string,
+  language: ParserLanguage,
+  sourceText: string,
+  tree: Tree,
+): ParsedFile {
   const rootNode = tree.rootNode;
   const query = getQuery(language, tree);
   const matches = query.matches(rootNode);
   const flat = flatByName(matches);
 
   const imports = extractImports(matches, flat);
-  const { exports, exportedLocalNames, reExportImports } = extractExports(matches, flat);
-  const records = extractSymbolRecords(matches, sourceText, language, exportedLocalNames);
+  const { exports, exportedLocalNames, reExportImports } = extractExports(
+    matches,
+    flat,
+  );
+  const records = extractSymbolRecords(
+    matches,
+    sourceText,
+    language,
+    exportedLocalNames,
+  );
   attachHeritage(flat, records);
   attachCalls(matches, records);
 
@@ -1043,7 +1240,9 @@ function buildParsedFile(filePath: string, language: ParserLanguage, sourceText:
     exports,
     symbols: records.map((record) => record.symbol),
     parseErrors: errorNodeCount,
-    parseState: isTrustworthyParse(errorNodeCount, totalNodeCount) ? "OK" : "FAILED",
+    parseState: isTrustworthyParse(errorNodeCount, totalNodeCount)
+      ? "OK"
+      : "FAILED",
   };
 }
 
@@ -1066,13 +1265,24 @@ function buildParsedFile(filePath: string, language: ParserLanguage, sourceText:
  * `info`-level logging); aggregate parse-failure counts are Prompt 4's batch-logger's job
  * (spec §20), not this layer's.
  */
-export async function parseFile(filePath: string, language: ParserLanguage | null, source: string): Promise<ParseFileResult> {
+export async function parseFile(
+  filePath: string,
+  language: ParserLanguage | null,
+  source: string,
+): Promise<ParseFileResult> {
   if (language === null) {
-    return { filePath, language, refused: true, reason: "UNSUPPORTED_LANGUAGE" };
+    return {
+      filePath,
+      language,
+      refused: true,
+      reason: "UNSUPPORTED_LANGUAGE",
+    };
   }
 
   try {
-    return await withParsedTree(language, source, (tree) => buildParsedFile(filePath, language, source, tree));
+    return await withParsedTree(language, source, (tree) =>
+      buildParsedFile(filePath, language, source, tree),
+    );
   } catch (error) {
     if (error instanceof ContentTooLargeError) {
       return { filePath, language, refused: true, reason: "CONTENT_TOO_LARGE" };

@@ -1,5 +1,12 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { DisconnectRepositoryButton } from "@/components/repository/disconnect-repository-button";
 import { IndexStatusPoller } from "@/components/repository/index-status-poller";
 import { KnowledgePanel } from "@/components/repository/knowledge-panel";
@@ -50,16 +57,26 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
           <Badge variant={repository.isPrivate ? "secondary" : "outline"}>
             {repository.isPrivate ? "Private" : "Public"}
           </Badge>
-          {repository.connectionStatus === "ACCESS_LOST" && <Badge variant="destructive">Access lost</Badge>}
+          {repository.connectionStatus === "ACCESS_LOST" && (
+            <Badge variant="destructive">Access lost</Badge>
+          )}
         </CardTitle>
-        <CardDescription>Default branch: {repository.defaultBranch}</CardDescription>
+        <CardDescription>
+          Default branch: {repository.defaultBranch}
+        </CardDescription>
         <CardAction>
           <DisconnectRepositoryButton repositoryId={repository.id} />
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <IndexStatusPoller repositoryId={repository.id} initialStatus={toInitialStatus(repository)} />
-        <KnowledgePanel repositoryId={repository.id} indexStatus={repository.indexStatus} />
+        <IndexStatusPoller
+          repositoryId={repository.id}
+          initialStatus={toInitialStatus(repository)}
+        />
+        <KnowledgePanel
+          repositoryId={repository.id}
+          indexStatus={repository.indexStatus}
+        />
       </CardContent>
     </Card>
   );

@@ -128,7 +128,9 @@ async function hashFileStreaming(absolutePath: string): Promise<string> {
 
 /** `sha256("")` — Node's own constant, computed once rather than hand-copied to avoid a
  * transcription error in a value nothing will ever visibly validate against. */
-const EMPTY_CONTENT_HASH = createHash("sha256").update(Buffer.alloc(0)).digest("hex");
+const EMPTY_CONTENT_HASH = createHash("sha256")
+  .update(Buffer.alloc(0))
+  .digest("hex");
 
 // ---------------------------------------------------------------------------
 // Directory walk — collects candidate paths, pruning hard-ignored subtrees whole
@@ -143,7 +145,9 @@ const EMPTY_CONTENT_HASH = createHash("sha256").update(Buffer.alloc(0)).digest("
  * the nearest ancestor, not merely *an* ancestor.
  */
 function derivePackageRoots(candidatePaths: readonly string[]): string[] {
-  const roots = candidatePaths.filter((p) => path.basename(p) === "package.json").map((p) => path.dirname(p));
+  const roots = candidatePaths
+    .filter((p) => path.basename(p) === "package.json")
+    .map((p) => path.dirname(p));
   return [...new Set(roots)].sort((a, b) => b.length - a.length);
 }
 
@@ -154,7 +158,10 @@ function derivePackageRoots(candidatePaths: readonly string[]): string[] {
 /** Metadata-only classification — used for files whose content is never read in full
  * (an over-cap file, or a `.gitattributes`-skipped one): everything here is derived
  * from the path alone, which costs nothing regardless of the file's size. */
-function classifyByPathOnly(relativePath: string, forcedIsGenerated: boolean | undefined): {
+function classifyByPathOnly(
+  relativePath: string,
+  forcedIsGenerated: boolean | undefined,
+): {
   language: string | null;
   isTest: boolean;
   isGenerated: boolean;
@@ -163,7 +170,12 @@ function classifyByPathOnly(relativePath: string, forcedIsGenerated: boolean | u
   const language = detectLanguage(relativePath);
   const isTest = detectIsTest(relativePath);
   const isGenerated = forcedIsGenerated ?? detectIsGenerated(relativePath);
-  const classification = classifyFile(relativePath, isTest, isGenerated, language);
+  const classification = classifyFile(
+    relativePath,
+    isTest,
+    isGenerated,
+    language,
+  );
   return { language, isTest, isGenerated, classification };
 }
 
@@ -173,12 +185,19 @@ interface ProcessFileDeps {
   packageRoots: readonly string[];
 }
 
-async function processFile(relativePath: string, deps: ProcessFileDeps, logger: Logger): Promise<WalkedFile> {
+async function processFile(
+  relativePath: string,
+  deps: ProcessFileDeps,
+  logger: Logger,
+): Promise<WalkedFile> {
   const absolutePath = path.join(deps.rootDir, relativePath);
   const packageName = detectPackageName(relativePath, deps.packageRoots);
 
   try {
-    const ignoreDecision = classifyIgnore(relativePath, deps.gitattributesRules);
+    const ignoreDecision = classifyIgnore(
+      relativePath,
+      deps.gitattributesRules,
+    );
 
     if (ignoreDecision.kind === "HARD_IGNORE") {
       // Unreachable in practice: `collectAllPaths` already excludes every hard-ignored
@@ -187,7 +206,9 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
       // silently falling through to the KEEP branch below, is deliberate — that silent
       // fallthrough is exactly the bug this comment exists to prevent from recurring
       // (see docs/decisions/phase-03-log.md: found via repository-fixtures.test.ts).
-      throw new Error(`processFile reached for a hard-ignored path — collectAllPaths should have excluded it: ${relativePath}`);
+      throw new Error(
+        `processFile reached for a hard-ignored path — collectAllPaths should have excluded it: ${relativePath}`,
+      );
     }
 
     if (ignoreDecision.kind === "SKIP") {
@@ -197,7 +218,10 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
       // to be large, and there is nothing to gain from reading them into memory.
       const stat = await fs.stat(absolutePath);
       const contentHash = await hashFileStreaming(absolutePath);
-      const meta = classifyByPathOnly(relativePath, ignoreDecision.reason === "SKIPPED_GENERATED");
+      const meta = classifyByPathOnly(
+        relativePath,
+        ignoreDecision.reason === "SKIPPED_GENERATED",
+      );
 
       return {
         path: relativePath,
@@ -242,7 +266,12 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
     // At or under the cap — one read serves classification, line counting, and
     // hashing, rather than three separate passes over the same bytes.
     const content = await fs.readFile(absolutePath);
-    const decision = classify(relativePath, stat.size, content, deps.packageRoots);
+    const decision = classify(
+      relativePath,
+      stat.size,
+      content,
+      deps.packageRoots,
+    );
     const contentHash = hashBuffer(content);
 
     if (decision.skip) {
@@ -252,9 +281,11 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
         sizeBytes: stat.size,
         // A binary file has no meaningful line count; a minified file's is cheap to
         // compute since the buffer is already in hand, and not actively misleading.
-        lineCount: decision.reason === "SKIPPED_BINARY" ? 0 : countLines(content),
+        lineCount:
+          decision.reason === "SKIPPED_BINARY" ? 0 : countLines(content),
         packageName,
-        classification: classifyByPathOnly(relativePath, undefined).classification,
+        classification: classifyByPathOnly(relativePath, undefined)
+          .classification,
         language: detectLanguage(relativePath),
         indexState: "SKIPPED",
         skipReason: decision.reason,
@@ -282,10 +313,13 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
     // the column is NOT NULL — `indexState=FAILED` is the actual signal that this hash
     // is not meaningful and must never be compared for incremental-indexing purposes
     // (Phase 14's problem to special-case; flagged in docs/decisions/phase-03-log.md).
-    logger.warn("failed to read a file during the tree walk — marking it FAILED and continuing", {
-      path: relativePath,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn(
+      "failed to read a file during the tree walk — marking it FAILED and continuing",
+      {
+        path: relativePath,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
 
     const sizeBytes = await fs
       .stat(absolutePath)
@@ -319,14 +353,24 @@ async function processFile(relativePath: string, deps: ProcessFileDeps, logger: 
  * package-root set, then processes every candidate. A single malformed file is caught
  * per-file inside {@link processFile}; nothing here can let one bad file abort the walk.
  */
-export async function walkTree(rootDir: string, options: WalkTreeOptions = {}): Promise<WalkSummary> {
+export async function walkTree(
+  rootDir: string,
+  options: WalkTreeOptions = {},
+): Promise<WalkSummary> {
   const logger = options.logger ?? createLogger("indexing.walk-tree");
 
-  const gitattributesContent = await fs.readFile(path.join(rootDir, ".gitattributes"), "utf8").catch(() => null);
-  const gitattributesRules = gitattributesContent !== null ? parseGitattributes(gitattributesContent) : [];
+  const gitattributesContent = await fs
+    .readFile(path.join(rootDir, ".gitattributes"), "utf8")
+    .catch(() => null);
+  const gitattributesRules =
+    gitattributesContent !== null
+      ? parseGitattributes(gitattributesContent)
+      : [];
 
   const allEntries = await collectAllPaths(rootDir);
-  const candidatePaths = allEntries.filter((entry) => !entry.hardIgnored).map((entry) => entry.path);
+  const candidatePaths = allEntries
+    .filter((entry) => !entry.hardIgnored)
+    .map((entry) => entry.path);
   const hardIgnoredCount = allEntries.length - candidatePaths.length;
   const packageRoots = derivePackageRoots(candidatePaths);
 
@@ -335,11 +379,16 @@ export async function walkTree(rootDir: string, options: WalkTreeOptions = {}): 
   let failedCount = 0;
 
   for (const relativePath of candidatePaths) {
-    const result = await processFile(relativePath, { rootDir, gitattributesRules, packageRoots }, logger);
+    const result = await processFile(
+      relativePath,
+      { rootDir, gitattributesRules, packageRoots },
+      logger,
+    );
     files.push(result);
 
     if (result.indexState === "SKIPPED" && result.skipReason) {
-      skippedByReason[result.skipReason] = (skippedByReason[result.skipReason] ?? 0) + 1;
+      skippedByReason[result.skipReason] =
+        (skippedByReason[result.skipReason] ?? 0) + 1;
     }
     if (result.indexState === "FAILED") failedCount += 1;
   }
@@ -349,7 +398,8 @@ export async function walkTree(rootDir: string, options: WalkTreeOptions = {}): 
     files,
     pathsConsidered,
     hardIgnoredCount,
-    hardIgnoreRatio: pathsConsidered === 0 ? 0 : hardIgnoredCount / pathsConsidered,
+    hardIgnoreRatio:
+      pathsConsidered === 0 ? 0 : hardIgnoredCount / pathsConsidered,
     skippedByReason,
     failedCount,
   };
@@ -367,11 +417,14 @@ export async function walkTree(rootDir: string, options: WalkTreeOptions = {}): 
   // surfaced as a distinct, greppable log line (a "repository health note"), not
   // silently absorbed into the ordinary completion line above.
   if (summary.hardIgnoreRatio > 0.5 && pathsConsidered > 100) {
-    logger.warn("repository health note: hard-ignore rules removed most of this repository's files", {
-      pathsConsidered: summary.pathsConsidered,
-      hardIgnoredCount: summary.hardIgnoredCount,
-      hardIgnoreRatio: Number(summary.hardIgnoreRatio.toFixed(3)),
-    });
+    logger.warn(
+      "repository health note: hard-ignore rules removed most of this repository's files",
+      {
+        pathsConsidered: summary.pathsConsidered,
+        hardIgnoredCount: summary.hardIgnoredCount,
+        hardIgnoreRatio: Number(summary.hardIgnoreRatio.toFixed(3)),
+      },
+    );
   }
 
   return summary;
@@ -398,7 +451,8 @@ async function collectAllPaths(rootDir: string): Promise<CandidateEntry[]> {
   async function walk(absoluteDir: string, relativeDir: string): Promise<void> {
     const entries = await fs.readdir(absoluteDir, { withFileTypes: true });
     for (const entry of entries) {
-      const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
+      const relativePath =
+        relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
 
       if (entry.isDirectory()) {
         if (isHardIgnoredDirectory(relativePath)) {
@@ -418,7 +472,10 @@ async function collectAllPaths(rootDir: string): Promise<CandidateEntry[]> {
         // to KEEP with a real RepositoryFile row — exactly the "no row at all" contract
         // ignore-rules.ts's own header comment promises being violated. (Found by
         // repository-fixtures.test.ts, Prompt 3 — see docs/decisions/phase-03-log.md.)
-        results.push({ path: relativePath, hardIgnored: isHardIgnored(relativePath) });
+        results.push({
+          path: relativePath,
+          hardIgnored: isHardIgnored(relativePath),
+        });
       }
     }
   }
@@ -427,7 +484,10 @@ async function collectAllPaths(rootDir: string): Promise<CandidateEntry[]> {
   return results;
 }
 
-async function countPrunedFiles(absoluteDir: string, results: CandidateEntry[]): Promise<void> {
+async function countPrunedFiles(
+  absoluteDir: string,
+  results: CandidateEntry[],
+): Promise<void> {
   const entries = await fs.readdir(absoluteDir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) {

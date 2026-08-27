@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ConfigError, loadConfig } from "./config.js";
 
-const DUMMY_PEM = "-----BEGIN RSA PRIVATE KEY-----\nnot-real-key-material\n-----END RSA PRIVATE KEY-----";
+const DUMMY_PEM =
+  "-----BEGIN RSA PRIVATE KEY-----\nnot-real-key-material\n-----END RSA PRIVATE KEY-----";
 const DUMMY_PEM_BASE64 = Buffer.from(DUMMY_PEM).toString("base64");
 
 const VALID_ENV = {
@@ -47,7 +48,10 @@ describe("loadConfig", () => {
   it("fails at boot naming GITHUB_APP_PRIVATE_KEY AND saying the key is malformed", () => {
     expect.assertions(3);
     try {
-      loadConfig({ ...VALID_ENV, GITHUB_APP_PRIVATE_KEY: "not-a-pem-and-not-base64-of-one" });
+      loadConfig({
+        ...VALID_ENV,
+        GITHUB_APP_PRIVATE_KEY: "not-a-pem-and-not-base64-of-one",
+      });
     } catch (err) {
       expect(err).toBeInstanceOf(ConfigError);
       expect((err as Error).message).toContain("GITHUB_APP_PRIVATE_KEY");
@@ -56,12 +60,17 @@ describe("loadConfig", () => {
   });
 
   it("decodes the canonical base64-encoded PEM, same transform as apps/api", () => {
-    const config = loadConfig({ ...VALID_ENV, GITHUB_APP_PRIVATE_KEY: DUMMY_PEM_BASE64 });
+    const config = loadConfig({
+      ...VALID_ENV,
+      GITHUB_APP_PRIVATE_KEY: DUMMY_PEM_BASE64,
+    });
     expect(config.GITHUB_APP_PRIVATE_KEY).toBe(DUMMY_PEM);
   });
 
   it("rejects a REDIS_URL with no scheme", () => {
-    expect(() => loadConfig({ ...VALID_ENV, REDIS_URL: "localhost:6379" })).toThrow(/REDIS_URL/);
+    expect(() =>
+      loadConfig({ ...VALID_ENV, REDIS_URL: "localhost:6379" }),
+    ).toThrow(/REDIS_URL/);
   });
 });
 
@@ -74,7 +83,12 @@ describe("loadConfig — Phase 03 indexing limits (§19)", () => {
   });
 
   it("accepts overrides for tuning without a redeploy", () => {
-    const config = loadConfig({ ...VALID_ENV, INDEX_MAX_TOTAL_BYTES: "1000", INDEX_MAX_FILE_COUNT: "50", WORKER_TEMP_DIR: "/scratch" });
+    const config = loadConfig({
+      ...VALID_ENV,
+      INDEX_MAX_TOTAL_BYTES: "1000",
+      INDEX_MAX_FILE_COUNT: "50",
+      WORKER_TEMP_DIR: "/scratch",
+    });
     expect(config.INDEX_MAX_TOTAL_BYTES).toBe(1000);
     expect(config.INDEX_MAX_FILE_COUNT).toBe(50);
     expect(config.WORKER_TEMP_DIR).toBe("/scratch");

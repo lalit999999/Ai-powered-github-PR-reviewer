@@ -61,7 +61,10 @@ export class InMemoryTokenCache implements TokenCache {
       this.entries.delete(key);
       return;
     }
-    this.entries.set(key, { value, expiresAtMs: this.now() + ttlSeconds * 1000 });
+    this.entries.set(key, {
+      value,
+      expiresAtMs: this.now() + ttlSeconds * 1000,
+    });
   }
 
   async delete(key: string): Promise<void> {
@@ -85,7 +88,12 @@ export class InMemoryTokenCache implements TokenCache {
  */
 export interface RedisLike {
   get(key: string): Promise<string | null>;
-  set(key: string, value: string, secondsToken: "EX", seconds: number): Promise<"OK" | null>;
+  set(
+    key: string,
+    value: string,
+    secondsToken: "EX",
+    seconds: number,
+  ): Promise<"OK" | null>;
   del(key: string): Promise<number>;
 }
 
@@ -156,17 +164,24 @@ export class RedisTokenCache implements TokenCache {
     }
   }
 
-  private logRedisFailure(operation: string, key: string, error: unknown): void {
+  private logRedisFailure(
+    operation: string,
+    key: string,
+    error: unknown,
+  ): void {
     const nowMs = this.now();
     if (nowMs - this.lastErrorLoggedAtMs < REDIS_ERROR_LOG_WINDOW_MS) return;
     this.lastErrorLoggedAtMs = nowMs;
-    this.logger.warn("redis cache unavailable — falling back to in-memory cache", {
-      operation,
-      // The key, never the value. A token-cache key is derived from an installation id
-      // and is not a secret; the value it guards is.
-      cacheKey: key,
-      error: error instanceof Error ? error.message : String(error),
-      suppressionWindowMs: REDIS_ERROR_LOG_WINDOW_MS,
-    });
+    this.logger.warn(
+      "redis cache unavailable — falling back to in-memory cache",
+      {
+        operation,
+        // The key, never the value. A token-cache key is derived from an installation id
+        // and is not a secret; the value it guards is.
+        cacheKey: key,
+        error: error instanceof Error ? error.message : String(error),
+        suppressionWindowMs: REDIS_ERROR_LOG_WINDOW_MS,
+      },
+    );
   }
 }

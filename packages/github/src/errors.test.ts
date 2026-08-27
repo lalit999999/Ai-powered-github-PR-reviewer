@@ -43,7 +43,11 @@ describe.each(cases)("$code", ({ ErrorClass, code }) => {
 // there (phase-02 §11/§12).
 describe("rate-limit and access-revoked stay distinguishable", () => {
   it("a rate-limit error is not an access-revoked error, and vice versa", () => {
-    expect(new GithubRateLimitError("limited")).not.toBeInstanceOf(GithubAccessRevokedError);
-    expect(new GithubAccessRevokedError("revoked")).not.toBeInstanceOf(GithubRateLimitError);
+    expect(new GithubRateLimitError("limited")).not.toBeInstanceOf(
+      GithubAccessRevokedError,
+    );
+    expect(new GithubAccessRevokedError("revoked")).not.toBeInstanceOf(
+      GithubRateLimitError,
+    );
   });
 });

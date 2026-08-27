@@ -3,7 +3,15 @@ import { InngestTestEngine } from "@inngest/test";
 import { prisma } from "@repo/db";
 import { REPOSITORY_INDEX_REQUESTED } from "@repo/shared";
 import * as tarStream from "tar-stream";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { resetDatabase } from "./db-helpers.js";
 import { seedRepository, type SeededRepository } from "./repository-helpers.js";
 
@@ -44,15 +52,21 @@ vi.mock("@repo/github", async (importOriginal) => {
 
 const fetchTarballStream = vi.fn();
 vi.mock("../../src/indexing/fetcher/tarball-fetcher.js", () => ({
-  fetchTarballStream: (...args: unknown[]) => fetchTarballStream(...(args as [])),
+  fetchTarballStream: (...args: unknown[]) =>
+    fetchTarballStream(...(args as [])),
 }));
 
 const { repositoryGithub } = await import("@repo/github");
-const { repositoryIndex } = await import("../../src/inngest/functions/repository-index.js");
-const { indexRepository } = await import("../../src/indexing/indexer.service.js");
-const { ArchiveTooLargeError } = await import("../../src/indexing/fetcher/archive-extractor.js");
-const repositoryRepository = await import("../../src/indexing/persistence/repository.repository.js");
-const indexJobRepository = await import("../../src/indexing/persistence/index-job.repository.js");
+const { repositoryIndex } =
+  await import("../../src/inngest/functions/repository-index.js");
+const { indexRepository } =
+  await import("../../src/indexing/indexer.service.js");
+const { ArchiveTooLargeError } =
+  await import("../../src/indexing/fetcher/archive-extractor.js");
+const repositoryRepository =
+  await import("../../src/indexing/persistence/repository.repository.js");
+const indexJobRepository =
+  await import("../../src/indexing/persistence/index-job.repository.js");
 
 const TOP_LEVEL = "octocat-fixture-repo-deadbeef";
 
@@ -111,13 +125,34 @@ const ORDINARY_FIXTURE: FixtureEntry[] = [
 const KNOWLEDGE_GRAPH_FIXTURE: FixtureEntry[] = [
   file("package.json", '{"name":"fixture"}\n'),
   file("src/util.ts", "export function helper(): number {\n  return 1;\n}\n"),
-  file("src/caller.ts", 'import { helper } from "./util.js";\n\nexport function callHelper(): number {\n  return helper();\n}\n'),
-  file("src/base.ts", "export class Base {\n  greet(): string {\n    return \"hi\";\n  }\n}\n"),
-  file("src/derived.ts", 'import { Base } from "./base.js";\n\nexport class Derived extends Base {}\n'),
-  file("src/external-consumer.ts", 'import { z } from "zod";\n\nexport function wrapZod() {\n  return z;\n}\n'),
-  file("src/unresolved-consumer.ts", 'import { thing } from "./does-not-exist.js";\n\nexport function readThing() {\n  return thing;\n}\n'),
-  file("src/caller.test.ts", 'import { callHelper } from "./caller.js";\n\nexport function runTest() {\n  return callHelper();\n}\n'),
-  file("src/broken.ts", "// deliberately broken (§14)\nexport function calculateTotal(items {\n  return items"),
+  file(
+    "src/caller.ts",
+    'import { helper } from "./util.js";\n\nexport function callHelper(): number {\n  return helper();\n}\n',
+  ),
+  file(
+    "src/base.ts",
+    'export class Base {\n  greet(): string {\n    return "hi";\n  }\n}\n',
+  ),
+  file(
+    "src/derived.ts",
+    'import { Base } from "./base.js";\n\nexport class Derived extends Base {}\n',
+  ),
+  file(
+    "src/external-consumer.ts",
+    'import { z } from "zod";\n\nexport function wrapZod() {\n  return z;\n}\n',
+  ),
+  file(
+    "src/unresolved-consumer.ts",
+    'import { thing } from "./does-not-exist.js";\n\nexport function readThing() {\n  return thing;\n}\n',
+  ),
+  file(
+    "src/caller.test.ts",
+    'import { callHelper } from "./caller.js";\n\nexport function runTest() {\n  return callHelper();\n}\n',
+  ),
+  file(
+    "src/broken.ts",
+    "// deliberately broken (§14)\nexport function calculateTotal(items {\n  return items",
+  ),
   file(
     "src/circular-a.ts",
     'import { getB } from "./circular-b.js";\n\nexport function getA(): number {\n  return 1;\n}\n\nexport function readB(): number {\n  return getB();\n}\n',
@@ -149,7 +184,12 @@ beforeEach(async () => {
   fetchTarballStream.mockReset();
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(JSON.stringify({ ids: ["evt_test"], status: 200 }), { status: 200 })),
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ids: ["evt_test"], status: 200 }), {
+          status: 200,
+        }),
+    ),
   );
 });
 
@@ -163,11 +203,17 @@ afterAll(async () => {
 });
 
 function mockHeadCommit(sha: string) {
-  vi.mocked(repositoryGithub.getHeadCommit).mockResolvedValue({ ok: true, commit: { sha } });
+  vi.mocked(repositoryGithub.getHeadCommit).mockResolvedValue({
+    ok: true,
+    commit: { sha },
+  });
 }
 
 function mockTarball(buffer: Buffer) {
-  fetchTarballStream.mockResolvedValue({ ok: true, stream: toWebStream(buffer) });
+  fetchTarballStream.mockResolvedValue({
+    ok: true,
+    stream: toWebStream(buffer),
+  });
 }
 
 /** `t.execute()`'s `error` field is whatever the function actually threw, round-tripped
@@ -177,11 +223,20 @@ function mockTarball(buffer: Buffer) {
  * Narrowed here rather than asserted `as Error` at every call site. */
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
-  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  )
+    return error.message;
   return String(error);
 }
 
-function buildEvent(repo: SeededRepository, overrides: Partial<{ indexJobId: string }> = {}) {
+function buildEvent(
+  repo: SeededRepository,
+  overrides: Partial<{ indexJobId: string }> = {},
+) {
   return {
     name: REPOSITORY_INDEX_REQUESTED,
     data: {
@@ -200,28 +255,51 @@ describe("repository-index — the happy path, driven through the real Inngest f
     mockHeadCommit("deadbeef1234567");
     mockTarball(await buildTarballGzip(ORDINARY_FIXTURE));
 
-    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const t = new InngestTestEngine({
+      function: repositoryIndex,
+      events: [buildEvent(repo)],
+    });
     const { result, error } = await t.execute();
 
     expect(error).toBeUndefined();
-    expect(result).toMatchObject({ skipped: false, commitSha: "deadbeef1234567", filesTotal: 3, filesIndexed: 3 });
+    expect(result).toMatchObject({
+      skipped: false,
+      commitSha: "deadbeef1234567",
+      filesTotal: 3,
+      filesIndexed: 3,
+    });
 
-    const finalRepo = await prisma.repository.findUnique({ where: { id: repo.id } });
+    const finalRepo = await prisma.repository.findUnique({
+      where: { id: repo.id },
+    });
     expect(finalRepo?.indexStatus).toBe("INDEXED");
     expect(finalRepo?.indexedCommitSha).toBe("deadbeef1234567");
     expect(finalRepo?.indexedFileCount).toBe(3);
 
-    const finalJob = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
+    const finalJob = await prisma.indexJob.findFirst({
+      where: { repositoryId: repo.id },
+    });
     expect(finalJob).not.toBeNull();
     expect(finalJob?.status).toBe("SUCCEEDED");
     expect(finalJob?.progressPercent).toBe(100);
-    expect(finalJob!.filesProcessed + finalJob!.filesSkipped).toBe(finalJob!.filesTotal);
+    expect(finalJob!.filesProcessed + finalJob!.filesSkipped).toBe(
+      finalJob!.filesTotal,
+    );
     // Exactly one IndexJob row for this run — no lock double-acquisition, no orphan row.
-    expect(await prisma.indexJob.count({ where: { repositoryId: repo.id } })).toBe(1);
+    expect(
+      await prisma.indexJob.count({ where: { repositoryId: repo.id } }),
+    ).toBe(1);
 
-    const files = await prisma.repositoryFile.findMany({ where: { repositoryId: repo.id }, orderBy: { path: "asc" } });
+    const files = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repo.id },
+      orderBy: { path: "asc" },
+    });
     // Repository-relative paths — the tarball's TOP_LEVEL/ component is stripped.
-    expect(files.map((f) => f.path)).toEqual(["package.json", "src/index.ts", "src/utils.ts"]);
+    expect(files.map((f) => f.path)).toEqual([
+      "package.json",
+      "src/index.ts",
+      "src/utils.ts",
+    ]);
     expect(files.every((f) => f.commitSha === "deadbeef1234567")).toBe(true);
     expect(files.every((f) => f.indexState === "INDEXED")).toBe(true);
 
@@ -231,19 +309,33 @@ describe("repository-index — the happy path, driven through the real Inngest f
   });
 
   it("re-indexing at the same, already-indexed SHA is a no-op that still marks the job SUCCEEDED and touches no files", async () => {
-    const repo = await seedRepository({ indexStatus: "INDEXED", indexedCommitSha: "samecommit1" });
+    const repo = await seedRepository({
+      indexStatus: "INDEXED",
+      indexedCommitSha: "samecommit1",
+    });
     mockHeadCommit("samecommit1");
 
-    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const t = new InngestTestEngine({
+      function: repositoryIndex,
+      events: [buildEvent(repo)],
+    });
     const { result, error } = await t.execute();
 
     expect(error).toBeUndefined();
-    expect(result).toMatchObject({ skipped: true, reason: "ALREADY_INDEXED", commitSha: "samecommit1" });
+    expect(result).toMatchObject({
+      skipped: true,
+      reason: "ALREADY_INDEXED",
+      commitSha: "samecommit1",
+    });
 
     expect(fetchTarballStream).not.toHaveBeenCalled();
-    expect(await prisma.repositoryFile.count({ where: { repositoryId: repo.id } })).toBe(0);
+    expect(
+      await prisma.repositoryFile.count({ where: { repositoryId: repo.id } }),
+    ).toBe(0);
 
-    const job = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
+    const job = await prisma.indexJob.findFirst({
+      where: { repositoryId: repo.id },
+    });
     expect(job?.status).toBe("SUCCEEDED");
     expect(job?.currentStep).toBe("no-op-already-indexed");
   });
@@ -292,16 +384,22 @@ describe("repository-index — an interrupted job never produces duplicate rows 
 
     const first = await runOnce();
     expect(first.ok).toBe(true);
-    const afterFirst = await prisma.repositoryFile.findMany({ where: { repositoryId: repo.id } });
+    const afterFirst = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repo.id },
+    });
     expect(afterFirst).toHaveLength(3);
 
     // The "restart": the same step body runs again from scratch against the identical
     // target, exactly what a real Inngest retry of a not-yet-memoized step does.
     const second = await runOnce();
     expect(second.ok).toBe(true);
-    const afterSecond = await prisma.repositoryFile.findMany({ where: { repositoryId: repo.id } });
+    const afterSecond = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repo.id },
+    });
     expect(afterSecond).toHaveLength(3); // still 3, not 6 — the (repositoryId, path) upsert held.
-    expect(new Set(afterSecond.map((f) => f.id))).toEqual(new Set(afterFirst.map((f) => f.id))); // same rows, updated in place
+    expect(new Set(afterSecond.map((f) => f.id))).toEqual(
+      new Set(afterFirst.map((f) => f.id)),
+    ); // same rows, updated in place
   });
 
   it("a run that never reaches its terminal step leaves Repository at INDEXING, never a silent INDEXED", async () => {
@@ -309,17 +407,24 @@ describe("repository-index — an interrupted job never produces duplicate rows 
     mockHeadCommit("interruptedsha1");
     mockTarball(await buildTarballGzip(ORDINARY_FIXTURE));
 
-    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const t = new InngestTestEngine({
+      function: repositoryIndex,
+      events: [buildEvent(repo)],
+    });
     // Stop right after fetch-extract-persist has run (files are on disk and persisted)
     // but before the terminal "mark-repository-indexed"/"mark-job-succeeded" steps —
     // simulating the worker being killed in that exact window.
     await t.executeStep("fetch-extract-persist");
 
-    const repoRow = await prisma.repository.findUnique({ where: { id: repo.id } });
+    const repoRow = await prisma.repository.findUnique({
+      where: { id: repo.id },
+    });
     expect(repoRow?.indexStatus).toBe("INDEXING"); // never silently INDEXED
     expect(repoRow?.indexedCommitSha).toBeNull();
 
-    const job = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
+    const job = await prisma.indexJob.findFirst({
+      where: { repositoryId: repo.id },
+    });
     expect(job?.status).toBe("RUNNING"); // never silently SUCCEEDED with an incomplete file set
   });
 });
@@ -327,9 +432,15 @@ describe("repository-index — an interrupted job never produces duplicate rows 
 describe("repository-index — §12's failure modes, coded correctly and persisted correctly", () => {
   it("REPO_NOT_FOUND: a missing default branch throws the coded error, and the equivalent terminal write lands correctly in Postgres", async () => {
     const repo = await seedRepository();
-    vi.mocked(repositoryGithub.getHeadCommit).mockResolvedValue({ ok: false, reason: "NOT_ACCESSIBLE" });
+    vi.mocked(repositoryGithub.getHeadCommit).mockResolvedValue({
+      ok: false,
+      reason: "NOT_ACCESSIBLE",
+    });
 
-    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const t = new InngestTestEngine({
+      function: repositoryIndex,
+      events: [buildEvent(repo)],
+    });
     const { error } = await t.execute();
 
     expect(error).toBeDefined();
@@ -338,15 +449,28 @@ describe("repository-index — §12's failure modes, coded correctly and persist
     // @inngest/test does not invoke onFailure automatically (documented limitation,
     // see this file's header) — exercise the exact terminal-write functions onFailure
     // calls, directly, against the same real Postgres.
-    await repositoryRepository.markFailed({ repositoryId: repo.id, code: "REPO_NOT_FOUND", message: "not found" });
-    const job = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
-    await indexJobRepository.markFailed(job!.id, { code: "REPO_NOT_FOUND", message: "not found" });
+    await repositoryRepository.markFailed({
+      repositoryId: repo.id,
+      code: "REPO_NOT_FOUND",
+      message: "not found",
+    });
+    const job = await prisma.indexJob.findFirst({
+      where: { repositoryId: repo.id },
+    });
+    await indexJobRepository.markFailed(job!.id, {
+      code: "REPO_NOT_FOUND",
+      message: "not found",
+    });
 
-    const finalRepo = await prisma.repository.findUnique({ where: { id: repo.id } });
+    const finalRepo = await prisma.repository.findUnique({
+      where: { id: repo.id },
+    });
     expect(finalRepo?.indexStatus).toBe("FAILED");
     expect(finalRepo?.indexError).toMatchObject({ code: "REPO_NOT_FOUND" });
 
-    const finalJob = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
+    const finalJob = await prisma.indexJob.findFirst({
+      where: { repositoryId: repo.id },
+    });
     expect(finalJob?.status).toBe("FAILED");
     expect(finalJob?.error).toMatchObject({ code: "REPO_NOT_FOUND" });
   });
@@ -355,12 +479,21 @@ describe("repository-index — §12's failure modes, coded correctly and persist
     const repo = await seedRepository();
     mockHeadCommit("unsafesha1");
     const maliciousBuffer = await buildTarballGzip([
-      { header: { name: `${TOP_LEVEL}/`, type: "directory" }, content: undefined },
-      { header: { name: `${TOP_LEVEL}/../../etc/passwd`, type: "file" }, content: "hacked" },
+      {
+        header: { name: `${TOP_LEVEL}/`, type: "directory" },
+        content: undefined,
+      },
+      {
+        header: { name: `${TOP_LEVEL}/../../etc/passwd`, type: "file" },
+        content: "hacked",
+      },
     ]);
     mockTarball(maliciousBuffer);
 
-    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const t = new InngestTestEngine({
+      function: repositoryIndex,
+      events: [buildEvent(repo)],
+    });
     const { error } = await t.execute();
 
     expect(error).toBeDefined();
@@ -370,7 +503,9 @@ describe("repository-index — §12's failure modes, coded correctly and persist
     // generic, since it is exactly what a downstream onFailure write persists verbatim.
     expect(message).not.toMatch(/passwd|etc\/|\.\.\//);
 
-    expect(await prisma.repositoryFile.count({ where: { repositoryId: repo.id } })).toBe(0);
+    expect(
+      await prisma.repositoryFile.count({ where: { repositoryId: repo.id } }),
+    ).toBe(0);
   });
 
   it("REPO_TOO_LARGE: exceeding the file-count cap aborts before any RepositoryFile row is written", async () => {
@@ -393,7 +528,9 @@ describe("repository-index — §12's failure modes, coded correctly and persist
       }),
     ).rejects.toBeInstanceOf(ArchiveTooLargeError);
 
-    expect(await prisma.repositoryFile.count({ where: { repositoryId: repo.id } })).toBe(0);
+    expect(
+      await prisma.repositoryFile.count({ where: { repositoryId: repo.id } }),
+    ).toBe(0);
   });
 
   it("a truncated/corrupt tarball stream fails cleanly rather than hanging or crashing the process", async () => {
@@ -413,11 +550,16 @@ describe("repository-index — §12's failure modes, coded correctly and persist
         maxTotalBytes: 50 * 1024 * 1024,
         maxFileCount: 10_000,
         attempt: 0,
-        fetchTarball: async () => ({ ok: true, stream: toWebStream(truncated) }),
+        fetchTarball: async () => ({
+          ok: true,
+          stream: toWebStream(truncated),
+        }),
       }),
     ).rejects.toThrow();
 
-    expect(await prisma.repositoryFile.count({ where: { repositoryId: repo.id } })).toBe(0);
+    expect(
+      await prisma.repositoryFile.count({ where: { repositoryId: repo.id } }),
+    ).toBe(0);
   });
 });
 
@@ -427,30 +569,54 @@ describe("repository-index — knowledge graph, driven through the real Inngest 
     mockHeadCommit("graphsha1");
     mockTarball(await buildTarballGzip(KNOWLEDGE_GRAPH_FIXTURE));
 
-    const t = new InngestTestEngine({ function: repositoryIndex, events: [buildEvent(repo)] });
+    const t = new InngestTestEngine({
+      function: repositoryIndex,
+      events: [buildEvent(repo)],
+    });
     const { result, error } = await t.execute();
 
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ skipped: false, commitSha: "graphsha1" });
 
-    const finalRepo = await prisma.repository.findUnique({ where: { id: repo.id } });
+    const finalRepo = await prisma.repository.findUnique({
+      where: { id: repo.id },
+    });
     // §4/§15: a single malformed file (src/broken.ts) never fails the overall job.
     expect(finalRepo?.indexStatus).toBe("INDEXED");
 
-    const finalJob = await prisma.indexJob.findFirst({ where: { repositoryId: repo.id } });
+    const finalJob = await prisma.indexJob.findFirst({
+      where: { repositoryId: repo.id },
+    });
     expect(finalJob?.status).toBe("SUCCEEDED");
     expect(finalJob?.symbolsCreated).toBe(12);
     expect(finalJob?.edgesCreated).toBe(36);
 
-    const symbols = await prisma.codeSymbol.findMany({ where: { repositoryId: repo.id } });
+    const symbols = await prisma.codeSymbol.findMany({
+      where: { repositoryId: repo.id },
+    });
     expect(symbols).toHaveLength(12);
     expect(symbols.map((s) => s.name).sort()).toEqual(
-      ["Base", "Derived", "callHelper", "getA", "getB", "greet", "helper", "readA", "readB", "readThing", "runTest", "wrapZod"].sort(),
+      [
+        "Base",
+        "Derived",
+        "callHelper",
+        "getA",
+        "getB",
+        "greet",
+        "helper",
+        "readA",
+        "readB",
+        "readThing",
+        "runTest",
+        "wrapZod",
+      ].sort(),
     );
     // src/broken.ts's own symbol never made it in — the malformed file contributed nothing.
     expect(symbols.some((s) => s.name === "calculateTotal")).toBe(false);
 
-    const edges = await prisma.codeDependency.findMany({ where: { repositoryId: repo.id } });
+    const edges = await prisma.codeDependency.findMany({
+      where: { repositoryId: repo.id },
+    });
     const byKind = (kind: string) => edges.filter((e) => e.kind === kind);
 
     // CALLS: callHelper -> helper, runTest -> callHelper, readB -> getB, readA -> getA
@@ -468,10 +634,22 @@ describe("repository-index — knowledge graph, driven through the real Inngest 
     const imports = byKind("IMPORTS");
     expect(imports).toHaveLength(7);
     expect(imports.filter((e) => e.resolution === "RESOLVED")).toHaveLength(5);
-    expect(imports.some((e) => e.resolution === "EXTERNAL" && e.externalPackage === "zod")).toBe(true);
-    expect(imports.some((e) => e.resolution === "UNRESOLVED" && e.rawSpecifier === "./does-not-exist.js")).toBe(true);
+    expect(
+      imports.some(
+        (e) => e.resolution === "EXTERNAL" && e.externalPackage === "zod",
+      ),
+    ).toBe(true);
+    expect(
+      imports.some(
+        (e) =>
+          e.resolution === "UNRESOLVED" &&
+          e.rawSpecifier === "./does-not-exist.js",
+      ),
+    ).toBe(true);
 
-    const files = await prisma.repositoryFile.findMany({ where: { repositoryId: repo.id } });
+    const files = await prisma.repositoryFile.findMany({
+      where: { repositoryId: repo.id },
+    });
     expect(files).toHaveLength(11); // 10 source files + package.json
     const byPath = new Map(files.map((f) => [f.path, f]));
 
@@ -482,7 +660,9 @@ describe("repository-index — knowledge graph, driven through the real Inngest 
 
     // A well-connected file (imported from and called into) scores a materially higher
     // inboundEdgeCount than a leaf file nothing imports or calls.
-    expect(byPath.get("src/util.ts")!.inboundEdgeCount).toBeGreaterThan(byPath.get("src/external-consumer.ts")!.inboundEdgeCount);
+    expect(byPath.get("src/util.ts")!.inboundEdgeCount).toBeGreaterThan(
+      byPath.get("src/external-consumer.ts")!.inboundEdgeCount,
+    );
 
     expect(byPath.get("src/caller.test.ts")?.isTest).toBe(true);
     expect(byPath.get("src/derived.ts")?.isTest).toBe(false);
@@ -520,8 +700,12 @@ describe("repository-index — the knowledge graph is idempotent across a full r
     expect(first.ok).toBe(true);
     if (!first.ok) throw new Error("expected ok result");
 
-    const symbolsAfterFirst = await prisma.codeSymbol.findMany({ where: { repositoryId: repo.id } });
-    const edgesAfterFirst = await prisma.codeDependency.findMany({ where: { repositoryId: repo.id } });
+    const symbolsAfterFirst = await prisma.codeSymbol.findMany({
+      where: { repositoryId: repo.id },
+    });
+    const edgesAfterFirst = await prisma.codeDependency.findMany({
+      where: { repositoryId: repo.id },
+    });
 
     // The "restart": the same unit runs again from scratch against the identical target —
     // exactly what a real Inngest retry of a not-yet-memoized step does (matching the
@@ -530,8 +714,12 @@ describe("repository-index — the knowledge graph is idempotent across a full r
     expect(second.ok).toBe(true);
     if (!second.ok) throw new Error("expected ok result");
 
-    const symbolsAfterSecond = await prisma.codeSymbol.findMany({ where: { repositoryId: repo.id } });
-    const edgesAfterSecond = await prisma.codeDependency.findMany({ where: { repositoryId: repo.id } });
+    const symbolsAfterSecond = await prisma.codeSymbol.findMany({
+      where: { repositoryId: repo.id },
+    });
+    const edgesAfterSecond = await prisma.codeDependency.findMany({
+      where: { repositoryId: repo.id },
+    });
 
     expect(second.symbolsCreated).toBe(first.symbolsCreated);
     expect(second.edgesCreated).toBe(first.edgesCreated);
@@ -543,8 +731,14 @@ describe("repository-index — the knowledge graph is idempotent across a full r
     // what the second run itself reported creating.
     const edgeIdentity = (e: (typeof edgesAfterSecond)[number]) =>
       `${e.kind}:${e.fromFileId ?? ""}:${e.toFileId ?? ""}:${e.fromSymbolId ?? ""}:${e.toSymbolId ?? ""}`;
-    expect(new Set(edgesAfterSecond.map(edgeIdentity)).size).toBe(edgesAfterSecond.length);
-    expect(await prisma.codeSymbol.count({ where: { repositoryId: repo.id } })).toBe(symbolsAfterFirst.length);
-    expect(await prisma.codeDependency.count({ where: { repositoryId: repo.id } })).toBe(edgesAfterFirst.length);
+    expect(new Set(edgesAfterSecond.map(edgeIdentity)).size).toBe(
+      edgesAfterSecond.length,
+    );
+    expect(
+      await prisma.codeSymbol.count({ where: { repositoryId: repo.id } }),
+    ).toBe(symbolsAfterFirst.length);
+    expect(
+      await prisma.codeDependency.count({ where: { repositoryId: repo.id } }),
+    ).toBe(edgesAfterFirst.length);
   });
 });

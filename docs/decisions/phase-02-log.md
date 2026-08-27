@@ -6,22 +6,22 @@ client. Prompts 2 and 3 build the services, routes, and UI on top of this; entri
 are binding for that work.
 
 Same convention as `phase-00-log.md` / `phase-01-log.md`: this file records what was
-decided *and* what could not be verified from this environment. §12 is the honest list.
+decided _and_ what could not be verified from this environment. §12 is the honest list.
 
 ## 0. Inherited baseline (verified before writing any Phase 02 code)
 
 Every command run against the tree as inherited, before a single line was changed:
 
-| Command | Result |
-|---|---|
-| `pnpm install` | Clean — "Already up to date", 6 workspace projects |
-| `pnpm db:generate` | Prisma Client 7.9.1 generated to `packages/db/src/generated` |
-| `pnpm lint` | Pass, 0 errors (`turbo lint` + the root boundary/no-console config) |
-| `pnpm typecheck` | Pass — 3 tasks (`api`, `web`, `worker`) |
-| `pnpm test:unit` | Pass — **10 files, 94 tests** |
-| `pnpm test:integration` | Pass — **6 files, 58 tests** (Testcontainers Postgres) |
-| `pnpm build` | Pass — 3 tasks |
-| `prisma migrate status` | "Database schema is up to date!", 2 migrations found |
+| Command                 | Result                                                              |
+| ----------------------- | ------------------------------------------------------------------- |
+| `pnpm install`          | Clean — "Already up to date", 6 workspace projects                  |
+| `pnpm db:generate`      | Prisma Client 7.9.1 generated to `packages/db/src/generated`        |
+| `pnpm lint`             | Pass, 0 errors (`turbo lint` + the root boundary/no-console config) |
+| `pnpm typecheck`        | Pass — 3 tasks (`api`, `web`, `worker`)                             |
+| `pnpm test:unit`        | Pass — **10 files, 94 tests**                                       |
+| `pnpm test:integration` | Pass — **6 files, 58 tests** (Testcontainers Postgres)              |
+| `pnpm build`            | Pass — 3 tasks                                                      |
+| `prisma migrate status` | "Database schema is up to date!", 2 migrations found                |
 
 **Nothing was red**, so no pre-existing failure had to be reported before starting —
 with one caveat that is not in the prompt's baseline list, recorded in §11.
@@ -46,28 +46,28 @@ Each of these was verified by reading the installed package's own source and typ
 definitions under `node_modules/`, per this repo's established practice
 (`phase-01-log.md` §1). Where the behavior mattered, the specific file is named.
 
-| Package | Version | Why this one |
-|---|---|---|
-| `ioredis` | 6.0.0 | The installation-token cache client — see §6 for the choice against `redis` |
-| `@octokit/auth-app` | 8.3.0 | App JWT signing. Preferred over hand-rolling RS256, per the prompt |
-| `@octokit/core` | 7.0.7 | The Octokit base the plugins target. `octokit` (the batteries-included meta-package) would have pulled `plugin-rest-endpoint-methods`, `plugin-paginate-rest`, and the GraphQL client for a client that makes four REST calls |
-| `@octokit/plugin-retry` | 8.1.1 | 5xx/network retry. Peer-requires `@octokit/core` ^7 |
-| `@octokit/plugin-throttling` | 11.0.5 | Primary + secondary rate limits |
-| `@octokit/request-error` | 7.1.1 | Direct dependency so error narrowing does not rely on a transitive install |
-| `@octokit/types` | 15.0.2 (dev) | `EndpointDefaults` etc. for the handler signatures. Dev-only: types erase at build |
+| Package                      | Version      | Why this one                                                                                                                                                                                                                  |
+| ---------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ioredis`                    | 6.0.0        | The installation-token cache client — see §6 for the choice against `redis`                                                                                                                                                   |
+| `@octokit/auth-app`          | 8.3.0        | App JWT signing. Preferred over hand-rolling RS256, per the prompt                                                                                                                                                            |
+| `@octokit/core`              | 7.0.7        | The Octokit base the plugins target. `octokit` (the batteries-included meta-package) would have pulled `plugin-rest-endpoint-methods`, `plugin-paginate-rest`, and the GraphQL client for a client that makes four REST calls |
+| `@octokit/plugin-retry`      | 8.1.1        | 5xx/network retry. Peer-requires `@octokit/core` ^7                                                                                                                                                                           |
+| `@octokit/plugin-throttling` | 11.0.5       | Primary + secondary rate limits                                                                                                                                                                                               |
+| `@octokit/request-error`     | 7.1.1        | Direct dependency so error narrowing does not rely on a transitive install                                                                                                                                                    |
+| `@octokit/types`             | 15.0.2 (dev) | `EndpointDefaults` etc. for the handler signatures. Dev-only: types erase at build                                                                                                                                            |
 
 Transitively relevant, verified because their behavior is load-bearing here:
 
-| Package | Version | What was verified |
-|---|---|---|
-| `universal-github-app-jwt` | 2.2.2 | `auth-app`'s signer. Backdates `iat` by 30s, sets `exp` to iat+10min (GitHub's maximum), and — in `lib/crypto-node.js` — converts a **PKCS#1** key to PKCS#8 before handing it to WebCrypto. That is why the config accepts GitHub's default `.pem` unchanged |
-| `@octokit/request` | 10.0.15 | `fetch-wrapper.js` **throws** a `RequestError` on `304` rather than returning one. The ETag plugin is built around that fact (§9) |
-| `before-after-hook` | 4.0.0 | `register.js`'s reduce applies registered wraps outward-in: the **last** registered wrap is outermost. Plugin order in `octokit-factory.ts` depends on this |
-| `bottleneck` | 2.19.5 | Pulled by `plugin-throttling`. Its `light.js` build, no Redis clustering configured |
+| Package                    | Version | What was verified                                                                                                                                                                                                                                             |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `universal-github-app-jwt` | 2.2.2   | `auth-app`'s signer. Backdates `iat` by 30s, sets `exp` to iat+10min (GitHub's maximum), and — in `lib/crypto-node.js` — converts a **PKCS#1** key to PKCS#8 before handing it to WebCrypto. That is why the config accepts GitHub's default `.pem` unchanged |
+| `@octokit/request`         | 10.0.15 | `fetch-wrapper.js` **throws** a `RequestError` on `304` rather than returning one. The ETag plugin is built around that fact (§9)                                                                                                                             |
+| `before-after-hook`        | 4.0.0   | `register.js`'s reduce applies registered wraps outward-in: the **last** registered wrap is outermost. Plugin order in `octokit-factory.ts` depends on this                                                                                                   |
+| `bottleneck`               | 2.19.5  | Pulled by `plugin-throttling`. Its `light.js` build, no Redis clustering configured                                                                                                                                                                           |
 
 Two API facts worth writing down because getting them from memory would have been wrong:
 
-- **`@octokit/plugin-throttling` throws at construction** unless *both* `onRateLimit` and
+- **`@octokit/plugin-throttling` throws at construction** unless _both_ `onRateLimit` and
   `onSecondaryRateLimit` are functions (`dist-src/index.js`). They are not optional.
 - **`ioredis@6` has no default export usable from ESM.** `import Redis from "ioredis"`
   type-checks as a namespace and is not constructable under `NodeNext`; the named
@@ -79,7 +79,7 @@ Two API facts worth writing down because getting them from memory would have bee
 `GITHUB_APP_PRIVATE_KEY` is **base64 of the whole `.pem` file**. One line, no escaping
 rules, survives every `.env` loader and secret store unchanged. `config.ts` decodes it
 and refuses to boot unless the result carries a `-----BEGIN [RSA ]PRIVATE KEY-----`
-header *and* a matching footer.
+header _and_ a matching footer.
 
 Chosen over literal `\n` escapes because escape handling is where this actually breaks in
 practice: a value can survive one env loader and be mangled by the next, and the failure
@@ -88,7 +88,7 @@ then surfaces at the first GitHub call rather than at boot.
 A value that already looks like a PEM is passed through unchanged. dotenv supports
 multi-line double-quoted values, so pasting the file works locally, and rejecting it
 would be hostile for no security gain. This is a local-dev convenience, not a second
-supported deployment encoding — `docs/github-app-setup.md` documents base64 as *the*
+supported deployment encoding — `docs/github-app-setup.md` documents base64 as _the_
 encoding.
 
 `loadConfig`'s error message was widened to carry each field's first Zod message, not
@@ -128,18 +128,18 @@ required. Added as `String` (non-null): it is always present on the very
 
 **`sizeBytes Int?` and `webhookId BigInt?` — both added, nullable.** In `plan.md` §24.2,
 absent from §6. Same "declare early" rationale, plus specifics: `sizeBytes` comes from
-the identical metadata call this phase already makes for the size cap, so *not* storing
+the identical metadata call this phase already makes for the size cap, so _not_ storing
 it would mean re-fetching to answer "how big is this repo?"; and Phase 06 needs
 `webhookId` to manage the webhook it registers. Nullable because Prompt 1 writes neither
 and a non-null column would force a fabricated default.
 
-*(Note: `sizeBytes` maps to Postgres `INTEGER`. GitHub reports repository size in KB, and
+_(Note: `sizeBytes` maps to Postgres `INTEGER`. GitHub reports repository size in KB, and
 the connect-time cap is ~500 MB, so int32 has roughly six orders of magnitude of
 headroom. The column name says bytes and the source is KB — whichever unit Prompt 2
-stores, it must be consistent, and this note exists so that choice is made deliberately.)*
+stores, it must be consistent, and this note exists so that choice is made deliberately.)_
 
 **`installationId` stays a plain `BigInt`, not a foreign key.** `plan.md` §24.2 calls it
-a `fk`, and a real relation *is* possible — `GithubInstallation.installationId` already
+a `fk`, and a real relation _is_ possible — `GithubInstallation.installationId` already
 carries `@unique`. §6 specifies a plain `BigInt` and that is what was built, deliberately:
 
 - A real FK with `onDelete: Cascade` would delete every `Repository` row the moment a
@@ -158,7 +158,7 @@ carries `@unique`. §6 specifies a plain `BigInt` and that is what was built, de
 followed, because `@@unique([projectId, githubRepoId])` already creates a
 `projectId`-prefixed composite B-tree index, which Postgres uses for `WHERE projectId = ?`
 exactly as a single-column index would. A second index would be pure write amplification.
-`db.test.ts` asserts the index is *absent*, so the omission reads as a decision rather
+`db.test.ts` asserts the index is _absent_, so the omission reads as a decision rather
 than an oversight.
 
 ## 5. `connectionStatus` is a String, `indexStatus` is an enum
@@ -173,7 +173,7 @@ TypeScript union in `apps/api/src/modules/repositories/repository.types.ts`
 API layer goes through it, so the type-safety the enum would have given is recovered
 above the database even though the constraint is not enforced below it.
 
-If this is ever revisited, the argument *for* an enum is that `ACCESS_LOST` is a state
+If this is ever revisited, the argument _for_ an enum is that `ACCESS_LOST` is a state
 Phase 03+ transitions into automatically, and a typo in a background job would silently
 write a status nothing matches. The argument against is a migration touching a table
 that by then holds real rows. Not this phase's call.
@@ -228,12 +228,13 @@ cache incident becomes a logging incident, and how the one line that explains th
 gets buried under ten thousand copies of itself.
 
 Costs of the fallback, accepted knowingly:
+
 - Tokens stop being shared across replicas, so each replica mints its own. With a
   50-minute TTL that is at most ~1 mint per replica per installation per hour.
 - The in-memory cache dies with the process. Same bound.
 - `delete()` clears the in-memory copy **first**, so an explicit invalidation is never
   defeated by a stale local copy written during an outage.
-- `get()` consults the fallback on a Redis *miss* too, so a write made during an outage
+- `get()` consults the fallback on a Redis _miss_ too, so a write made during an outage
   is still readable after Redis recovers.
 
 ## 9. ETag cache — hand-rolled, because no maintained plugin exists
@@ -254,7 +255,7 @@ serve another's cached response. That is a data-leak bug, not a cache-tuning det
 
 **The plugin is registered FIRST, so its wrap is innermost.** `@octokit/request` throws
 on `304` rather than returning it (verified above), so the throw has to be converted back
-into a success *before* the retry plugin's error hook sees it. Registered outermost,
+into a success _before_ the retry plugin's error hook sees it. Registered outermost,
 every cache hit would have been retried as a failure. `304` is additionally added to the
 retry plugin's `doNotRetry` list — belt and braces, so a future reordering degrades to
 "no caching" rather than to "silently retries every cache hit."
@@ -279,7 +280,7 @@ The rule would have silently stopped covering the exact thing it was written to 
 (`**/src/github/**`, `**/github/client/*`, `**/github/services/*`) with its own message,
 plus a fixture at `apps/api/tests/fixtures/lint/rule-a-github-tree-violation.ts` and an
 assertion in `boundaries.test.ts` proving it fires. Module services under
-`apps/api/src/modules/**` are deliberately *not* in Rule A's `files` list, so they may
+`apps/api/src/modules/**` are deliberately _not_ in Rule A's `files` list, so they may
 still import the client — which is the point: routes and controllers delegate, services
 do the work.
 
@@ -296,7 +297,7 @@ now also normalizes the key (lowercase, separators stripped) and matches an exac
 (`authorization`, `cookie`, `setcookie`, `credentials`, `pem`) plus the suffixes `token`,
 `secret`, `password`, `passphrase`, `privatekey`, `apikey`.
 
-**A bare `key` is deliberately NOT redacted.** The token cache logs its *cache key* by
+**A bare `key` is deliberately NOT redacted.** The token cache logs its _cache key_ by
 design — it is a diagnostic derived from an installation id, not a secret — and
 redacting it would remove the only field that makes a cache log line useful.
 `apiKey`/`privateKey` are matched explicitly rather than by a blanket `*key` suffix.
@@ -310,7 +311,7 @@ across the success path, the cache-hit path, and all three failure paths.
 
 **JWT from `@octokit/auth-app`, exchange done here.** The App JWT is delegated (the
 prompt prefers it, and RS256 signing is not worth hand-rolling). The installation-token
-*exchange* is not, even though `auth-app` offers it — because `auth-app` keeps its own
+_exchange_ is not, even though `auth-app` offers it — because `auth-app` keeps its own
 in-memory LRU of installation tokens with its own expiry rules. That cache would sit
 underneath this module's Redis cache and quietly own the very expiry boundary §22
 requires us to test. Two caches with two expiry policies, one of them invisible, is how
@@ -323,19 +324,20 @@ be dead. `TOKEN_CACHE_TTL_SECONDS` is exported so the boundary test references t
 value the production path uses.
 
 That alone would let someone widen the margin to 60 minutes and still see green, so
-`app-auth.test.ts` *additionally* pins the constant's value and asserts it leaves ≥10
+`app-auth.test.ts` _additionally_ pins the constant's value and asserts it leaves ≥10
 minutes of headroom under GitHub's hour. Temporarily setting it to `60 * 60` was run and
 fails 4 tests — the check the prompt asks for.
 
 **Retry taxonomy** (phase-02 §12), all asserted:
+
 - 5xx or network error → 3 attempts total, backoff 250ms then 500ms, then a clean
   `ServiceUnavailableError`. Never hangs.
 - **401 → no retry**, `GithubAccessRevokedError`. A revoked installation does not become
   un-revoked by asking again.
-- **403/429 *with* rate-limit headers → `GithubRateLimitError`**, never revocation.
+- **403/429 _with_ rate-limit headers → `GithubRateLimitError`**, never revocation.
   Getting this backwards would mark healthy repositories `ACCESS_LOST` every time the App
   got busy.
-- 403/404 *without* rate-limit headers → suspended or gone → `GithubAccessRevokedError`.
+- 403/404 _without_ rate-limit headers → suspended or gone → `GithubAccessRevokedError`.
 - Any other 4xx → no retry (a request we got wrong does not improve on repetition).
 - A 2xx with no `token` field → `ServiceUnavailableError`, not revocation: it means we do
   not understand the response, which is a bug rather than a permission state.
@@ -343,14 +345,14 @@ fails 4 tests — the check the prompt asks for.
 **Two new `AppError` subclasses**, in `lib/errors.ts` beside the others (so Prompt 2's
 service layer imports them without reaching into the GitHub tree, which Rule A now
 guards). `GithubAccessRevokedError` is 403; `GithubRateLimitError` is **503, not 429** —
-the exhausted budget is *ours* against GitHub, not the caller's against this API, so
+the exhausted budget is _ours_ against GitHub, not the caller's against this API, so
 "you are sending too many requests" would be a false statement to the user.
 `details.retryAfterSeconds` carries the wait.
 
-**A rate-limited *mint* fails fast rather than sleeping.** GitHub's primary limit resets
+**A rate-limited _mint_ fails fast rather than sleeping.** GitHub's primary limit resets
 on a fixed hourly window, so `x-ratelimit-reset` can be an hour out. Sleeping that long
 inside a user-facing request holds the connection open for nothing. Ordinary API calls go
-through `octokit-factory`, which *does* schedule short waits — capped at
+through `octokit-factory`, which _does_ schedule short waits — capped at
 `MAX_RATE_LIMIT_WAIT_SECONDS` (30s) for the same reason.
 
 **Octokit authenticates per request, not per instance.** `octokit-factory` installs a
@@ -365,8 +367,8 @@ fresh token automatically. Costs nothing — the resolve is a cache read.
   `workflows`) and is entirely commented out. **CI is not running.** The five new Phase 02
   variables were added to its commented `env:` block with dummy values so the block stays
   accurate, and the "never echo these" comment was left intact. Neither the directory
-  name nor the commenting was changed. *This means nothing in this phase has been
-  verified by CI — only locally.*
+  name nor the commenting was changed. _This means nothing in this phase has been
+  verified by CI — only locally._
 - **`pnpm format:check` fails, and failed before this phase started.** 147 files were
   already unformatted at the inherited baseline; this phase's files bring it to ~152. The
   cause is a config conflict: `prettier.config.js` (`printWidth: 100`) uses
@@ -388,7 +390,7 @@ fresh token automatically. Costs nothing — the resolve is a cache read.
 ## 14. Outstanding — requires human action
 
 Blunt list, in the spirit of `phase-01-log.md` §13/§28. None of the following has been
-done, and none of it *can* be done from this environment:
+done, and none of it _can_ be done from this environment:
 
 - [ ] **No real GitHub App has been registered.** `docs/github-app-setup.md` is a runbook
       written against GitHub's documented registration flow; nobody has walked it.
@@ -410,7 +412,7 @@ done, and none of it *can* be done from this environment:
       the HTTP spec.
 - [ ] **CI has never run any of this** (see §13).
 
-What *has* been verified against something real: Redis (the `RedisTokenCache` was
+What _has_ been verified against something real: Redis (the `RedisTokenCache` was
 exercised against the live `redis:7-alpine` container — set with EX, read back, TTL
 confirmed at 5s, delete), Postgres (the migration and every `Repository` schema assertion
 ran against a real database), and the boot path (`apps/api` starts with the documented
@@ -419,14 +421,14 @@ when a Phase 02 variable is missing or the private key is mangled).
 
 ## 15. Commits in this prompt
 
-| Commit | Sub-task |
-|---|---|
+| Commit    | Sub-task                                              |
+| --------- | ----------------------------------------------------- |
 | `cc153d6` | Redis service, GitHub App env vars, config validation |
-| `6f0242e` | `Repository` model, `IndexStatus` enum, migration |
-| `0df5035` | `TokenCache` abstraction, Redis + in-memory backends |
-| `967929d` | `app-auth` token minting with caching and retry |
-| `59b3f03` | Octokit factory: retry, rate limiting, ETag caching |
-| `278c6ab` | GitHub App registration + permission rationale docs |
+| `6f0242e` | `Repository` model, `IndexStatus` enum, migration     |
+| `0df5035` | `TokenCache` abstraction, Redis + in-memory backends  |
+| `967929d` | `app-auth` token minting with caching and retry       |
+| `59b3f03` | Octokit factory: retry, rate limiting, ETag caching   |
+| `278c6ab` | GitHub App registration + permission rationale docs   |
 
 The expiry-boundary tests §22 asks for by name ship with `967929d` rather than in a
 separate commit — they test `app-auth.ts` and belong beside it; splitting them out would
@@ -463,16 +465,16 @@ binding for this work; entries here are binding for Prompt 3.
 Every command run against the tree as inherited from Prompt 1, before a line was
 changed:
 
-| Command | Result |
-|---|---|
-| `pnpm install` | Clean — "Already up to date", 6 workspace projects |
-| `pnpm db:generate` | Prisma Client 7.9.1 generated to `packages/db/src/generated` |
-| `pnpm lint` | Pass, 0 errors |
-| `pnpm typecheck` | Pass — 3 tasks (`api`, `web`, `worker`) |
-| `pnpm test:unit` | Pass — **13 files, 170 tests** |
-| `pnpm test:integration` | Pass — **6 files, 65 tests** (Testcontainers Postgres) |
-| `pnpm build` | Pass — 3 tasks |
-| `prisma migrate status` | "Database schema is up to date!", **3 migrations** found |
+| Command                 | Result                                                       |
+| ----------------------- | ------------------------------------------------------------ |
+| `pnpm install`          | Clean — "Already up to date", 6 workspace projects           |
+| `pnpm db:generate`      | Prisma Client 7.9.1 generated to `packages/db/src/generated` |
+| `pnpm lint`             | Pass, 0 errors                                               |
+| `pnpm typecheck`        | Pass — 3 tasks (`api`, `web`, `worker`)                      |
+| `pnpm test:unit`        | Pass — **13 files, 170 tests**                               |
+| `pnpm test:integration` | Pass — **6 files, 65 tests** (Testcontainers Postgres)       |
+| `pnpm build`            | Pass — 3 tasks                                               |
+| `prisma migrate status` | "Database schema is up to date!", **3 migrations** found     |
 
 `Repository` and `IndexStatus` are present in the generated client
 (`packages/db/src/generated/models/Repository`, `enums.ts`), and
@@ -503,8 +505,8 @@ under a soft-deleted project → `404 NOT_FOUND`, with the message `"Project not
 id names a repository. The distinction survives only in the `warn` log line
 (`MISSING` | `FOREIGN` | `DELETED` | `MISMATCH`).
 
-**403 is reserved for the genuinely different case in §12**: the caller *provably owns
-the project* and is being told the **GitHub App** cannot reach the repository they
+**403 is reserved for the genuinely different case in §12**: the caller _provably owns
+the project_ and is being told the **GitHub App** cannot reach the repository they
 named. That is not a leak — the user supplied the repository themselves, by typing its
 URL or picking it out of their own installation's list — and it is the only actionable
 answer ("check your installation settings"). It is raised by
@@ -528,7 +530,7 @@ reasoning, also written into `github.controller.ts`:
   GitHub does not reveal directly.
 - It is **not this system's identifier**. There is no per-tenant id space to enumerate;
   the ids exist whether or not this product ever saw them.
-- What is actually protected — the *repository names* the installation can see — stays
+- What is actually protected — the _repository names_ the installation can see — stays
   protected: the listing is only ever fetched for an installation the caller owns, and
   that check is server-side (`GithubInstallation.userId`), never trusted from client
   input (§13).
@@ -540,7 +542,7 @@ A project id has none of those properties, which is why the two answers differ.
 `emitRepositoryIndexRequested` **keeps Phase 01's fire-and-forget pattern**, and this
 was re-argued rather than copied — `emitProjectDeleted`'s reasoning ("a notification
 nobody consumes, measured at 5.3s of SDK backoff on a bad key") does not transfer
-automatically, because from Phase 03 onward this event is the *only* indexing trigger
+automatically, because from Phase 03 onward this event is the _only_ indexing trigger
 and a dropped one means a repository sits in `PENDING` forever.
 
 Kept anyway, on three grounds:
@@ -555,7 +557,7 @@ Kept anyway, on three grounds:
 3. **Awaiting would be a false guarantee.** A successful `send()` means Inngest accepted
    the event, not that a function ran. Only a transactional outbox makes delivery
    reliable — which `emitProjectDeleted`'s own comment already flags — and a half-measure
-   that *looks* like a guarantee is worse than an honest absence of one.
+   that _looks_ like a guarantee is worse than an honest absence of one.
 
 What changed from the Phase 01 pattern: the failure is logged at **`error`** with both
 `repositoryId` and `projectId` (§20 requires both on this path), and there is an
@@ -564,7 +566,7 @@ explicit `TODO(phase-03)` naming the outbox-plus-reconcile fix.
 ## 21. The noop function stays; the deletion moves to Phase 03
 
 `apps/worker/src/inngest/functions/noop.ts` said to delete it "once Phase 02 introduces
-the first real event". Phase 02 introduces the *event* but §8 is explicit that no
+the first real event". Phase 02 introduces the _event_ but §8 is explicit that no
 function consumes it until Phase 03.
 
 Deleting it now would leave the worker with **zero registered functions** — which
@@ -588,7 +590,7 @@ GET https://api.github.com/repos/torvalds/linux  →  "size": 6350863
 
 6,350,863 is ~6.06 GiB, which matches that project's packed git objects. It is
 inconsistent with bytes (6.3 MB) and with MB (6.3 TB). **The unit is KiB, and it is the
-*git* size — history included — not a working-tree checkout.**
+_git_ size — history included — not a working-tree checkout.**
 
 Consequences, both recorded in the constant's own doc comment:
 
@@ -618,12 +620,12 @@ repository that it is empty.
 
 The chosen combination:
 
-| Signal | Conclusion |
-|---|---|
-| `sizeKib > 0` | Has content. No probe, no extra call. |
-| `sizeKib === 0` **and** no default branch | Unambiguously empty. No probe. |
+| Signal                                            | Conclusion                                                                                                                                               |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sizeKib > 0`                                     | Has content. No probe, no extra call.                                                                                                                    |
+| `sizeKib === 0` **and** no default branch         | Unambiguously empty. No probe.                                                                                                                           |
 | `sizeKib === 0` **but** a default branch is named | **Ambiguous** — probe `GET /repos/{o}/{r}/branches/{default}`. A `404` on the ref, from a repository whose metadata just read successfully, means empty. |
-| Probe returns `UNKNOWN` (5xx) | Treated as **not empty**. |
+| Probe returns `UNKNOWN` (5xx)                     | Treated as **not empty**.                                                                                                                                |
 
 The `UNKNOWN` policy is deliberate and is the "do not reject a legitimate small repo"
 rule made concrete: a transient GitHub blip must not become "your repository is empty".
@@ -632,7 +634,7 @@ recoverable; being wrong the other way blocks a good repository, which is not.
 
 The probe is **off the happy path** — any repository with content never triggers it —
 so §21's rate-limit budget is untouched for every ordinary connect. §21's "one
-`GET /repos` per connect attempt" is preserved and is enforced *structurally*:
+`GET /repos` per connect attempt" is preserved and is enforced _structurally_:
 `repository-validation.service` receives the already-fetched metadata and imports no
 Octokit, no factory, and no fetching function, so re-fetching per sub-check is not a
 mistake that can be made there.
@@ -658,13 +660,13 @@ params into a child router by default: without it `req.params.projectId` is sile
 `repositories.routes.test.ts` asserts the projectId actually arrives, so dropping the
 flag fails a test rather than shipping.
 
-## 25. Resolving *which installation* to connect through — an under-specification in §7
+## 25. Resolving _which installation_ to connect through — an under-specification in §7
 
 §7's request body is `{ repoUrl?, githubRepoId? }` and carries **no installation id**,
 yet every repository call needs one. §13 forbids deriving it from anything the client
 submitted, so it is derived from the user's own `GithubInstallation` rows:
 
-- **URL path**: a GitHub App installation is *per account*, and the URL's owner segment
+- **URL path**: a GitHub App installation is _per account_, and the URL's owner segment
   names that account — so the installation whose `accountLogin` matches (case-insensitively,
   because GitHub account names are) is the only one that could have access. One lookup,
   no GitHub calls.
@@ -701,7 +703,7 @@ with the same fix.
   measure that makes "does not exist" and "you cannot see it" indistinguishable on the
   wire. Splitting them here would mean inventing a distinction the wire does not carry.
   The wrapper reports what it knows; the service decides what to tell the user.
-- **A `403` *with* rate-limit headers is `UNAVAILABLE`, never a permission answer.**
+- **A `403` _with_ rate-limit headers is `UNAVAILABLE`, never a permission answer.**
   Telling a user to reconfigure a working installation because GitHub was busy sends
   them to fix something that is not broken.
 - **`installation.repository.ts` is a sibling file, not more functions in
@@ -727,14 +729,14 @@ with the same fix.
 - **`markAccessLost` was built but is not reachable from this phase.** §12 says a
   brand-new connect attempt against a revoked installation simply rejects, with no row to
   mark. It exists because the transition is a property of the GitHub client this phase
-  owns, and Phase 03's background work is the first thing that can *be* running when
+  owns, and Phase 03's background work is the first thing that can _be_ running when
   access disappears. Its doc comment says exactly that.
 - **`RepositoryDetail.indexJob` is typed as literal `null`**, not `unknown`, so Phase 03
   widening it is a compile error at every call site — the same trick
   `ProjectDetail.repositories: never[]` used to force this phase's hand, and which is
   cashed in here.
 - **`ProjectDetail.repositories` is populated through the repositories module's
-  *service*, not its repository layer.** The projects module has no business knowing how
+  _service_, not its repository layer.** The projects module has no business knowing how
   repositories are stored, only how to ask for them.
 - **`connectionStatus` values that the column allows but the union does not fall back to
   `ACTIVE` on read** rather than throwing. The column is a plain `String` (§5), so a
@@ -762,22 +764,22 @@ Run against `docker compose` Postgres + Redis, `apps/api` on :4000, `apps/worker
 `Account` + `Project` + `GithubInstallation`. The `Account` carried a deliberately
 invalid OAuth token and the App private key in `.env` is not a real one — so **every
 GitHub call was guaranteed to fail**. That is the point: what is being proven is that
-each failure reaches the GitHub layer and comes back as a *distinct, correctly-shaped*
+each failure reaches the GitHub layer and comes back as a _distinct, correctly-shaped_
 error rather than a 500.
 
-| Request | Result |
-|---|---|
-| `GET /api/github/installations` — no cookie | **401** |
-| `GET /api/github/installations` — signed in | **401** `UNAUTHENTICATED`, "Your GitHub sign-in needs to be refreshed" — the invalid OAuth token was rejected by GitHub and mapped correctly |
-| `GET /api/github/installations/:owned/repos?q=hello` | **503** `SERVICE_UNAVAILABLE` — token mint failed on the fake private key |
-| `GET /api/github/installations/999999/repos` | **403** `FORBIDDEN`, "not available to your account" — ownership check fired *before* any GitHub call |
-| `POST …/repositories` `{repoUrl: "https://github.com.evil.com/o/r"}` | **400** `VALIDATION_ERROR`, `fieldErrors.repoUrl: ["That doesn't look like a GitHub repository URL"]` |
-| `POST …/repositories` with **both** fields | **400**, field-level message on both fields |
-| `POST …/repositories` `{repoUrl: ".../octocat/Hello-World"}` | **503** — resolved the installation, minted (failed), returned cleanly |
-| `POST …/repositories` `{repoUrl: ".../someoneelse/repo"}` | **403** with the installation-settings message |
-| `POST /api/projects/{foreign}/repositories` | **404** `"Project not found"` |
-| `GET`/`DELETE /api/repositories/nope` | **404** `"Project not found"` |
-| `GET /api/projects/:id` | **200**, `repositories: []` — the widened field serializes |
+| Request                                                              | Result                                                                                                                                       |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/github/installations` — no cookie                          | **401**                                                                                                                                      |
+| `GET /api/github/installations` — signed in                          | **401** `UNAUTHENTICATED`, "Your GitHub sign-in needs to be refreshed" — the invalid OAuth token was rejected by GitHub and mapped correctly |
+| `GET /api/github/installations/:owned/repos?q=hello`                 | **503** `SERVICE_UNAVAILABLE` — token mint failed on the fake private key                                                                    |
+| `GET /api/github/installations/999999/repos`                         | **403** `FORBIDDEN`, "not available to your account" — ownership check fired _before_ any GitHub call                                        |
+| `POST …/repositories` `{repoUrl: "https://github.com.evil.com/o/r"}` | **400** `VALIDATION_ERROR`, `fieldErrors.repoUrl: ["That doesn't look like a GitHub repository URL"]`                                        |
+| `POST …/repositories` with **both** fields                           | **400**, field-level message on both fields                                                                                                  |
+| `POST …/repositories` `{repoUrl: ".../octocat/Hello-World"}`         | **503** — resolved the installation, minted (failed), returned cleanly                                                                       |
+| `POST …/repositories` `{repoUrl: ".../someoneelse/repo"}`            | **403** with the installation-settings message                                                                                               |
+| `POST /api/projects/{foreign}/repositories`                          | **404** `"Project not found"`                                                                                                                |
+| `GET`/`DELETE /api/repositories/nope`                                | **404** `"Project not found"`                                                                                                                |
+| `GET /api/projects/:id`                                              | **200**, `repositories: []` — the widened field serializes                                                                                   |
 
 **No 500s. No hangs.** The token-mint retry behaved as Prompt 1 built it: three attempts
 at 250ms/500ms backoff, then a clean `ServiceUnavailableError` — visible in the log as
@@ -794,9 +796,15 @@ AsyncLocalStorage on every line including the request-completion line.
 `emitRepositoryIndexRequested` helper, the real client, and the real payload produced:
 
 ```json
-{"name": "repository/index.requested",
- "data": {"mode": "FULL", "projectId": "…", "reason": "connected",
-          "repositoryId": "…"}}
+{
+  "name": "repository/index.requested",
+  "data": {
+    "mode": "FULL",
+    "projectId": "…",
+    "reason": "connected",
+    "repositoryId": "…"
+  }
+}
 ```
 
 visible in the Dev Server, and `GET /v1/events/{id}/runs` returned **0 runs** —
@@ -817,7 +825,7 @@ Supersedes §14. Everything §14 listed is still outstanding except where noted.
       nobody has walked it.
 - [ ] **No repository has ever been connected end to end.** The success path —
       `Repository` row created, `indexStatus=PENDING`, `repository/index.requested`
-      emitted from the *route* rather than from a script — is unverified against real
+      emitted from the _route_ rather than from a script — is unverified against real
       GitHub. Everything about it is unit-tested against stubs.
 - [ ] **§14's manual verification list is entirely unrun**: the 403 for a repo the
       installation cannot see, the 422 for an empty repository, the 409 for a double
@@ -825,7 +833,7 @@ Supersedes §14. Everything §14 listed is still outstanding except where noted.
       met real GitHub.
 - [ ] **The empty-repository probe has never seen a real GitHub response.** The
       `size === 0` ambiguity and the `404`-on-a-branch signal (§23) are reasoned from
-      GitHub's documented behavior and tested against stubs. The *`size` unit itself* is
+      GitHub's documented behavior and tested against stubs. The _`size` unit itself_ is
       the one thing here that **was** verified against live GitHub (§22).
 - [ ] **`INNGEST_DEV` must be set in `apps/api/.env`** (§27). `.env` is untracked, so
       this cannot be done for you. Without it, every emitted event is silently dropped.
@@ -860,7 +868,7 @@ Stated plainly rather than complied with silently:
 5. **§9's table describes `GET /user/installations` as sending "OAuth session (to
    identify the user) → looked up against stored `GithubInstallation` rows"**, which
    reads as though the endpoint were a database lookup. It is a real GitHub call
-   authenticated with the user's OAuth *token*, and that token has to be read off the
+   authenticated with the user's OAuth _token_, and that token has to be read off the
    `Account` row — a detail §9 does not mention and which materially affects the design.
 6. **§6's `sizeBytes` column against GitHub's KiB `size` field** is a unit mismatch the
    phase document never acknowledges. Resolved in §22.
@@ -882,16 +890,16 @@ account of what still cannot be verified from here.
 
 Every command run against the tree as inherited from Prompt 2, before a line changed:
 
-| Command | Result |
-|---|---|
-| `pnpm install` | Clean — lockfile up to date, 6 workspace projects |
-| `pnpm db:generate` | Prisma Client 7.9.1 generated |
-| `pnpm lint` | Pass, 0 errors |
-| `pnpm typecheck` | Pass — 3 tasks |
-| `pnpm test:unit` | Pass — **19 files, 346 tests** |
-| `pnpm test:integration` | Pass — **6 files, 65 tests** |
-| `pnpm build` | Pass — 3 tasks |
-| `prisma migrate status` | Up to date, 3 migrations |
+| Command                 | Result                                            |
+| ----------------------- | ------------------------------------------------- |
+| `pnpm install`          | Clean — lockfile up to date, 6 workspace projects |
+| `pnpm db:generate`      | Prisma Client 7.9.1 generated                     |
+| `pnpm lint`             | Pass, 0 errors                                    |
+| `pnpm typecheck`        | Pass — 3 tasks                                    |
+| `pnpm test:unit`        | Pass — **19 files, 346 tests**                    |
+| `pnpm test:integration` | Pass — **6 files, 65 tests**                      |
+| `pnpm build`            | Pass — 3 tasks                                    |
+| `prisma migrate status` | Up to date, 3 migrations                          |
 
 All five API endpoints confirmed mounted; `repository/index.requested` confirmed
 declared with no consuming Inngest function (only `noop.ts` exists under
@@ -1007,7 +1015,7 @@ Read from the installed `@octokit/plugin-throttling@11.0.5`'s own source
 past clamps to `0` — the retry is real, goes through the real plugin, and costs no wall
 time. The whole file runs in well under half a second. This is worth contrasting with
 the **pre-existing** `octokit-factory.test.ts`'s rate-limit test (Prompt 1), which uses
-a reset one second in the *future* and genuinely sleeps for it — that file's two
+a reset one second in the _future_ and genuinely sleeps for it — that file's two
 slowest tests take ~1s and ~2s respectively. Not fixed here (it was not this sub-task's
 file, and touching Prompt 1's tests was not asked for), but flagged: it is exactly the
 "flakiest test in six months" pattern sub-task 3.2 warned against, and the fix (a
@@ -1018,7 +1026,7 @@ next touches that file.
 
 `repositories.test.ts` mocks `github/services/installation.github.js` and
 `repository.github.js` with `vi.mock`, the same boundary `emit.js` is already mocked at
-in `projects.test.ts` — not `nock`. Deliberate: the GitHub *client* (retry, rate
+in `projects.test.ts` — not `nock`. Deliberate: the GitHub _client_ (retry, rate
 limiting, ETag caching, token minting) already has its own dedicated, thorough fixture
 suite (§32/§34); re-exercising it through a real HTTP layer here as well would mean
 every integration test also carries the client's own concerns, coupling two suites
@@ -1035,7 +1043,7 @@ unit-level DTO mapper).
 role: `seedInstallation` writes a `GithubInstallation` row **directly via Prisma**,
 not through `GET /api/github/installations`'s sync route. That route's own
 correctness is not what this suite is testing — `repository.service.connectRepository`
-only ever reads the *stored* rows — so seeding them directly keeps this suite decoupled
+only ever reads the _stored_ rows — so seeding them directly keeps this suite decoupled
 from the sync flow, the same reasoning `seedSignedInUser` already uses for `Session`
 rows instead of running the OAuth dance. `githubRepoMetadata` is a small factory for a
 realistic `GithubRepositoryMetadata`, and `assertNoTokenPersisted` scans every
@@ -1070,18 +1078,18 @@ backend bug:**
    `projectOfA` is already unconditionally created for every test in this file). The
    FIRST version of the "POST rejects before any GitHub call" test asserted
    `getRepository` was never called — and failed, because the mock's call history from
-   *setup's own* connect call was still there. Fixed with an explicit `mockClear()`
+   _setup's own_ connect call was still there. Fixed with an explicit `mockClear()`
    (history only, not queued implementations) at the end of `beforeEach`, after setup's
    own use of the mock completes.
 2. The first version of "user B's installations list only contains user B's own"
    mocked `listUserInstallations` to return an **empty** array for B, expecting the
    already-directly-seeded `installationOfB` row to show up anyway. It didn't —
-   `repository.service.syncInstallations` returns what *that sync call* found, not a
+   `repository.service.syncInstallations` returns what _that sync call_ found, not a
    raw re-read of every stored row (`repositoryService.listInstallations`, the
    store-only-read function, exists but the controller does not call it — see §37 for
    why that is correct behavior, not a bug). In production this distinction is
    invisible, because `listUserInstallations` always returns GitHub's complete,
-   fully-paginated current list — a sync genuinely finding *nothing* for an
+   fully-paginated current list — a sync genuinely finding _nothing_ for an
    installation that still exists is not a real scenario. Fixed by having the mock
    **confirm** B's already-seeded installation (matching what would actually happen),
    which is also the more honest test of the scoping property: A's installation is
@@ -1120,7 +1128,7 @@ one place it can be wrong.
 **A secondary, smaller decision inside sub-task 3.5:** `listInstallations()` in
 `apps/web/src/lib/api.ts` treats a `401` from `GET /api/github/installations` as a
 typed `{ ok: false, reason: "UNAUTHENTICATED" }` result, not a throw. This 401 is real
-and distinct from an invalid *session* (which never reaches this call —
+and distinct from an invalid _session_ (which never reaches this call —
 `(app)/layout.tsx` already redirected before this page renders): it means the user's
 stored GitHub OAuth token is missing or was revoked
 (`repository.service.ts`'s `syncInstallations`), which is an expected, actionable
@@ -1142,7 +1150,7 @@ sync again." `ConnectRepositoryDialog` receives the same server-fetched
 `installations` array as a prop rather than re-fetching it, so opening the dialog can
 never show a different installation list than the page around it already does.
 
-The **picker's search** is the one place this phase's UI *does* fetch client-side
+The **picker's search** is the one place this phase's UI _does_ fetch client-side
 (`fetch` directly against `API_URL`, `credentials: "include"`, matching
 `create-project-dialog.tsx`'s established pattern) — it has to, since it is debounced,
 interactive, and scoped to whichever installation is currently selected in the dialog,
@@ -1156,7 +1164,7 @@ suppression — it was restructuring so that no `setState` call happens synchron
 the effect body at all: `queryResult` is written only from inside the fetch's own
 `.then()`/`.catch()` callbacks, tagged with the query key it resolves; "loading" is
 then a **derived** comparison (`queryResult?.key !== currentKey`) rather than its own
-piece of state, true by construction until a result for the *current* key has actually
+piece of state, true by construction until a result for the _current_ key has actually
 landed. Recorded because it is a genuine, fairly recent React-ecosystem constraint —
 not obvious from the phase document or from general React knowledge predating the
 React Compiler's linting — and the pattern (derive "in flight" from a tagged
@@ -1186,7 +1194,7 @@ honest outcome, not because it was expected going in — sub-task 3.3's own inst
 note that tests "will find backend bugs" as the reason they come before the frontend;
 this time they didn't, and that is worth recording rather than silently omitting.
 
-Three issues *were* found and fixed, all in work written during this prompt itself,
+Three issues _were_ found and fixed, all in work written during this prompt itself,
 not inherited:
 
 1. A stale hardcoded `expires_at` in a fixture (§32).
@@ -1212,15 +1220,15 @@ never a 500 or a hang.
 
 phase-02 §14's Manual Verification steps, walked as far as this environment allows:
 
-| # | Step | Result |
-|---|---|---|
-| 1 | Install the App on a test account with 2–3 repos | **Blocked** — no real GitHub App exists here (unchanged from Prompts 1/2) |
-| 2 | Connect one repository; confirm `indexStatus=PENDING` | **Done, with a caveat.** The full HTTP → validation → GitHub-client chain was exercised live and correctly fails at the GitHub layer (403/503, matching Prompt 2's §28) since there is no real App to succeed against. A **successful** connect — through the real UI, against a real repository — was proven by (a) the automated integration suite (98 tests, real Postgres, GitHub mocked) creating a real `PENDING` row through the real HTTP stack, and (b) directly seeding a `Repository` row and confirming, live, that the project page renders it correctly ("Waiting to be indexed", correct badges, correct disconnect action) — see §41 for what the seeded-vs-real distinction does and does not prove |
-| 3 | Connect a repository the installation lacks access to (by id); confirm 403 | **Done** for the URL-owner-mismatch case, live (`someone-else/their-repo` → 403 `NO_ACCESS_MESSAGE`); done for the id-path and the GitHub-reports-inaccessible case via the fixture and integration suites. Real GitHub returning a genuine 404-for-a-repo-it-can't-see is unreachable without a real installation |
-| 4 | Connect an empty repository; confirm 422 | **Done via the fixture and integration suites** (both the unambiguous and the ambiguous-with-probe cases); unreachable live without a real empty GitHub repository |
-| 5 | Connect the same repository to the same project twice; confirm 409 | **Done via the integration suite**, including under real `Promise.all` concurrency against a real unique constraint |
-| 6 | Connect the same repository to two different projects; confirm both succeed | **Done via the integration and cross-tenant suites** — including the dual-project case across two different *users*, which is the stricter version of this check |
-| 7 | Disconnect a repository; confirm `connectionStatus=DISCONNECTED` and it leaves the active list | **Done live**: seeded a repository, curled `DELETE` against the running server, confirmed the row's `connectionStatus` and its disappearance from `GET /api/projects/:id`'s `repositories` array, confirmed a repeat `DELETE` is still `202` and does not move `updatedAt` again |
+| #   | Step                                                                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Install the App on a test account with 2–3 repos                                               | **Blocked** — no real GitHub App exists here (unchanged from Prompts 1/2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 2   | Connect one repository; confirm `indexStatus=PENDING`                                          | **Done, with a caveat.** The full HTTP → validation → GitHub-client chain was exercised live and correctly fails at the GitHub layer (403/503, matching Prompt 2's §28) since there is no real App to succeed against. A **successful** connect — through the real UI, against a real repository — was proven by (a) the automated integration suite (98 tests, real Postgres, GitHub mocked) creating a real `PENDING` row through the real HTTP stack, and (b) directly seeding a `Repository` row and confirming, live, that the project page renders it correctly ("Waiting to be indexed", correct badges, correct disconnect action) — see §41 for what the seeded-vs-real distinction does and does not prove |
+| 3   | Connect a repository the installation lacks access to (by id); confirm 403                     | **Done** for the URL-owner-mismatch case, live (`someone-else/their-repo` → 403 `NO_ACCESS_MESSAGE`); done for the id-path and the GitHub-reports-inaccessible case via the fixture and integration suites. Real GitHub returning a genuine 404-for-a-repo-it-can't-see is unreachable without a real installation                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 4   | Connect an empty repository; confirm 422                                                       | **Done via the fixture and integration suites** (both the unambiguous and the ambiguous-with-probe cases); unreachable live without a real empty GitHub repository                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 5   | Connect the same repository to the same project twice; confirm 409                             | **Done via the integration suite**, including under real `Promise.all` concurrency against a real unique constraint                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 6   | Connect the same repository to two different projects; confirm both succeed                    | **Done via the integration and cross-tenant suites** — including the dual-project case across two different _users_, which is the stricter version of this check                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 7   | Disconnect a repository; confirm `connectionStatus=DISCONNECTED` and it leaves the active list | **Done live**: seeded a repository, curled `DELETE` against the running server, confirmed the row's `connectionStatus` and its disappearance from `GET /api/projects/:id`'s `repositories` array, confirmed a repeat `DELETE` is still `202` and does not move `updatedAt` again                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 **What "done live" does and does not prove**, stated once rather than repeated seven
 times above: it proves the code path from an HTTP request through the real running
@@ -1361,7 +1369,7 @@ and Prompt 3 does not change that.
       firing correctly in a real browser. The Claude-in-Chrome connection was offered
       and declined for this session.
 - [ ] **Token caching against real GitHub is still unverified** — Prompt 1's boundary
-      tests and this prompt's fixture harness both prove the *logic* is correct against
+      tests and this prompt's fixture harness both prove the _logic_ is correct against
       a fake or a schema-derived response; neither is real GitHub confirming that two
       calls in quick succession genuinely reuse one token, or that a call past 50
       minutes genuinely re-mints, against the real service.
@@ -1409,15 +1417,15 @@ own list since these are Prompt 3's own findings:
 
 ## 45. Commits in this prompt
 
-| Commit | Sub-task |
-|---|---|
-| `32ad3e5` | Sanitized GitHub API fixtures and mocking harness |
+| Commit    | Sub-task                                                        |
+| --------- | --------------------------------------------------------------- |
+| `32ad3e5` | Sanitized GitHub API fixtures and mocking harness               |
 | `5eb4794` | GitHub client fixture tests for caching, retry, and rate limits |
-| `cf5d6c8` | Repository connect integration tests |
-| `f91d73f` | Cross-tenant test extension for repositories |
-| `9d56cb3` | GitHub App install entry point and installations list |
-| `bbe82d6` | Repository picker, connect dialog, and repository card |
-| `0aa0213` | Setup, deployment, and environment documentation |
+| `cf5d6c8` | Repository connect integration tests                            |
+| `f91d73f` | Cross-tenant test extension for repositories                    |
+| `9d56cb3` | GitHub App install entry point and installations list           |
+| `bbe82d6` | Repository picker, connect dialog, and repository card          |
+| `0aa0213` | Setup, deployment, and environment documentation                |
 
 (This closeout commit follows.)
 
@@ -1428,27 +1436,27 @@ Nothing below is marked "met" that was not actually observed — see §40/§41 f
 
 ### §15 Acceptance Criteria
 
-| # | Criterion | Status | Basis |
-|---|---|---|---|
-| 1 | User can install the App and see installations listed | **Met with caveat** | UI built and SSR-verified (empty state, error state, list rendering, the install link's URL structure); the real GitHub install click-through is unverified — no App exists |
-| 2 | User can search and select a repository from the picker | **Met with caveat** | Picker built, typechecked, built, SSR-rendered; interactive search/selection unverified — no browser available this session |
-| 3 | Connecting a valid repository creates `indexStatus=PENDING` | **Met** | Integration tests (real Postgres) + a live seeded-and-rendered row |
-| 4 | Four invalid-connection cases produce distinct errors | **Met** | Integration tests + live curl smoke pass, all four codes/messages confirmed distinct |
-| 5 | Same repository, two different projects, independently | **Met** | Integration test + cross-tenant test (the stricter cross-*user* version) |
-| 6 | Same repository twice, same project → 409, no duplicate | **Met** | Integration test, including under real concurrency |
-| 7 | Disconnect sets `connectionStatus=DISCONNECTED` | **Met** | Integration tests + a live `DELETE` against the running server |
-| 8 | Installation tokens never persisted or logged | **Met** | Unit tests (every success/failure path, both client-layer suites) + integration structural scan (`assertNoTokenPersisted`) |
-| 9 | `repository/index.requested` emitted with correct payload | **Met** | Unit test + integration assertion + a real (manually triggered) event observed in the Inngest Dev Server with the exact documented shape |
-| 10 | User B cannot view/connect/disconnect User A's repositories | **Met** | `cross-tenant.test.ts`, extended this prompt, fully green |
+| #   | Criterion                                                   | Status              | Basis                                                                                                                                                                       |
+| --- | ----------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | User can install the App and see installations listed       | **Met with caveat** | UI built and SSR-verified (empty state, error state, list rendering, the install link's URL structure); the real GitHub install click-through is unverified — no App exists |
+| 2   | User can search and select a repository from the picker     | **Met with caveat** | Picker built, typechecked, built, SSR-rendered; interactive search/selection unverified — no browser available this session                                                 |
+| 3   | Connecting a valid repository creates `indexStatus=PENDING` | **Met**             | Integration tests (real Postgres) + a live seeded-and-rendered row                                                                                                          |
+| 4   | Four invalid-connection cases produce distinct errors       | **Met**             | Integration tests + live curl smoke pass, all four codes/messages confirmed distinct                                                                                        |
+| 5   | Same repository, two different projects, independently      | **Met**             | Integration test + cross-tenant test (the stricter cross-_user_ version)                                                                                                    |
+| 6   | Same repository twice, same project → 409, no duplicate     | **Met**             | Integration test, including under real concurrency                                                                                                                          |
+| 7   | Disconnect sets `connectionStatus=DISCONNECTED`             | **Met**             | Integration tests + a live `DELETE` against the running server                                                                                                              |
+| 8   | Installation tokens never persisted or logged               | **Met**             | Unit tests (every success/failure path, both client-layer suites) + integration structural scan (`assertNoTokenPersisted`)                                                  |
+| 9   | `repository/index.requested` emitted with correct payload   | **Met**             | Unit test + integration assertion + a real (manually triggered) event observed in the Inngest Dev Server with the exact documented shape                                    |
+| 10  | User B cannot view/connect/disconnect User A's repositories | **Met**             | `cross-tenant.test.ts`, extended this prompt, fully green                                                                                                                   |
 
 ### §16 Definition of Done
 
-| Item | Status | Basis |
-|---|---|---|
-| Code: registration doc, `app-auth.ts`, `octokit-factory.ts`, validation service, `connect()`, all routes, connect UI | **Met** | All present; UI added this prompt |
-| DB migrations: `Repository` migrated cleanly; `GithubInstallation` populated on install | **Met with caveat** | Migration clean (`migrate status` confirmed repeatedly); population logic proven correct by tests and direct verification, never by a real GitHub install webhook/sync |
-| Tests: all §14 items green, including extended cross-tenant | **Met with caveat** | Every automatable item is green (99 integration + 377 unit tests); the manual-verification items requiring real GitHub (§14 steps 1, and the real-GitHub half of 3/4) are blocked, not green — see §40's table |
-| Environment variables: GitHub App credentials documented (§19) | **Met** | `.env.example`, `github-app-setup.md`, `deployment.md` |
-| Documentation: permission rationale for customers | **Met** | `docs/github-app-permissions.md`, verified against the setup runbook this prompt |
-| Observability: `installationId`/`repositoryId` on every log line | **Met** | Verified against real emitted output (§40), not only against the code |
-| Verification: real App, real install, repository connected end-to-end **in staging** | **Requires human action** | No staging environment exists (outstanding since Phase 00); no real App is registered. Cannot be met from this or any prior prompt's environment |
+| Item                                                                                                                 | Status                    | Basis                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code: registration doc, `app-auth.ts`, `octokit-factory.ts`, validation service, `connect()`, all routes, connect UI | **Met**                   | All present; UI added this prompt                                                                                                                                                                              |
+| DB migrations: `Repository` migrated cleanly; `GithubInstallation` populated on install                              | **Met with caveat**       | Migration clean (`migrate status` confirmed repeatedly); population logic proven correct by tests and direct verification, never by a real GitHub install webhook/sync                                         |
+| Tests: all §14 items green, including extended cross-tenant                                                          | **Met with caveat**       | Every automatable item is green (99 integration + 377 unit tests); the manual-verification items requiring real GitHub (§14 steps 1, and the real-GitHub half of 3/4) are blocked, not green — see §40's table |
+| Environment variables: GitHub App credentials documented (§19)                                                       | **Met**                   | `.env.example`, `github-app-setup.md`, `deployment.md`                                                                                                                                                         |
+| Documentation: permission rationale for customers                                                                    | **Met**                   | `docs/github-app-permissions.md`, verified against the setup runbook this prompt                                                                                                                               |
+| Observability: `installationId`/`repositoryId` on every log line                                                     | **Met**                   | Verified against real emitted output (§40), not only against the code                                                                                                                                          |
+| Verification: real App, real install, repository connected end-to-end **in staging**                                 | **Requires human action** | No staging environment exists (outstanding since Phase 00); no real App is registered. Cannot be met from this or any prior prompt's environment                                                               |

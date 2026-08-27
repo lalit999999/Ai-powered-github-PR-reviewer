@@ -111,7 +111,9 @@ export interface ProjectDetail {
 
 /** `null` means "not yours, or gone" — the API answers 404 for both, deliberately
  * (see requireTenantAccess in apps/api). */
-export async function getProjectDetail(projectId: string): Promise<ProjectDetail | null> {
+export async function getProjectDetail(
+  projectId: string,
+): Promise<ProjectDetail | null> {
   const res = await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`);
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -195,8 +197,12 @@ export interface RepositoryDetail {
 
 /** `null` means "not yours, or gone" — same 404-for-both convention as
  * `getProjectDetail`. */
-export async function getRepository(repositoryId: string): Promise<RepositoryDetail | null> {
-  const res = await apiFetch(`/api/repositories/${encodeURIComponent(repositoryId)}`);
+export async function getRepository(
+  repositoryId: string,
+): Promise<RepositoryDetail | null> {
+  const res = await apiFetch(
+    `/api/repositories/${encodeURIComponent(repositoryId)}`,
+  );
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Could not load repository (${res.status})`);
@@ -226,8 +232,12 @@ export interface IndexStatus {
 }
 
 /** `null` means "not yours, or gone" — same 404-for-both convention as `getRepository`. */
-export async function getIndexStatus(repositoryId: string): Promise<IndexStatus | null> {
-  const res = await apiFetch(`/api/repositories/${encodeURIComponent(repositoryId)}/index-status`);
+export async function getIndexStatus(
+  repositoryId: string,
+): Promise<IndexStatus | null> {
+  const res = await apiFetch(
+    `/api/repositories/${encodeURIComponent(repositoryId)}/index-status`,
+  );
   if (res.status === 404) return null;
   if (!res.ok) {
     throw new Error(`Could not load index status (${res.status})`);

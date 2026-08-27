@@ -37,7 +37,9 @@ const logger = createLogger("inngest.emit");
  * response depend on Inngest's availability. Flagged here so that decision is a
  * deliberate one.
  */
-export async function emitProjectDeleted(data: ProjectDeletedData): Promise<void> {
+export async function emitProjectDeleted(
+  data: ProjectDeletedData,
+): Promise<void> {
   try {
     await inngest.send({ name: PROJECT_DELETED, data });
   } catch (err) {
@@ -95,7 +97,9 @@ export async function emitProjectDeleted(data: ProjectDeletedData): Promise<void
  * `stale-index-sweeper.ts`'s own header comment for why the sweep alone is this phase's
  * scope and the outbox is not, and docs/decisions/phase-03-log.md for the fuller record.
  */
-export async function emitRepositoryIndexRequested(data: RepositoryIndexRequestedData): Promise<void> {
+export async function emitRepositoryIndexRequested(
+  data: RepositoryIndexRequestedData,
+): Promise<void> {
   try {
     await inngest.send({ name: REPOSITORY_INDEX_REQUESTED, data });
   } catch (err) {

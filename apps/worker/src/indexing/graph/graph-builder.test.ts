@@ -28,30 +28,39 @@ const deleteCodeSymbolsByRepository = vi.fn(async (_repositoryId: string) => {
 });
 vi.mock("../persistence/code-symbol.repository.js", () => ({
   insertCodeSymbols: (rows: CodeSymbolInsertInput[]) => insertCodeSymbols(rows),
-  deleteCodeSymbolsByRepository: (repositoryId: string) => deleteCodeSymbolsByRepository(repositoryId),
+  deleteCodeSymbolsByRepository: (repositoryId: string) =>
+    deleteCodeSymbolsByRepository(repositoryId),
 }));
 
 const insertedEdges: CodeDependencyInsertInput[] = [];
-const insertCodeDependencies = vi.fn(async (rows: CodeDependencyInsertInput[]) => {
-  callOrder.push("insertCodeDependencies");
-  insertedEdges.push(...rows);
-  const counts: Record<string, Record<string, number>> = {};
-  for (const row of rows) {
-    counts[row.kind] ??= {};
-    counts[row.kind]![row.resolution] = (counts[row.kind]![row.resolution] ?? 0) + 1;
-  }
-  return counts;
-});
-const deleteCodeDependenciesByRepository = vi.fn(async (_repositoryId: string) => {
-  callOrder.push("deleteCodeDependenciesByRepository");
-  return 0;
-});
+const insertCodeDependencies = vi.fn(
+  async (rows: CodeDependencyInsertInput[]) => {
+    callOrder.push("insertCodeDependencies");
+    insertedEdges.push(...rows);
+    const counts: Record<string, Record<string, number>> = {};
+    for (const row of rows) {
+      counts[row.kind] ??= {};
+      counts[row.kind]![row.resolution] =
+        (counts[row.kind]![row.resolution] ?? 0) + 1;
+    }
+    return counts;
+  },
+);
+const deleteCodeDependenciesByRepository = vi.fn(
+  async (_repositoryId: string) => {
+    callOrder.push("deleteCodeDependenciesByRepository");
+    return 0;
+  },
+);
 vi.mock("../persistence/code-dependency.repository.js", () => ({
-  insertCodeDependencies: (rows: CodeDependencyInsertInput[]) => insertCodeDependencies(rows),
-  deleteCodeDependenciesByRepository: (repositoryId: string) => deleteCodeDependenciesByRepository(repositoryId),
+  insertCodeDependencies: (rows: CodeDependencyInsertInput[]) =>
+    insertCodeDependencies(rows),
+  deleteCodeDependenciesByRepository: (repositoryId: string) =>
+    deleteCodeDependenciesByRepository(repositoryId),
 }));
 
-const { buildKnowledgeGraph, batchSizeForAttempt } = await import("./graph-builder.js");
+const { buildKnowledgeGraph, batchSizeForAttempt } =
+  await import("./graph-builder.js");
 
 function noopLogger() {
   return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -62,7 +71,11 @@ afterEach(async () => {
   vi.clearAllMocks();
   callOrder.length = 0;
   insertedEdges.length = 0;
-  await Promise.all(tempRoots.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempRoots
+      .splice(0)
+      .map((dir) => fs.rm(dir, { recursive: true, force: true })),
+  );
 });
 
 async function makeTempRoot(): Promise<string> {
@@ -71,7 +84,11 @@ async function makeTempRoot(): Promise<string> {
   return dir;
 }
 
-async function writeFile(rootDir: string, relativePath: string, content: string): Promise<void> {
+async function writeFile(
+  rootDir: string,
+  relativePath: string,
+  content: string,
+): Promise<void> {
   const full = path.join(rootDir, relativePath);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, content, "utf8");
@@ -95,40 +112,77 @@ async function setupFixture(files: FixtureFile[]) {
     files.map((f) => f.path),
   );
 
-  const graphFiles = files.map((f, i) => ({ id: `file-${i.toString()}`, path: f.path, indexState: "INDEXED" as const, isTest: f.isTest ?? false }));
+  const graphFiles = files.map((f, i) => ({
+    id: `file-${i.toString()}`,
+    path: f.path,
+    indexState: "INDEXED" as const,
+    isTest: f.isTest ?? false,
+  }));
 
   return { rootDir, repoContext, graphFiles };
 }
 
-const BASE_OPTIONS = { repositoryId: "repo-1", commitSha: "sha1", attempt: 0, logger: noopLogger() as never };
+const BASE_OPTIONS = {
+  repositoryId: "repo-1",
+  commitSha: "sha1",
+  attempt: 0,
+  logger: noopLogger() as never,
+};
 
 describe("buildKnowledgeGraph — happy path", () => {
   it("extracts symbols, resolves a same-file/cross-file CALLS edge, EXTENDS, IMPORTS (RESOLVED/EXTERNAL/UNRESOLVED), and TESTS edges", async () => {
     const { rootDir, repoContext, graphFiles } = await setupFixture([
-      { path: "src/util.ts", content: "export function helper(): number {\n  return 1;\n}\n" },
+      {
+        path: "src/util.ts",
+        content: "export function helper(): number {\n  return 1;\n}\n",
+      },
       {
         path: "src/caller.ts",
-        content: 'import { helper } from "./util.js";\n\nexport function useHelper(): number {\n  return helper();\n}\n',
+        content:
+          'import { helper } from "./util.js";\n\nexport function useHelper(): number {\n  return helper();\n}\n',
       },
-      { path: "src/base.ts", content: "export class Base {\n  greet(): string {\n    return \"hi\";\n  }\n}\n" },
-      { path: "src/derived.ts", content: 'import { Base } from "./base.js";\n\nexport class Derived extends Base {}\n' },
-      { path: "src/uses-external.ts", content: 'import { z } from "zod";\n\nexport function useZod() {\n  return z;\n}\n' },
-      { path: "src/uses-unresolved.ts", content: 'import { thing } from "./does-not-exist.js";\n\nexport function useThing() {\n  return thing;\n}\n' },
+      {
+        path: "src/base.ts",
+        content:
+          'export class Base {\n  greet(): string {\n    return "hi";\n  }\n}\n',
+      },
+      {
+        path: "src/derived.ts",
+        content:
+          'import { Base } from "./base.js";\n\nexport class Derived extends Base {}\n',
+      },
+      {
+        path: "src/uses-external.ts",
+        content:
+          'import { z } from "zod";\n\nexport function useZod() {\n  return z;\n}\n',
+      },
+      {
+        path: "src/uses-unresolved.ts",
+        content:
+          'import { thing } from "./does-not-exist.js";\n\nexport function useThing() {\n  return thing;\n}\n',
+      },
       {
         path: "src/caller.test.ts",
-        content: 'import { useHelper } from "./caller.js";\n\nexport function runTest() {\n  return useHelper();\n}\n',
+        content:
+          'import { useHelper } from "./caller.js";\n\nexport function runTest() {\n  return useHelper();\n}\n',
         isTest: true,
       },
     ]);
 
-    const result = await buildKnowledgeGraph({ ...BASE_OPTIONS, rootDir, repoContext, files: graphFiles });
+    const result = await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      rootDir,
+      repoContext,
+      files: graphFiles,
+    });
 
     expect(result.filesParsedOk).toBe(7);
     expect(result.parseFailureCount).toBe(0);
     expect(result.symbolsCreated).toBeGreaterThan(0);
     expect(result.edgesCreated).toBeGreaterThan(0);
 
-    const byKind = (kind: string) => insertedEdges.filter((e) => e.kind === kind);
+    const byKind = (kind: string) =>
+      insertedEdges.filter((e) => e.kind === kind);
 
     // CALLS: useHelper -> helper, and runTest -> useHelper (from caller.test.ts).
     expect(byKind("CALLS")).toHaveLength(2);
@@ -139,9 +193,21 @@ describe("buildKnowledgeGraph — happy path", () => {
 
     // IMPORTS across all three resolutions.
     const imports = byKind("IMPORTS");
-    expect(imports.some((e) => e.resolution === "RESOLVED" && e.toFileId !== null)).toBe(true);
-    expect(imports.some((e) => e.resolution === "EXTERNAL" && e.externalPackage === "zod")).toBe(true);
-    expect(imports.some((e) => e.resolution === "UNRESOLVED" && e.rawSpecifier === "./does-not-exist.js")).toBe(true);
+    expect(
+      imports.some((e) => e.resolution === "RESOLVED" && e.toFileId !== null),
+    ).toBe(true);
+    expect(
+      imports.some(
+        (e) => e.resolution === "EXTERNAL" && e.externalPackage === "zod",
+      ),
+    ).toBe(true);
+    expect(
+      imports.some(
+        (e) =>
+          e.resolution === "UNRESOLVED" &&
+          e.rawSpecifier === "./does-not-exist.js",
+      ),
+    ).toBe(true);
 
     // TESTS: caller.test.ts -> caller.ts (not to any test file).
     const tests = byKind("TESTS");
@@ -152,11 +218,20 @@ describe("buildKnowledgeGraph — happy path", () => {
   });
 
   it("deletes edges before symbols (full-replace ordering)", async () => {
-    const { rootDir, repoContext, graphFiles } = await setupFixture([{ path: "src/a.ts", content: "export const x = 1;\n" }]);
+    const { rootDir, repoContext, graphFiles } = await setupFixture([
+      { path: "src/a.ts", content: "export const x = 1;\n" },
+    ]);
 
-    await buildKnowledgeGraph({ ...BASE_OPTIONS, rootDir, repoContext, files: graphFiles });
+    await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      rootDir,
+      repoContext,
+      files: graphFiles,
+    });
 
-    const deleteEdgesIdx = callOrder.indexOf("deleteCodeDependenciesByRepository");
+    const deleteEdgesIdx = callOrder.indexOf(
+      "deleteCodeDependenciesByRepository",
+    );
     const deleteSymbolsIdx = callOrder.indexOf("deleteCodeSymbolsByRepository");
     expect(deleteEdgesIdx).toBeGreaterThanOrEqual(0);
     expect(deleteSymbolsIdx).toBeGreaterThanOrEqual(0);
@@ -167,27 +242,59 @@ describe("buildKnowledgeGraph — happy path", () => {
 describe("buildKnowledgeGraph — a single malformed file cannot fail the run", () => {
   it("marks the malformed file FAILED, still extracts symbols from every other file, and never throws", async () => {
     const { rootDir, repoContext, graphFiles } = await setupFixture([
-      { path: "src/ok.ts", content: "export function fine(): number {\n  return 1;\n}\n" },
+      {
+        path: "src/ok.ts",
+        content: "export function fine(): number {\n  return 1;\n}\n",
+      },
       // The exact malformed fixture prompt 2's own golden-file suite verified crosses the
       // 10% error-node tolerance ratio (docs/decisions/phase-04-log.md, Prompt 2 §5).
-      { path: "src/broken.ts", content: "// deliberately broken (§14)\nexport function calculateTotal(items {\n  return items" },
+      {
+        path: "src/broken.ts",
+        content:
+          "// deliberately broken (§14)\nexport function calculateTotal(items {\n  return items",
+      },
     ]);
 
-    const result = await buildKnowledgeGraph({ ...BASE_OPTIONS, rootDir, repoContext, files: graphFiles });
+    const result = await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      rootDir,
+      repoContext,
+      files: graphFiles,
+    });
 
     expect(result.parseFailureCount).toBe(1);
     expect(result.filesParsedOk).toBe(1);
     // The healthy file's symbol still made it through.
-    const symbolCalls = insertCodeSymbols.mock.calls.flatMap(([rows]) => rows as CodeSymbolInsertInput[]);
+    const symbolCalls = insertCodeSymbols.mock.calls.flatMap(
+      ([rows]) => rows as CodeSymbolInsertInput[],
+    );
     expect(symbolCalls.some((s) => s.name === "fine")).toBe(true);
     expect(symbolCalls.some((s) => s.name === "calculateTotal")).toBe(false);
   });
 
   it("continues past a file that cannot even be read from disk", async () => {
-    const { rootDir, repoContext, graphFiles } = await setupFixture([{ path: "src/ok.ts", content: "export function fine(): number {\n  return 1;\n}\n" }]);
-    const brokenFiles = [...graphFiles, { id: "file-missing", path: "src/missing.ts", indexState: "INDEXED" as const, isTest: false }];
+    const { rootDir, repoContext, graphFiles } = await setupFixture([
+      {
+        path: "src/ok.ts",
+        content: "export function fine(): number {\n  return 1;\n}\n",
+      },
+    ]);
+    const brokenFiles = [
+      ...graphFiles,
+      {
+        id: "file-missing",
+        path: "src/missing.ts",
+        indexState: "INDEXED" as const,
+        isTest: false,
+      },
+    ];
 
-    const result = await buildKnowledgeGraph({ ...BASE_OPTIONS, rootDir, repoContext, files: brokenFiles });
+    const result = await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      rootDir,
+      repoContext,
+      files: brokenFiles,
+    });
 
     expect(result.parseFailureCount).toBe(1);
     expect(result.filesParsedOk).toBe(1);
@@ -199,9 +306,21 @@ describe("buildKnowledgeGraph — NOT_PARSED files", () => {
     const rootDir = await makeTempRoot();
     await writeFile(rootDir, "README.md", "# hello\n");
     const repoContext = await buildRepoContext(rootDir, ["README.md"]);
-    const files = [{ id: "file-readme", path: "README.md", indexState: "INDEXED" as const, isTest: false }];
+    const files = [
+      {
+        id: "file-readme",
+        path: "README.md",
+        indexState: "INDEXED" as const,
+        isTest: false,
+      },
+    ];
 
-    const result = await buildKnowledgeGraph({ ...BASE_OPTIONS, rootDir, repoContext, files });
+    const result = await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      rootDir,
+      repoContext,
+      files,
+    });
 
     expect(result.filesNotParsed).toBe(1);
     expect(result.filesParsedOk).toBe(0);
@@ -209,10 +328,24 @@ describe("buildKnowledgeGraph — NOT_PARSED files", () => {
   });
 
   it("never opens a file whose indexState is not INDEXED", async () => {
-    const { rootDir, repoContext } = await setupFixture([{ path: "src/skipped.ts", content: "export const x = 1;\n" }]);
-    const files = [{ id: "file-1", path: "src/skipped.ts", indexState: "SKIPPED" as const, isTest: false }];
+    const { rootDir, repoContext } = await setupFixture([
+      { path: "src/skipped.ts", content: "export const x = 1;\n" },
+    ]);
+    const files = [
+      {
+        id: "file-1",
+        path: "src/skipped.ts",
+        indexState: "SKIPPED" as const,
+        isTest: false,
+      },
+    ];
 
-    const result = await buildKnowledgeGraph({ ...BASE_OPTIONS, rootDir, repoContext, files });
+    const result = await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      rootDir,
+      repoContext,
+      files,
+    });
 
     expect(result.filesNotParsed).toBe(1);
     expect(insertCodeSymbols).not.toHaveBeenCalled();
@@ -239,11 +372,23 @@ describe("batchSizeForAttempt", () => {
     }));
     const { rootDir, repoContext, graphFiles } = await setupFixture(files);
 
-    await buildKnowledgeGraph({ ...BASE_OPTIONS, attempt: 0, rootDir, repoContext, files: graphFiles });
+    await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      attempt: 0,
+      rootDir,
+      repoContext,
+      files: graphFiles,
+    });
     const flushesAtAttempt0 = insertCodeSymbols.mock.calls.length;
     insertCodeSymbols.mockClear();
 
-    await buildKnowledgeGraph({ ...BASE_OPTIONS, attempt: 2, rootDir, repoContext, files: graphFiles });
+    await buildKnowledgeGraph({
+      ...BASE_OPTIONS,
+      attempt: 2,
+      rootDir,
+      repoContext,
+      files: graphFiles,
+    });
     const flushesAtAttempt2 = insertCodeSymbols.mock.calls.length;
 
     expect(flushesAtAttempt0).toBe(1);

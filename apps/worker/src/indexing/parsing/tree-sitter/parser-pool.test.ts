@@ -47,7 +47,9 @@ describe("withParsedTree", () => {
         bar(): number { return 1; }
       }
     `;
-    const info = await withParsedTree("typescript", source, (tree) => getParseErrorInfo(tree));
+    const info = await withParsedTree("typescript", source, (tree) =>
+      getParseErrorInfo(tree),
+    );
     expect(info.hasError).toBe(false);
     expect(info.errorNodeCount).toBe(0);
   });
@@ -58,7 +60,9 @@ describe("withParsedTree", () => {
         return <div className="greeting">Hello, {name}!</div>;
       }
     `;
-    const info = await withParsedTree("tsx", source, (tree) => getParseErrorInfo(tree));
+    const info = await withParsedTree("tsx", source, (tree) =>
+      getParseErrorInfo(tree),
+    );
     expect(info.hasError).toBe(false);
   });
 
@@ -69,45 +73,61 @@ describe("withParsedTree", () => {
       }
       export default add;
     `;
-    const info = await withParsedTree("javascript", source, (tree) => getParseErrorInfo(tree));
+    const info = await withParsedTree("javascript", source, (tree) =>
+      getParseErrorInfo(tree),
+    );
     expect(info.hasError).toBe(false);
   });
 
   it("a syntactically broken snippet returns a tree with hasError=true rather than throwing", async () => {
     const broken = "function foo( {\n  return 1\n";
-    await expect(withParsedTree("typescript", broken, (tree) => tree.rootNode.hasError)).resolves.toBe(true);
+    await expect(
+      withParsedTree("typescript", broken, (tree) => tree.rootNode.hasError),
+    ).resolves.toBe(true);
   });
 
   it("getParseErrorInfo reports at least one ERROR node for broken input", async () => {
     const broken = "function foo( {\n  return 1\n";
-    const info = await withParsedTree("typescript", broken, (tree) => getParseErrorInfo(tree));
+    const info = await withParsedTree("typescript", broken, (tree) =>
+      getParseErrorInfo(tree),
+    );
     expect(info.hasError).toBe(true);
     expect(info.errorNodeCount).toBeGreaterThan(0);
   });
 
   it("getParseErrorInfo also counts MISSING nodes (an unbalanced/truncated closing brace produces no ERROR node at all, only MISSING ones)", async () => {
     const truncated = "function foo() {\n  if (true) {\n    return 1;\n";
-    const info = await withParsedTree("typescript", truncated, (tree) => getParseErrorInfo(tree));
+    const info = await withParsedTree("typescript", truncated, (tree) =>
+      getParseErrorInfo(tree),
+    );
     expect(info.hasError).toBe(true);
     expect(info.errorNodeCount).toBeGreaterThan(0);
   });
 
   it("throws ContentTooLargeError for content over the guard, without parsing it", async () => {
     const huge = "a".repeat(MAX_PARSE_CONTENT_BYTES + 1);
-    await expect(withParsedTree("javascript", huge, () => "unreachable")).rejects.toBeInstanceOf(ContentTooLargeError);
+    await expect(
+      withParsedTree("javascript", huge, () => "unreachable"),
+    ).rejects.toBeInstanceOf(ContentTooLargeError);
   });
 
   it("accepts content exactly at the guard", async () => {
     // Valid-enough JS padding so the parse itself is trivial; the guard is a byte-length
     // check before parsing, not a parse-success check.
     const atLimit = "//" + "a".repeat(MAX_PARSE_CONTENT_BYTES - 2);
-    await expect(withParsedTree("javascript", atLimit, () => "ok")).resolves.toBe("ok");
+    await expect(
+      withParsedTree("javascript", atLimit, () => "ok"),
+    ).resolves.toBe("ok");
   });
 
   it("the tree is disposed after every call — no trees remain outstanding", async () => {
     expect(getOutstandingTreeCount()).toBe(0);
     for (let i = 0; i < 25; i++) {
-      await withParsedTree("javascript", `const x${i.toString()} = ${i.toString()};`, (tree) => tree.rootNode.text);
+      await withParsedTree(
+        "javascript",
+        `const x${i.toString()} = ${i.toString()};`,
+        (tree) => tree.rootNode.text,
+      );
       expect(getOutstandingTreeCount()).toBe(0);
     }
   });
@@ -124,9 +144,21 @@ describe("withParsedTree", () => {
 
   it("concurrent calls across languages all resolve correctly (shared init/grammar promises)", async () => {
     const [ts, tsx, js] = await Promise.all([
-      withParsedTree("typescript", "const x: number = 1;", (tree) => tree.rootNode.hasError),
-      withParsedTree("tsx", "const el = <div />;", (tree) => tree.rootNode.hasError),
-      withParsedTree("javascript", "const x = 1;", (tree) => tree.rootNode.hasError),
+      withParsedTree(
+        "typescript",
+        "const x: number = 1;",
+        (tree) => tree.rootNode.hasError,
+      ),
+      withParsedTree(
+        "tsx",
+        "const el = <div />;",
+        (tree) => tree.rootNode.hasError,
+      ),
+      withParsedTree(
+        "javascript",
+        "const x = 1;",
+        (tree) => tree.rootNode.hasError,
+      ),
     ]);
     expect([ts, tsx, js]).toEqual([false, false, false]);
   });

@@ -5,7 +5,11 @@ import type { CodeDependencyInsertInput } from "../../src/indexing/persistence/c
 import { insertCodeDependencies } from "../../src/indexing/persistence/code-dependency.repository.js";
 import type { CodeSymbolInsertInput } from "../../src/indexing/persistence/code-symbol.repository.js";
 import { insertCodeSymbols } from "../../src/indexing/persistence/code-symbol.repository.js";
-import { getFilesImportingFile, getInboundCallers, getKnowledgeGraphSummary } from "../../src/indexing/graph/graph-queries.repository.js";
+import {
+  getFilesImportingFile,
+  getInboundCallers,
+  getKnowledgeGraphSummary,
+} from "../../src/indexing/graph/graph-queries.repository.js";
 import { resetDatabase } from "./db-helpers.js";
 import { seedRepository } from "./repository-helpers.js";
 
@@ -37,7 +41,10 @@ async function seedFile(repositoryId: string, path: string) {
   });
 }
 
-function makeSymbol(overrides: Partial<CodeSymbolInsertInput> & Pick<CodeSymbolInsertInput, "repositoryId" | "fileId">): CodeSymbolInsertInput {
+function makeSymbol(
+  overrides: Partial<CodeSymbolInsertInput> &
+    Pick<CodeSymbolInsertInput, "repositoryId" | "fileId">,
+): CodeSymbolInsertInput {
   return {
     id: randomUUID(),
     name: "fn",
@@ -55,7 +62,10 @@ function makeSymbol(overrides: Partial<CodeSymbolInsertInput> & Pick<CodeSymbolI
   };
 }
 
-function makeEdge(overrides: Partial<CodeDependencyInsertInput> & Pick<CodeDependencyInsertInput, "repositoryId" | "kind">): CodeDependencyInsertInput {
+function makeEdge(
+  overrides: Partial<CodeDependencyInsertInput> &
+    Pick<CodeDependencyInsertInput, "repositoryId" | "kind">,
+): CodeDependencyInsertInput {
   return {
     id: randomUUID(),
     fromFileId: null,
@@ -77,24 +87,68 @@ describe("getInboundCallers", () => {
     const other = await seedRepository();
     const fileA = await seedFile(repo.id, "src/a.ts");
     const fileB = await seedFile(repo.id, "src/b.ts");
-    const target = makeSymbol({ repositoryId: repo.id, fileId: fileB.id, name: "target" });
-    const lowConfCaller = makeSymbol({ repositoryId: repo.id, fileId: fileA.id, name: "lowCaller" });
-    const highConfCaller = makeSymbol({ repositoryId: repo.id, fileId: fileA.id, name: "highCaller" });
+    const target = makeSymbol({
+      repositoryId: repo.id,
+      fileId: fileB.id,
+      name: "target",
+    });
+    const lowConfCaller = makeSymbol({
+      repositoryId: repo.id,
+      fileId: fileA.id,
+      name: "lowCaller",
+    });
+    const highConfCaller = makeSymbol({
+      repositoryId: repo.id,
+      fileId: fileA.id,
+      name: "highCaller",
+    });
     await insertCodeSymbols([target, lowConfCaller, highConfCaller]);
 
     // Noise in a different repository, including a symbol id collision risk avoided by
     // randomUUID — proves the repositoryId clause, not just symbolId matching, is real.
     const otherFile = await seedFile(other.id, "src/other.ts");
-    const otherTarget = makeSymbol({ repositoryId: other.id, fileId: otherFile.id, name: "target" });
-    const otherCaller = makeSymbol({ repositoryId: other.id, fileId: otherFile.id, name: "otherCaller" });
+    const otherTarget = makeSymbol({
+      repositoryId: other.id,
+      fileId: otherFile.id,
+      name: "target",
+    });
+    const otherCaller = makeSymbol({
+      repositoryId: other.id,
+      fileId: otherFile.id,
+      name: "otherCaller",
+    });
     await insertCodeSymbols([otherTarget, otherCaller]);
 
     await insertCodeDependencies([
-      makeEdge({ repositoryId: repo.id, kind: "CALLS", fromSymbolId: lowConfCaller.id, toSymbolId: target.id, confidence: 0.4 }),
-      makeEdge({ repositoryId: repo.id, kind: "CALLS", fromSymbolId: highConfCaller.id, toSymbolId: target.id, confidence: 0.95 }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "CALLS",
+        fromSymbolId: lowConfCaller.id,
+        toSymbolId: target.id,
+        confidence: 0.4,
+      }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "CALLS",
+        fromSymbolId: highConfCaller.id,
+        toSymbolId: target.id,
+        confidence: 0.95,
+      }),
       // Not an inbound-caller kind — must be excluded.
-      makeEdge({ repositoryId: repo.id, kind: "CONTAINS", fromFileId: fileB.id, toSymbolId: target.id, confidence: 1 }),
-      makeEdge({ repositoryId: other.id, kind: "CALLS", fromSymbolId: otherCaller.id, toSymbolId: otherTarget.id, confidence: 1 }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "CONTAINS",
+        fromFileId: fileB.id,
+        toSymbolId: target.id,
+        confidence: 1,
+      }),
+      makeEdge({
+        repositoryId: other.id,
+        kind: "CALLS",
+        fromSymbolId: otherCaller.id,
+        toSymbolId: otherTarget.id,
+        confidence: 1,
+      }),
     ]);
 
     const result = await getInboundCallers(repo.id, [target.id]);
@@ -110,9 +164,20 @@ describe("getInboundCallers", () => {
     const other = await seedRepository();
     const file = await seedFile(repo.id, "src/a.ts");
     const target = makeSymbol({ repositoryId: repo.id, fileId: file.id });
-    const caller = makeSymbol({ repositoryId: repo.id, fileId: file.id, name: "caller" });
+    const caller = makeSymbol({
+      repositoryId: repo.id,
+      fileId: file.id,
+      name: "caller",
+    });
     await insertCodeSymbols([target, caller]);
-    await insertCodeDependencies([makeEdge({ repositoryId: repo.id, kind: "CALLS", fromSymbolId: caller.id, toSymbolId: target.id })]);
+    await insertCodeDependencies([
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "CALLS",
+        fromSymbolId: caller.id,
+        toSymbolId: target.id,
+      }),
+    ]);
 
     // Querying with the OTHER repository's id, but repo's real symbol id.
     const result = await getInboundCallers(other.id, [target.id]);
@@ -133,8 +198,18 @@ describe("getFilesImportingFile", () => {
     const c = await seedFile(repo.id, "src/c.ts");
     // a imports b, b imports c — dependents of c: {b: depth1, a: depth2}.
     await insertCodeDependencies([
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: a.id, toFileId: b.id }),
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: b.id, toFileId: c.id }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: a.id,
+        toFileId: b.id,
+      }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: b.id,
+        toFileId: c.id,
+      }),
     ]);
 
     const result = await getFilesImportingFile(repo.id, c.id);
@@ -151,8 +226,18 @@ describe("getFilesImportingFile", () => {
     const y = await seedFile(repo.id, "src/y.ts");
     // x imports y, y imports x — a real circular import.
     await insertCodeDependencies([
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: x.id, toFileId: y.id }),
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: y.id, toFileId: x.id }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: x.id,
+        toFileId: y.id,
+      }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: y.id,
+        toFileId: x.id,
+      }),
     ]);
 
     const start = Date.now();
@@ -172,7 +257,14 @@ describe("getFilesImportingFile", () => {
     const target = await seedFile(repo.id, "src/target.ts");
     const otherTarget = await seedFile(other.id, "src/target.ts");
     const otherImporter = await seedFile(other.id, "src/importer.ts");
-    await insertCodeDependencies([makeEdge({ repositoryId: other.id, kind: "IMPORTS", fromFileId: otherImporter.id, toFileId: otherTarget.id })]);
+    await insertCodeDependencies([
+      makeEdge({
+        repositoryId: other.id,
+        kind: "IMPORTS",
+        fromFileId: otherImporter.id,
+        toFileId: otherTarget.id,
+      }),
+    ]);
 
     const result = await getFilesImportingFile(repo.id, target.id);
     expect(result).toHaveLength(0);
@@ -185,8 +277,14 @@ describe("getKnowledgeGraphSummary", () => {
     const util = await seedFile(repo.id, "src/util.ts");
     const leaf = await seedFile(repo.id, "src/leaf.ts");
     const other = await seedFile(repo.id, "src/other.ts");
-    await prisma.repositoryFile.update({ where: { id: util.id }, data: { inboundEdgeCount: 10 } });
-    await prisma.repositoryFile.update({ where: { id: leaf.id }, data: { inboundEdgeCount: 1 } });
+    await prisma.repositoryFile.update({
+      where: { id: util.id },
+      data: { inboundEdgeCount: 10 },
+    });
+    await prisma.repositoryFile.update({
+      where: { id: leaf.id },
+      data: { inboundEdgeCount: 1 },
+    });
 
     const sym = makeSymbol({ repositoryId: repo.id, fileId: util.id });
     await insertCodeSymbols([sym]);
@@ -200,9 +298,27 @@ describe("getKnowledgeGraphSummary", () => {
     // out of scope to fix here (schema change from a prior prompt). Using distinct
     // fromFileIds keeps this test exercising the ratio math, not that gap.
     await insertCodeDependencies([
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: leaf.id, toFileId: util.id, resolution: "RESOLVED" }),
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: leaf.id, externalPackage: "zod", resolution: "EXTERNAL" }),
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: other.id, rawSpecifier: "./missing.js", resolution: "UNRESOLVED" }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: leaf.id,
+        toFileId: util.id,
+        resolution: "RESOLVED",
+      }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: leaf.id,
+        externalPackage: "zod",
+        resolution: "EXTERNAL",
+      }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: other.id,
+        rawSpecifier: "./missing.js",
+        resolution: "UNRESOLVED",
+      }),
     ]);
 
     const summary = await getKnowledgeGraphSummary(repo.id);
@@ -228,16 +344,37 @@ describe("getKnowledgeGraphSummary", () => {
 describe("EXPLAIN ANALYZE — index usage for queries 1 and 2", () => {
   it("prints EXPLAIN ANALYZE for getInboundCallers and getFilesImportingFile against a non-trivial seeded graph", async () => {
     const repo = await seedRepository();
-    const files = await Promise.all(Array.from({ length: 20 }, (_, i) => seedFile(repo.id, `src/f${i.toString()}.ts`)));
-    const symbols = files.map((f) => makeSymbol({ repositoryId: repo.id, fileId: f.id, name: `sym_${f.id}` }));
+    const files = await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        seedFile(repo.id, `src/f${i.toString()}.ts`),
+      ),
+    );
+    const symbols = files.map((f) =>
+      makeSymbol({ repositoryId: repo.id, fileId: f.id, name: `sym_${f.id}` }),
+    );
     await insertCodeSymbols(symbols);
 
     const edges: CodeDependencyInsertInput[] = [];
     for (let i = 1; i < symbols.length; i += 1) {
-      edges.push(makeEdge({ repositoryId: repo.id, kind: "CALLS", fromSymbolId: symbols[i]!.id, toSymbolId: symbols[0]!.id, confidence: 0.5 }));
+      edges.push(
+        makeEdge({
+          repositoryId: repo.id,
+          kind: "CALLS",
+          fromSymbolId: symbols[i]!.id,
+          toSymbolId: symbols[0]!.id,
+          confidence: 0.5,
+        }),
+      );
     }
     for (let i = 1; i < files.length; i += 1) {
-      edges.push(makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: files[i]!.id, toFileId: files[0]!.id }));
+      edges.push(
+        makeEdge({
+          repositoryId: repo.id,
+          kind: "IMPORTS",
+          fromFileId: files[i]!.id,
+          toFileId: files[0]!.id,
+        }),
+      );
     }
     await insertCodeDependencies(edges);
 
@@ -254,7 +391,10 @@ describe("EXPLAIN ANALYZE — index usage for queries 1 and 2", () => {
        ORDER BY d.confidence DESC
        LIMIT 50;`,
     );
-    console.log("\n--- EXPLAIN ANALYZE: getInboundCallers ---\n" + explain1.map((r) => r["QUERY PLAN"]).join("\n"));
+    console.log(
+      "\n--- EXPLAIN ANALYZE: getInboundCallers ---\n" +
+        explain1.map((r) => r["QUERY PLAN"]).join("\n"),
+    );
 
     const targetFileId = files[0]!.id;
     const explain2 = await prisma.$queryRawUnsafe<{ "QUERY PLAN": string }[]>(
@@ -271,7 +411,10 @@ describe("EXPLAIN ANALYZE — index usage for queries 1 and 2", () => {
        )
        SELECT file_id, MIN(depth)::int AS depth FROM dependents GROUP BY file_id;`,
     );
-    console.log("\n--- EXPLAIN ANALYZE: getFilesImportingFile ---\n" + explain2.map((r) => r["QUERY PLAN"]).join("\n"));
+    console.log(
+      "\n--- EXPLAIN ANALYZE: getFilesImportingFile ---\n" +
+        explain2.map((r) => r["QUERY PLAN"]).join("\n"),
+    );
 
     expect(explain1.length).toBeGreaterThan(0);
     expect(explain2.length).toBeGreaterThan(0);

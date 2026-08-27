@@ -5,7 +5,10 @@ import { prisma } from "@repo/db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "./db-helpers.js";
 
-const DB_PACKAGE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../packages/db");
+const DB_PACKAGE_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../packages/db",
+);
 
 beforeEach(async () => {
   await resetDatabase();
@@ -22,11 +25,15 @@ afterAll(async () => {
 // deleted, per the migration note in phase-01-authentication-and-projects.md §6.
 describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)", () => {
   it("prisma migrate status reports no pending migrations after migrate deploy", () => {
-    const output = execFileSync("pnpm", ["exec", "prisma", "migrate", "status"], {
-      cwd: DB_PACKAGE_DIR,
-      env: process.env,
-      encoding: "utf-8",
-    });
+    const output = execFileSync(
+      "pnpm",
+      ["exec", "prisma", "migrate", "status"],
+      {
+        cwd: DB_PACKAGE_DIR,
+        env: process.env,
+        encoding: "utf-8",
+      },
+    );
     expect(output).toContain("Database schema is up to date");
   });
 
@@ -47,13 +54,19 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     expect(project.settings).toEqual({});
     expect(project.deletedAt).toBeNull();
 
-    const fetchedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    const fetchedProject = await prisma.project.findUniqueOrThrow({ where: { id: project.id } });
+    const fetchedUser = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    });
+    const fetchedProject = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+    });
     expect(fetchedUser.id).toBe(user.id);
     expect(fetchedProject.userId).toBe(user.id);
 
     await expect(
-      prisma.project.create({ data: { userId: user.id, name: "Duplicate slug", slug: "test-project" } }),
+      prisma.project.create({
+        data: { userId: user.id, name: "Duplicate slug", slug: "test-project" },
+      }),
     ).rejects.toThrow();
   });
 
@@ -112,11 +125,22 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
       ].sort(),
     );
 
-    const projectColumns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+    const projectColumns = await prisma.$queryRawUnsafe<
+      { column_name: string }[]
+    >(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'Project' ORDER BY column_name;`,
     );
     expect(projectColumns.map((c) => c.column_name).sort()).toEqual(
-      ["createdAt", "deletedAt", "id", "name", "settings", "slug", "updatedAt", "userId"].sort(),
+      [
+        "createdAt",
+        "deletedAt",
+        "id",
+        "name",
+        "settings",
+        "slug",
+        "updatedAt",
+        "userId",
+      ].sort(),
     );
   });
 });
@@ -126,8 +150,12 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
 // directly through Prisma.
 describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
   async function createProject(slug: string, githubUserId: bigint) {
-    const user = await prisma.user.create({ data: { githubUserId, githubLogin: `user-${slug}` } });
-    return prisma.project.create({ data: { userId: user.id, name: slug, slug } });
+    const user = await prisma.user.create({
+      data: { githubUserId, githubLogin: `user-${slug}` },
+    });
+    return prisma.project.create({
+      data: { userId: user.id, name: slug, slug },
+    });
   }
 
   function repositoryData(projectId: string, githubRepoId: bigint) {
@@ -145,7 +173,9 @@ describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
 
   it("defaults a freshly connected repository to PENDING / ACTIVE and nothing further", async () => {
     const project = await createProject("proj-a", 2001n);
-    const repository = await prisma.repository.create({ data: repositoryData(project.id, 9_000_000_001n) });
+    const repository = await prisma.repository.create({
+      data: repositoryData(project.id, 9_000_000_001n),
+    });
 
     expect(repository.indexStatus).toBe("PENDING");
     expect(repository.connectionStatus).toBe("ACTIVE");
@@ -172,23 +202,37 @@ describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
     const projectB = await createProject("proj-c", 2003n);
     const sharedRepoId = 9_000_000_002n;
 
-    const a = await prisma.repository.create({ data: repositoryData(projectA.id, sharedRepoId) });
-    const b = await prisma.repository.create({ data: repositoryData(projectB.id, sharedRepoId) });
+    const a = await prisma.repository.create({
+      data: repositoryData(projectA.id, sharedRepoId),
+    });
+    const b = await prisma.repository.create({
+      data: repositoryData(projectB.id, sharedRepoId),
+    });
 
     expect(a.id).not.toBe(b.id);
     expect(a.githubRepoId).toBe(b.githubRepoId);
-    expect(await prisma.repository.count({ where: { githubRepoId: sharedRepoId } })).toBe(2);
+    expect(
+      await prisma.repository.count({ where: { githubRepoId: sharedRepoId } }),
+    ).toBe(2);
   });
 
   it("rejects the same githubRepoId twice under ONE project ((projectId, githubRepoId) unique)", async () => {
     const project = await createProject("proj-d", 2004n);
-    await prisma.repository.create({ data: repositoryData(project.id, 9_000_000_003n) });
-    await expect(prisma.repository.create({ data: repositoryData(project.id, 9_000_000_003n) })).rejects.toThrow();
+    await prisma.repository.create({
+      data: repositoryData(project.id, 9_000_000_003n),
+    });
+    await expect(
+      prisma.repository.create({
+        data: repositoryData(project.id, 9_000_000_003n),
+      }),
+    ).rejects.toThrow();
   });
 
   it("cascade-deletes repositories when their project is hard-deleted", async () => {
     const project = await createProject("proj-e", 2005n);
-    await prisma.repository.create({ data: repositoryData(project.id, 9_000_000_004n) });
+    await prisma.repository.create({
+      data: repositoryData(project.id, 9_000_000_004n),
+    });
     await prisma.project.delete({ where: { id: project.id } });
     expect(await prisma.repository.count()).toBe(0);
   });
@@ -246,7 +290,14 @@ describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
       `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'IndexStatus';`,
     );
     expect(values.map((v) => v.enumlabel).sort()).toEqual(
-      ["FAILED", "INDEXED", "INDEXING", "PARTIAL", "PENDING", "UPDATING"].sort(),
+      [
+        "FAILED",
+        "INDEXED",
+        "INDEXING",
+        "PARTIAL",
+        "PENDING",
+        "UPDATING",
+      ].sort(),
     );
   });
 });
@@ -256,9 +307,17 @@ describe("Repository model + IndexStatus enum (phase-02 §6)", () => {
 // sub-tasks and Prompt 2's Inngest function, so rows here are inserted directly through
 // Prisma, the same discipline the Repository block above uses.
 describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
-  async function createRepository(slug: string, githubUserId: bigint, githubRepoId: bigint) {
-    const user = await prisma.user.create({ data: { githubUserId, githubLogin: `user-${slug}` } });
-    const project = await prisma.project.create({ data: { userId: user.id, name: slug, slug } });
+  async function createRepository(
+    slug: string,
+    githubUserId: bigint,
+    githubRepoId: bigint,
+  ) {
+    const user = await prisma.user.create({
+      data: { githubUserId, githubLogin: `user-${slug}` },
+    });
+    const project = await prisma.project.create({
+      data: { userId: user.id, name: slug, slug },
+    });
     return prisma.repository.create({
       data: {
         projectId: project.id,
@@ -276,7 +335,13 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
   it("defaults a freshly inserted file to INDEXED/OK/UNKNOWN and nothing further", async () => {
     const repository = await createRepository("file-a", 3001n, 9_100_000_001n);
     const file = await prisma.repositoryFile.create({
-      data: { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 },
+      data: {
+        repositoryId: repository.id,
+        path: "src/index.ts",
+        commitSha: "a".repeat(40),
+        contentHash: "b".repeat(64),
+        sizeBytes: 128,
+      },
     });
 
     expect(file.indexState).toBe("INDEXED");
@@ -294,7 +359,13 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
 
   it("enforces (repositoryId, path) uniqueness — the interrupted-job idempotency guarantee", async () => {
     const repository = await createRepository("file-b", 3002n, 9_100_000_002n);
-    const data = { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 };
+    const data = {
+      repositoryId: repository.id,
+      path: "src/index.ts",
+      commitSha: "a".repeat(40),
+      contentHash: "b".repeat(64),
+      sizeBytes: 128,
+    };
     await prisma.repositoryFile.create({ data });
     await expect(prisma.repositoryFile.create({ data })).rejects.toThrow();
   });
@@ -302,11 +373,27 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
   it("cascade-deletes files and jobs when their repository is hard-deleted", async () => {
     const repository = await createRepository("file-c", 3003n, 9_100_000_003n);
     await prisma.repositoryFile.create({
-      data: { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 },
+      data: {
+        repositoryId: repository.id,
+        path: "src/index.ts",
+        commitSha: "a".repeat(40),
+        contentHash: "b".repeat(64),
+        sizeBytes: 128,
+      },
     });
-    await prisma.indexJob.create({ data: { repositoryId: repository.id, mode: "FULL", status: "PENDING" } });
+    await prisma.indexJob.create({
+      data: { repositoryId: repository.id, mode: "FULL", status: "PENDING" },
+    });
 
-    await prisma.project.delete({ where: { id: (await prisma.repository.findUniqueOrThrow({ where: { id: repository.id } })).projectId } });
+    await prisma.project.delete({
+      where: {
+        id: (
+          await prisma.repository.findUniqueOrThrow({
+            where: { id: repository.id },
+          })
+        ).projectId,
+      },
+    });
 
     expect(await prisma.repositoryFile.count()).toBe(0);
     expect(await prisma.indexJob.count()).toBe(0);
@@ -373,17 +460,25 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
 
   it("creates the §6 indexes, including the plan.md-only (repositoryId, indexState) addition", async () => {
     const fileIndexes = (
-      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'RepositoryFile';`)
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'RepositoryFile';`,
+      )
     ).map((i) => i.indexname);
     expect(fileIndexes).toContain("RepositoryFile_repositoryId_path_key");
-    expect(fileIndexes).toContain("RepositoryFile_repositoryId_contentHash_idx");
-    expect(fileIndexes).toContain("RepositoryFile_repositoryId_packageName_idx");
+    expect(fileIndexes).toContain(
+      "RepositoryFile_repositoryId_contentHash_idx",
+    );
+    expect(fileIndexes).toContain(
+      "RepositoryFile_repositoryId_packageName_idx",
+    );
     // plan.md §24.2 lists this one; §6's own Prisma block does not. Asserted so the
     // addition reads as a decision (docs/decisions/phase-03-log.md) rather than a typo.
     expect(fileIndexes).toContain("RepositoryFile_repositoryId_indexState_idx");
 
     const jobIndexes = (
-      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'IndexJob';`)
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'IndexJob';`,
+      )
     ).map((i) => i.indexname);
     expect(jobIndexes).toContain("IndexJob_repositoryId_createdAt_idx");
     expect(jobIndexes).toContain("IndexJob_status_idx");
@@ -394,7 +489,16 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
       `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'FileClassification';`,
     );
     expect(values.map((v) => v.enumlabel).sort()).toEqual(
-      ["ASSET", "CONFIG", "DEPENDENCY_LOCK", "DOCUMENTATION", "GENERATED", "SOURCE", "TEST", "UNKNOWN"].sort(),
+      [
+        "ASSET",
+        "CONFIG",
+        "DEPENDENCY_LOCK",
+        "DOCUMENTATION",
+        "GENERATED",
+        "SOURCE",
+        "TEST",
+        "UNKNOWN",
+      ].sort(),
     );
   });
 });
@@ -403,9 +507,17 @@ describe("RepositoryFile + IndexJob (phase-03 §6)", () => {
 // the parser/graph-builder that write real rows are later prompts' work; these rows are
 // inserted directly through Prisma, matching the phase-02/phase-03 describe blocks above.
 describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
-  async function createRepositoryWithFile(slug: string, githubUserId: bigint, githubRepoId: bigint) {
-    const user = await prisma.user.create({ data: { githubUserId, githubLogin: `user-${slug}` } });
-    const project = await prisma.project.create({ data: { userId: user.id, name: slug, slug } });
+  async function createRepositoryWithFile(
+    slug: string,
+    githubUserId: bigint,
+    githubRepoId: bigint,
+  ) {
+    const user = await prisma.user.create({
+      data: { githubUserId, githubLogin: `user-${slug}` },
+    });
+    const project = await prisma.project.create({
+      data: { userId: user.id, name: slug, slug },
+    });
     const repository = await prisma.repository.create({
       data: {
         projectId: project.id,
@@ -419,13 +531,23 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
       },
     });
     const file = await prisma.repositoryFile.create({
-      data: { repositoryId: repository.id, path: "src/index.ts", commitSha: "a".repeat(40), contentHash: "b".repeat(64), sizeBytes: 128 },
+      data: {
+        repositoryId: repository.id,
+        path: "src/index.ts",
+        commitSha: "a".repeat(40),
+        contentHash: "b".repeat(64),
+        sizeBytes: 128,
+      },
     });
     return { repository, file };
   }
 
   it("round-trips a CodeSymbol and enforces the (repositoryId, fileId, name, kind, startLine) identity constraint", async () => {
-    const { repository, file } = await createRepositoryWithFile("sym-a", 4001n, 9_200_000_001n);
+    const { repository, file } = await createRepositoryWithFile(
+      "sym-a",
+      4001n,
+      9_200_000_001n,
+    );
     const data = {
       repositoryId: repository.id,
       fileId: file.id,
@@ -445,20 +567,50 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
   });
 
   it("cascade-deletes symbols when their repository is hard-deleted", async () => {
-    const { repository, file } = await createRepositoryWithFile("sym-b", 4002n, 9_200_000_002n);
+    const { repository, file } = await createRepositoryWithFile(
+      "sym-b",
+      4002n,
+      9_200_000_002n,
+    );
     await prisma.codeSymbol.create({
-      data: { repositoryId: repository.id, fileId: file.id, name: "login", kind: "FUNCTION", startLine: 1, endLine: 5, commitSha: "a".repeat(40) },
+      data: {
+        repositoryId: repository.id,
+        fileId: file.id,
+        name: "login",
+        kind: "FUNCTION",
+        startLine: 1,
+        endLine: 5,
+        commitSha: "a".repeat(40),
+      },
     });
 
-    await prisma.project.delete({ where: { id: (await prisma.repository.findUniqueOrThrow({ where: { id: repository.id } })).projectId } });
+    await prisma.project.delete({
+      where: {
+        id: (
+          await prisma.repository.findUniqueOrThrow({
+            where: { id: repository.id },
+          })
+        ).projectId,
+      },
+    });
 
     expect(await prisma.codeSymbol.count()).toBe(0);
   });
 
   it("round-trips a file-level CodeDependency edge with default resolution/confidence", async () => {
-    const { repository, file } = await createRepositoryWithFile("dep-a", 4003n, 9_200_000_003n);
+    const { repository, file } = await createRepositoryWithFile(
+      "dep-a",
+      4003n,
+      9_200_000_003n,
+    );
     const edge = await prisma.codeDependency.create({
-      data: { repositoryId: repository.id, kind: "IMPORTS", fromFileId: file.id, toFileId: file.id, commitSha: "a".repeat(40) },
+      data: {
+        repositoryId: repository.id,
+        kind: "IMPORTS",
+        fromFileId: file.id,
+        toFileId: file.id,
+        commitSha: "a".repeat(40),
+      },
     });
     expect(edge.resolution).toBe("RESOLVED");
     expect(edge.confidence).toBe(1.0);
@@ -467,8 +619,18 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
   });
 
   it("enforces the NULLS NOT DISTINCT edge-identity constraint on repeated file-level edges", async () => {
-    const { repository, file } = await createRepositoryWithFile("dep-b", 4004n, 9_200_000_004n);
-    const data = { repositoryId: repository.id, kind: "IMPORTS" as const, fromFileId: file.id, toFileId: file.id, commitSha: "a".repeat(40) };
+    const { repository, file } = await createRepositoryWithFile(
+      "dep-b",
+      4004n,
+      9_200_000_004n,
+    );
+    const data = {
+      repositoryId: repository.id,
+      kind: "IMPORTS" as const,
+      fromFileId: file.id,
+      toFileId: file.id,
+      commitSha: "a".repeat(40),
+    };
     // Two file-level edges of the same kind/endpoints — both fromSymbolId/toSymbolId are
     // NULL on both rows. Without NULLS NOT DISTINCT, Postgres would treat these as
     // non-conflicting (NULL <> NULL) and allow the duplicate — phase-04 prompt-1 §2.7/§3.
@@ -477,7 +639,9 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
   });
 
   it("carries exactly the §6 columns for CodeSymbol and CodeDependency, plus the §2.6 parentSymbolId addition", async () => {
-    const symbolColumns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+    const symbolColumns = await prisma.$queryRawUnsafe<
+      { column_name: string }[]
+    >(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'CodeSymbol';`,
     );
     expect(symbolColumns.map((c) => c.column_name).sort()).toEqual(
@@ -499,7 +663,9 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
       ].sort(),
     );
 
-    const dependencyColumns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+    const dependencyColumns = await prisma.$queryRawUnsafe<
+      { column_name: string }[]
+    >(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'CodeDependency';`,
     );
     expect(dependencyColumns.map((c) => c.column_name).sort()).toEqual(
@@ -522,22 +688,36 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
 
   it("creates the §6 indexes, including the §2.7 outbound-traversal addition", async () => {
     const symbolIndexes = (
-      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'CodeSymbol';`)
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'CodeSymbol';`,
+      )
     ).map((i) => i.indexname);
     expect(symbolIndexes).toContain("CodeSymbol_fileId_idx");
     expect(symbolIndexes).toContain("CodeSymbol_repositoryId_name_idx");
     expect(symbolIndexes).toContain("CodeSymbol_repositoryId_isExported_idx");
-    expect(symbolIndexes).toContain("CodeSymbol_repositoryId_fileId_name_kind_startLine_key");
+    expect(symbolIndexes).toContain(
+      "CodeSymbol_repositoryId_fileId_name_kind_startLine_key",
+    );
 
     const dependencyIndexes = (
-      await prisma.$queryRawUnsafe<{ indexname: string }[]>(`SELECT indexname FROM pg_indexes WHERE tablename = 'CodeDependency';`)
+      await prisma.$queryRawUnsafe<{ indexname: string }[]>(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'CodeDependency';`,
+      )
     ).map((i) => i.indexname);
-    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_toSymbolId_kind_idx");
-    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_fromFileId_kind_idx");
-    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_toFileId_kind_idx");
+    expect(dependencyIndexes).toContain(
+      "CodeDependency_repositoryId_toSymbolId_kind_idx",
+    );
+    expect(dependencyIndexes).toContain(
+      "CodeDependency_repositoryId_fromFileId_kind_idx",
+    );
+    expect(dependencyIndexes).toContain(
+      "CodeDependency_repositoryId_toFileId_kind_idx",
+    );
     // §2.7 — the fourth index, not in phase-04 §6's own list, added for outbound
     // traversal (plan.md §9).
-    expect(dependencyIndexes).toContain("CodeDependency_repositoryId_fromSymbolId_kind_idx");
+    expect(dependencyIndexes).toContain(
+      "CodeDependency_repositoryId_fromSymbolId_kind_idx",
+    );
     expect(dependencyIndexes).toContain("CodeDependency_edge_identity_key");
   });
 
@@ -546,7 +726,16 @@ describe("CodeSymbol + CodeDependency (phase-04 §6)", () => {
       `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'DependencyKind';`,
     );
     expect(values.map((v) => v.enumlabel).sort()).toEqual(
-      ["CALLS", "CONTAINS", "EXPORTS", "EXTENDS", "IMPLEMENTS", "IMPORTS", "REFERENCES", "TESTS"].sort(),
+      [
+        "CALLS",
+        "CONTAINS",
+        "EXPORTS",
+        "EXTENDS",
+        "IMPLEMENTS",
+        "IMPORTS",
+        "REFERENCES",
+        "TESTS",
+      ].sort(),
     );
   });
 });

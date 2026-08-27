@@ -25,10 +25,15 @@ import { NextResponse, type NextRequest } from "next/server";
  * (phase-01 §14 Failure Verification).
  */
 
-const SESSION_COOKIE_NAMES = ["authjs.session-token", "__Secure-authjs.session-token"];
+const SESSION_COOKIE_NAMES = [
+  "authjs.session-token",
+  "__Secure-authjs.session-token",
+];
 
 export function proxy(request: NextRequest): NextResponse {
-  const hasSessionCookie = SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name));
+  const hasSessionCookie = SESSION_COOKIE_NAMES.some((name) =>
+    request.cookies.has(name),
+  );
 
   if (!hasSessionCookie) {
     const signInUrl = new URL("/signin", request.url);

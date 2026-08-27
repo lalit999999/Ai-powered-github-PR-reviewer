@@ -2,17 +2,36 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createLogger, type Logger } from "@repo/observability";
-import type { DependencyKind, IndexState, ParseState, SymbolKind } from "@repo/shared";
-import { isParseRefusal, parseFile } from "../parsing/adapters/typescript.adapter.js";
-import type { ParsedExport, ParsedImport, ParsedSymbol } from "../parsing/parsed-file.types.js";
-import { selectLanguage, type ParserLanguage } from "../parsing/tree-sitter/parser-pool.js";
+import type {
+  DependencyKind,
+  IndexState,
+  ParseState,
+  SymbolKind,
+} from "@repo/shared";
+import {
+  isParseRefusal,
+  parseFile,
+} from "../parsing/adapters/typescript.adapter.js";
+import type {
+  ParsedExport,
+  ParsedImport,
+  ParsedSymbol,
+} from "../parsing/parsed-file.types.js";
+import {
+  selectLanguage,
+  type ParserLanguage,
+} from "../parsing/tree-sitter/parser-pool.js";
 import {
   deleteCodeDependenciesByRepository,
   insertCodeDependencies,
   type CodeDependencyInsertInput,
   type InsertedCountsByKind,
 } from "../persistence/code-dependency.repository.js";
-import { deleteCodeSymbolsByRepository, insertCodeSymbols, type CodeSymbolInsertInput } from "../persistence/code-symbol.repository.js";
+import {
+  deleteCodeSymbolsByRepository,
+  insertCodeSymbols,
+  type CodeSymbolInsertInput,
+} from "../persistence/code-symbol.repository.js";
 import {
   CALL_AMBIGUITY_MAX_CANDIDATES,
   CALL_CONFIDENCE_AMBIGUOUS_BASE,
@@ -53,7 +72,11 @@ import { detectTestFile } from "./test-detection.js";
  * `RepositoryFile.language` (which collapses `.tsx` into `"typescript"`, a coarser
  * granularity that would still agree on *eligibility* but is the wrong source of truth
  * for *which grammar* to parse with). */
-export const PARSEABLE_LANGUAGES: readonly ParserLanguage[] = ["typescript", "tsx", "javascript"];
+export const PARSEABLE_LANGUAGES: readonly ParserLanguage[] = [
+  "typescript",
+  "tsx",
+  "javascript",
+];
 
 export interface GraphBuilderFileInput {
   id: string;
@@ -154,7 +177,13 @@ interface FileRecord {
 // Pass 1 — parse and persist symbols, batched
 // ---------------------------------------------------------------------------
 
-function emptyRecord(fileId: string, filePath: string, packageName: string | null, parseState: ParseState, isTest: boolean): FileRecord {
+function emptyRecord(
+  fileId: string,
+  filePath: string,
+  packageName: string | null,
+  parseState: ParseState,
+  isTest: boolean,
+): FileRecord {
   return {
     fileId,
     filePath,
@@ -174,7 +203,11 @@ function emptyRecord(fileId: string, filePath: string, packageName: string | nul
 async function runPass1(
   options: GraphBuilderOptions,
   logger: Logger,
-): Promise<{ records: Map<string, FileRecord>; parseFailureCount: number; symbolsCreated: number }> {
+): Promise<{
+  records: Map<string, FileRecord>;
+  parseFailureCount: number;
+  symbolsCreated: number;
+}> {
   const records = new Map<string, FileRecord>();
   const eligible: GraphBuilderFileInput[] = [];
 
@@ -182,7 +215,10 @@ async function runPass1(
     const language = selectLanguage(file.path);
     if (file.indexState !== "INDEXED" || language === null) {
       const packageName = getPackageNameForFile(options.repoContext, file.path);
-      records.set(file.path, emptyRecord(file.id, file.path, packageName, "NOT_PARSED", file.isTest));
+      records.set(
+        file.path,
+        emptyRecord(file.id, file.path, packageName, "NOT_PARSED", file.isTest),
+      );
       continue;
     }
     eligible.push(file);
@@ -205,20 +241,35 @@ async function runPass1(
 
       let content: string;
       try {
-        content = await fs.readFile(path.join(options.rootDir, file.path), "utf8");
+        content = await fs.readFile(
+          path.join(options.rootDir, file.path),
+          "utf8",
+        );
       } catch (error) {
-        logger.warn("graph-builder: failed to read a file for parsing — marking it FAILED and continuing", {
-          repositoryId: options.repositoryId,
-          path: file.path,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        records.set(file.path, emptyRecord(file.id, file.path, packageName, "FAILED", file.isTest));
+        logger.warn(
+          "graph-builder: failed to read a file for parsing — marking it FAILED and continuing",
+          {
+            repositoryId: options.repositoryId,
+            path: file.path,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+        records.set(
+          file.path,
+          emptyRecord(file.id, file.path, packageName, "FAILED", file.isTest),
+        );
         parseFailureCount += 1;
         batchFailures += 1;
         continue;
       }
 
-      const parsed = await parseOneFile(file.path, language, content, logger, options.repositoryId);
+      const parsed = await parseOneFile(
+        file.path,
+        language,
+        content,
+        logger,
+        options.repositoryId,
+      );
 
       if (parsed === null || isParseRefusal(parsed)) {
         // `null` never happens (parseFile only throws for a genuine bug, caught inside
@@ -226,7 +277,10 @@ async function runPass1(
         // unreachable here since file-classifier's 512 KB size cap (the only way a file
         // reaches indexState=INDEXED) is well under the parser pool's 2 MiB guard —
         // handled anyway, defensively, rather than assumed away.
-        records.set(file.path, emptyRecord(file.id, file.path, packageName, "FAILED", file.isTest));
+        records.set(
+          file.path,
+          emptyRecord(file.id, file.path, packageName, "FAILED", file.isTest),
+        );
         parseFailureCount += 1;
         batchFailures += 1;
         continue;
@@ -235,10 +289,16 @@ async function runPass1(
       if (parsed.parseState === "FAILED") {
         parseFailureCount += 1;
         batchFailures += 1;
-        records.set(
-          file.path,
-          { ...emptyRecord(file.id, file.path, packageName, "FAILED", file.isTest), parseErrorCount: parsed.parseErrors },
-        );
+        records.set(file.path, {
+          ...emptyRecord(
+            file.id,
+            file.path,
+            packageName,
+            "FAILED",
+            file.isTest,
+          ),
+          parseErrorCount: parsed.parseErrors,
+        });
         continue;
       }
 
@@ -246,16 +306,21 @@ async function runPass1(
       const nameToId = new Map<string, string>();
       parsed.symbols.forEach((sym, i) => nameToId.set(sym.name, ids[i]!));
 
-      const callResolverSymbols: CallResolverSymbol[] = parsed.symbols.map((sym, i) => ({
-        id: ids[i]!,
-        name: sym.name,
-        kind: sym.kind,
-        parentSymbol: sym.parentSymbol,
-      }));
+      const callResolverSymbols: CallResolverSymbol[] = parsed.symbols.map(
+        (sym, i) => ({
+          id: ids[i]!,
+          name: sym.name,
+          kind: sym.kind,
+          parentSymbol: sym.parentSymbol,
+        }),
+      );
 
       for (let i = 0; i < parsed.symbols.length; i += 1) {
         const sym = parsed.symbols[i]!;
-        const parentSymbolId = sym.parentSymbol !== undefined ? (nameToId.get(sym.parentSymbol) ?? null) : null;
+        const parentSymbolId =
+          sym.parentSymbol !== undefined
+            ? (nameToId.get(sym.parentSymbol) ?? null)
+            : null;
         symbolRows.push({
           id: ids[i]!,
           repositoryId: options.repositoryId,
@@ -277,11 +342,16 @@ async function runPass1(
       const importResolutions = new Map<string, ImportResolution>();
       for (const imp of parsed.imports) {
         if (!importResolutions.has(imp.specifier)) {
-          importResolutions.set(imp.specifier, resolveImport(imp.specifier, file.path, options.repoContext));
+          importResolutions.set(
+            imp.specifier,
+            resolveImport(imp.specifier, file.path, options.repoContext),
+          );
         }
       }
 
-      const isTest = detectTestFile(file.path, { imports: parsed.imports }).isTest;
+      const isTest = detectTestFile(file.path, {
+        imports: parsed.imports,
+      }).isTest;
 
       records.set(file.path, {
         fileId: file.id,
@@ -313,7 +383,11 @@ async function runPass1(
       parseFailureCount: batchFailures,
       durationMs,
     });
-    await options.onProgress?.({ phase: "parse", filesProcessed, filesTotal: eligible.length });
+    await options.onProgress?.({
+      phase: "parse",
+      filesProcessed,
+      filesTotal: eligible.length,
+    });
   }
 
   return { records, parseFailureCount, symbolsCreated };
@@ -332,11 +406,14 @@ async function parseOneFile(
   try {
     return await parseFile(filePath, language, content);
   } catch (error) {
-    logger.warn("graph-builder: parseFile threw unexpectedly — marking the file FAILED and continuing", {
-      repositoryId,
-      path: filePath,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn(
+      "graph-builder: parseFile threw unexpectedly — marking the file FAILED and continuing",
+      {
+        repositoryId,
+        path: filePath,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
     return null;
   }
 }
@@ -360,7 +437,10 @@ interface HeritageIndexedSymbol {
  * bare name to a declaration, repo-wide), and reusing the constants keeps the confidence
  * scale meaningful across every edge kind Phase 08 ranks by.
  */
-function buildHeritageIndex(records: ReadonlyMap<string, FileRecord>, perPackage: boolean): Map<string, Map<string, HeritageIndexedSymbol[]>> {
+function buildHeritageIndex(
+  records: ReadonlyMap<string, FileRecord>,
+  perPackage: boolean,
+): Map<string, Map<string, HeritageIndexedSymbol[]>> {
   const index = new Map<string, Map<string, HeritageIndexedSymbol[]>>();
   for (const record of records.values()) {
     const bucketKey = perPackage ? (record.packageName ?? "") : "";
@@ -372,7 +452,11 @@ function buildHeritageIndex(records: ReadonlyMap<string, FileRecord>, perPackage
     for (let i = 0; i < record.symbols.length; i += 1) {
       const sym = record.symbols[i]!;
       if (sym.kind !== "CLASS" && sym.kind !== "INTERFACE") continue;
-      const indexed: HeritageIndexedSymbol = { id: record.callResolverSymbols[i]!.id, filePath: record.filePath, packageName: record.packageName };
+      const indexed: HeritageIndexedSymbol = {
+        id: record.callResolverSymbols[i]!.id,
+        filePath: record.filePath,
+        packageName: record.packageName,
+      };
       const list = byName.get(sym.name);
       if (list) list.push(indexed);
       else byName.set(sym.name, [indexed]);
@@ -386,13 +470,20 @@ function topLevelSegment(filePath: string): string {
   return slash === -1 ? filePath : filePath.slice(0, slash);
 }
 
-function narrowHeritageCandidates(candidates: readonly HeritageIndexedSymbol[], fromRecord: FileRecord): HeritageIndexedSymbol[] {
+function narrowHeritageCandidates(
+  candidates: readonly HeritageIndexedSymbol[],
+  fromRecord: FileRecord,
+): HeritageIndexedSymbol[] {
   if (fromRecord.packageName !== null) {
-    const samePackage = candidates.filter((c) => c.packageName === fromRecord.packageName);
+    const samePackage = candidates.filter(
+      (c) => c.packageName === fromRecord.packageName,
+    );
     if (samePackage.length > 0) return samePackage;
   }
   const topLevel = topLevelSegment(fromRecord.filePath);
-  const sameTopLevel = candidates.filter((c) => topLevelSegment(c.filePath) === topLevel);
+  const sameTopLevel = candidates.filter(
+    (c) => topLevelSegment(c.filePath) === topLevel,
+  );
   if (sameTopLevel.length > 0) return sameTopLevel;
   return [...candidates];
 }
@@ -410,20 +501,38 @@ function resolveHeritageName(
   perPackage: boolean,
 ): HeritageMatch[] {
   // Rule 1 — same file.
-  const sameFileIdx = fromRecord.symbols.findIndex((s) => s.name === name && (s.kind === "CLASS" || s.kind === "INTERFACE"));
+  const sameFileIdx = fromRecord.symbols.findIndex(
+    (s) => s.name === name && (s.kind === "CLASS" || s.kind === "INTERFACE"),
+  );
   if (sameFileIdx !== -1) {
-    return [{ id: fromRecord.callResolverSymbols[sameFileIdx]!.id, confidence: CALL_CONFIDENCE_SAME_FILE }];
+    return [
+      {
+        id: fromRecord.callResolverSymbols[sameFileIdx]!.id,
+        confidence: CALL_CONFIDENCE_SAME_FILE,
+      },
+    ];
   }
 
   // Rule 2 — named import resolved to its target file's matching CLASS/INTERFACE export.
-  const imp = fromRecord.imports.find((i) => !i.isTypeOnly && i.named.includes(name));
+  const imp = fromRecord.imports.find(
+    (i) => !i.isTypeOnly && i.named.includes(name),
+  );
   if (imp) {
     const resolution = fromRecord.importResolutions.get(imp.specifier);
     if (resolution?.status === "RESOLVED") {
       const target = records.get(resolution.targetFilePath);
       if (target) {
-        const idx = target.symbols.findIndex((s) => s.name === name && (s.kind === "CLASS" || s.kind === "INTERFACE"));
-        if (idx !== -1) return [{ id: target.callResolverSymbols[idx]!.id, confidence: CALL_CONFIDENCE_NAMED_IMPORT }];
+        const idx = target.symbols.findIndex(
+          (s) =>
+            s.name === name && (s.kind === "CLASS" || s.kind === "INTERFACE"),
+        );
+        if (idx !== -1)
+          return [
+            {
+              id: target.callResolverSymbols[idx]!.id,
+              confidence: CALL_CONFIDENCE_NAMED_IMPORT,
+            },
+          ];
       }
     }
   }
@@ -432,7 +541,10 @@ function resolveHeritageName(
   const bucketKey = perPackage ? (fromRecord.packageName ?? "") : "";
   const candidates = index.get(bucketKey)?.get(name) ?? [];
   if (candidates.length === 0) return [];
-  if (candidates.length === 1) return [{ id: candidates[0]!.id, confidence: CALL_CONFIDENCE_UNIQUE_REPO_MATCH }];
+  if (candidates.length === 1)
+    return [
+      { id: candidates[0]!.id, confidence: CALL_CONFIDENCE_UNIQUE_REPO_MATCH },
+    ];
 
   const narrowed = narrowHeritageCandidates(candidates, fromRecord);
   if (narrowed.length > CALL_AMBIGUITY_MAX_CANDIDATES) return [];
@@ -447,7 +559,12 @@ function resolveHeritageName(
 function edgeRow(
   kind: DependencyKind,
   ctx: { repositoryId: string; commitSha: string },
-  fields: Partial<Omit<CodeDependencyInsertInput, "id" | "repositoryId" | "kind" | "commitSha">>,
+  fields: Partial<
+    Omit<
+      CodeDependencyInsertInput,
+      "id" | "repositoryId" | "kind" | "commitSha"
+    >
+  >,
 ): CodeDependencyInsertInput {
   return {
     id: randomUUID(),
@@ -474,12 +591,24 @@ function buildImportEdge(
 ): CodeDependencyInsertInput {
   if (resolution.status === "RESOLVED") {
     const target = records.get(resolution.targetFilePath);
-    return edgeRow("IMPORTS", ctx, { fromFileId: fileId, toFileId: target?.fileId ?? null, resolution: "RESOLVED" });
+    return edgeRow("IMPORTS", ctx, {
+      fromFileId: fileId,
+      toFileId: target?.fileId ?? null,
+      resolution: "RESOLVED",
+    });
   }
   if (resolution.status === "EXTERNAL") {
-    return edgeRow("IMPORTS", ctx, { fromFileId: fileId, externalPackage: resolution.packageName, resolution: "EXTERNAL" });
+    return edgeRow("IMPORTS", ctx, {
+      fromFileId: fileId,
+      externalPackage: resolution.packageName,
+      resolution: "EXTERNAL",
+    });
   }
-  return edgeRow("IMPORTS", ctx, { fromFileId: fileId, rawSpecifier: resolution.specifier, resolution: "UNRESOLVED" });
+  return edgeRow("IMPORTS", ctx, {
+    fromFileId: fileId,
+    rawSpecifier: resolution.specifier,
+    resolution: "UNRESOLVED",
+  });
 }
 
 async function runPass2(
@@ -488,7 +617,10 @@ async function runPass2(
   logger: Logger,
 ): Promise<{ edgesCreated: number; edgeCountsByKind: InsertedCountsByKind }> {
   const perPackage = options.repoContext.workspaceRoots.length > 0;
-  const ctx = { repositoryId: options.repositoryId, commitSha: options.commitSha };
+  const ctx = {
+    repositoryId: options.repositoryId,
+    commitSha: options.commitSha,
+  };
 
   const callFiles: CallResolverFileInput[] = [...records.values()].map((r) => ({
     filePath: r.filePath,
@@ -507,7 +639,12 @@ async function runPass2(
     // CONTAINS — one per symbol (spec §4.3: the highest-volume edge, deliberately emitted
     // in full; see this prompt's own report for the write-time/table-size call).
     for (let i = 0; i < record.symbols.length; i += 1) {
-      edges.push(edgeRow("CONTAINS", ctx, { fromFileId: record.fileId, toSymbolId: record.callResolverSymbols[i]!.id }));
+      edges.push(
+        edgeRow("CONTAINS", ctx, {
+          fromFileId: record.fileId,
+          toSymbolId: record.callResolverSymbols[i]!.id,
+        }),
+      );
     }
 
     // EXPORTS — the file's own public surface among its locally declared symbols. A
@@ -520,7 +657,12 @@ async function runPass2(
       if (exp.name.length === 0) continue;
       const symbolId = record.nameToId.get(exp.name);
       if (!symbolId) continue;
-      edges.push(edgeRow("EXPORTS", ctx, { fromFileId: record.fileId, toSymbolId: symbolId }));
+      edges.push(
+        edgeRow("EXPORTS", ctx, {
+          fromFileId: record.fileId,
+          toSymbolId: symbolId,
+        }),
+      );
     }
 
     // IMPORTS — every resolved specifier, RESOLVED/EXTERNAL/UNRESOLVED all get a row
@@ -534,13 +676,37 @@ async function runPass2(
       const sym = record.symbols[i]!;
       const fromSymbolId = record.callResolverSymbols[i]!.id;
       for (const name of sym.extends ?? []) {
-        for (const match of resolveHeritageName(name, record, records, heritageIndex, perPackage)) {
-          edges.push(edgeRow("EXTENDS", ctx, { fromSymbolId, toSymbolId: match.id, confidence: match.confidence }));
+        for (const match of resolveHeritageName(
+          name,
+          record,
+          records,
+          heritageIndex,
+          perPackage,
+        )) {
+          edges.push(
+            edgeRow("EXTENDS", ctx, {
+              fromSymbolId,
+              toSymbolId: match.id,
+              confidence: match.confidence,
+            }),
+          );
         }
       }
       for (const name of sym.implements ?? []) {
-        for (const match of resolveHeritageName(name, record, records, heritageIndex, perPackage)) {
-          edges.push(edgeRow("IMPLEMENTS", ctx, { fromSymbolId, toSymbolId: match.id, confidence: match.confidence }));
+        for (const match of resolveHeritageName(
+          name,
+          record,
+          records,
+          heritageIndex,
+          perPackage,
+        )) {
+          edges.push(
+            edgeRow("IMPLEMENTS", ctx, {
+              fromSymbolId,
+              toSymbolId: match.id,
+              confidence: match.confidence,
+            }),
+          );
         }
       }
     }
@@ -548,7 +714,13 @@ async function runPass2(
 
   // CALLS — from the confidence-ranked resolver (prompt 3).
   for (const call of callResult.edges) {
-    edges.push(edgeRow("CALLS", ctx, { fromSymbolId: call.fromSymbolId, toSymbolId: call.toSymbolId, confidence: call.confidence }));
+    edges.push(
+      edgeRow("CALLS", ctx, {
+        fromSymbolId: call.fromSymbolId,
+        toSymbolId: call.toSymbolId,
+        confidence: call.confidence,
+      }),
+    );
   }
 
   // TESTS — a test file to every non-test file it resolves an import to (spec §4.3's own
@@ -560,7 +732,12 @@ async function runPass2(
       if (resolution.status !== "RESOLVED") continue;
       const target = records.get(resolution.targetFilePath);
       if (!target || target.isTest) continue;
-      edges.push(edgeRow("TESTS", ctx, { fromFileId: record.fileId, toFileId: target.fileId }));
+      edges.push(
+        edgeRow("TESTS", ctx, {
+          fromFileId: record.fileId,
+          toFileId: target.fileId,
+        }),
+      );
     }
   }
 
@@ -589,7 +766,9 @@ async function runPass2(
  * `new_expression`-capture gap in `call-resolver.ts`'s own header: a real, deliberate
  * scope gap, not an oversight, stated here rather than fabricated.
  */
-export async function buildKnowledgeGraph(options: GraphBuilderOptions): Promise<GraphBuilderResult> {
+export async function buildKnowledgeGraph(
+  options: GraphBuilderOptions,
+): Promise<GraphBuilderResult> {
   const logger = options.logger ?? createLogger("indexing.graph-builder");
 
   // Full-replace, edges before symbols (prompt-1 §2.5's ordering — CodeDependency has no
@@ -597,15 +776,23 @@ export async function buildKnowledgeGraph(options: GraphBuilderOptions): Promise
   await deleteCodeDependenciesByRepository(options.repositoryId);
   await deleteCodeSymbolsByRepository(options.repositoryId);
 
-  const { records, parseFailureCount, symbolsCreated } = await runPass1(options, logger);
-  const { edgesCreated, edgeCountsByKind } = await runPass2(records, options, logger);
+  const { records, parseFailureCount, symbolsCreated } = await runPass1(
+    options,
+    logger,
+  );
+  const { edgesCreated, edgeCountsByKind } = await runPass2(
+    records,
+    options,
+    logger,
+  );
 
   const importCounts = edgeCountsByKind.IMPORTS ?? {};
   const resolvedCount = importCounts.RESOLVED ?? 0;
   const externalCount = importCounts.EXTERNAL ?? 0;
   const unresolvedCount = importCounts.UNRESOLVED ?? 0;
   const importTotal = resolvedCount + externalCount + unresolvedCount;
-  const unresolvedImportRatio = importTotal === 0 ? 0 : unresolvedCount / importTotal;
+  const unresolvedImportRatio =
+    importTotal === 0 ? 0 : unresolvedCount / importTotal;
 
   logger.info("graph resolution completed", {
     component: "indexing.graph-builder",
@@ -623,11 +810,14 @@ export async function buildKnowledgeGraph(options: GraphBuilderOptions): Promise
   // (a handful of imports) cannot trip it on noise the way walk-tree.ts's own
   // `pathsConsidered > 100` guard exists for the identical reason.
   if (unresolvedImportRatio > 0.15 && importTotal > 20) {
-    logger.warn("repository health note: a large share of this repository's imports could not be resolved", {
-      repositoryId: options.repositoryId,
-      unresolvedImportRatio: Number(unresolvedImportRatio.toFixed(3)),
-      importTotal,
-    });
+    logger.warn(
+      "repository health note: a large share of this repository's imports could not be resolved",
+      {
+        repositoryId: options.repositoryId,
+        unresolvedImportRatio: Number(unresolvedImportRatio.toFixed(3)),
+        importTotal,
+      },
+    );
   }
 
   const recordList = [...records.values()];
@@ -636,7 +826,8 @@ export async function buildKnowledgeGraph(options: GraphBuilderOptions): Promise
     edgesCreated,
     parseFailureCount,
     filesParsedOk: recordList.filter((r) => r.parseState === "OK").length,
-    filesNotParsed: recordList.filter((r) => r.parseState === "NOT_PARSED").length,
+    filesNotParsed: recordList.filter((r) => r.parseState === "NOT_PARSED")
+      .length,
     unresolvedImportRatio,
     edgeCountsByKind,
     fileGraphMetadata: recordList.map((r) => ({

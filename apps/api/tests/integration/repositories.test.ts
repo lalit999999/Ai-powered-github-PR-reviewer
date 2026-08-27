@@ -3,7 +3,12 @@ import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedSignedInUser, type SeededUser } from "./auth-helpers.js";
 import { resetDatabase } from "./db-helpers.js";
-import { assertNoTokenPersisted, githubRepoMetadata, seedInstallation, type SeededInstallation } from "./repository-helpers.js";
+import {
+  assertNoTokenPersisted,
+  githubRepoMetadata,
+  seedInstallation,
+  type SeededInstallation,
+} from "./repository-helpers.js";
 
 /**
  * Route contracts from phase-02 §7/§14/§15, driven end to end through the real Express
@@ -18,14 +23,17 @@ import { assertNoTokenPersisted, githubRepoMetadata, seedInstallation, type Seed
  * not need a real HTTP layer underneath it to be tested honestly.
  */
 
-vi.mock("../../src/inngest/emit.js", () => ({ emitRepositoryIndexRequested: vi.fn() }));
+vi.mock("../../src/inngest/emit.js", () => ({
+  emitRepositoryIndexRequested: vi.fn(),
+}));
 // `checkRateLimit` itself is unit-tested directly (src/lib/rate-limit.test.ts) — the
 // real Redis-backed fixed-window logic is not what this file's job is. Wrapped with
 // `importOriginal` (not a narrow replacement) so every other route in this file keeps
 // exercising the real implementation, which fails open against this environment's real
 // Redis without needing 10 real requests per test to observe a 429.
 vi.mock("../../src/lib/rate-limit.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/lib/rate-limit.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/lib/rate-limit.js")>();
   return { ...actual, checkRateLimit: vi.fn(actual.checkRateLimit) };
 });
 vi.mock("@repo/github", async (importOriginal) => {
@@ -43,7 +51,8 @@ vi.mock("@repo/github", async (importOriginal) => {
   };
 });
 
-const { emitRepositoryIndexRequested } = await import("../../src/inngest/emit.js");
+const { emitRepositoryIndexRequested } =
+  await import("../../src/inngest/emit.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { checkRateLimit } = await import("../../src/lib/rate-limit.js");
 const { default: app } = await import("../../src/app.js");
@@ -66,15 +75,23 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function createProject(name = "Repo Test Project"): Promise<{ id: string }> {
-  const res = await request(app).post("/api/projects").set("Cookie", user.cookie).send({ name });
+async function createProject(
+  name = "Repo Test Project",
+): Promise<{ id: string }> {
+  const res = await request(app)
+    .post("/api/projects")
+    .set("Cookie", user.cookie)
+    .send({ name });
   expect(res.status).toBe(201);
   return res.body.project as { id: string };
 }
 
 function mockRepo(overrides: Parameters<typeof githubRepoMetadata>[0] = {}) {
   const metadata = githubRepoMetadata(overrides);
-  vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({ ok: true, repository: metadata });
+  vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({
+    ok: true,
+    repository: metadata,
+  });
   return metadata;
 }
 
@@ -99,23 +116,40 @@ describe("authentication — every repository route is 401 without a session", (
 describe("GET /api/github/installations", () => {
   it("returns the caller's stored installations plus an installUrl built from GITHUB_APP_SLUG", async () => {
     await prisma.account.create({
-      data: { userId: user.id, type: "oauth", provider: "github", providerAccountId: "gh-octocat", access_token: "fixture-oauth-token" },
+      data: {
+        userId: user.id,
+        type: "oauth",
+        provider: "github",
+        providerAccountId: "gh-octocat",
+        access_token: "fixture-oauth-token",
+      },
     });
     vi.mocked(installationGithub.listUserInstallations).mockResolvedValueOnce({
       ok: true,
       installations: [
-        { installationId: installation.installationId, accountLogin: "octocat", accountType: "User", suspended: false },
+        {
+          installationId: installation.installationId,
+          accountLogin: "octocat",
+          accountType: "User",
+          suspended: false,
+        },
       ],
     });
 
-    const res = await request(app).get("/api/github/installations").set("Cookie", user.cookie);
+    const res = await request(app)
+      .get("/api/github/installations")
+      .set("Cookie", user.cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.installations).toHaveLength(1);
-    expect(res.body.installations[0].installationId).toBe(installation.installationId.toString());
+    expect(res.body.installations[0].installationId).toBe(
+      installation.installationId.toString(),
+    );
     // Sub-task 3.5: the install link's single source of truth is the API, not a
     // NEXT_PUBLIC_* variable duplicated into apps/web.
-    expect(res.body.installUrl).toMatch(/^https:\/\/github\.com\/apps\/.+\/installations\/new$/);
+    expect(res.body.installUrl).toMatch(
+      /^https:\/\/github\.com\/apps\/.+\/installations\/new$/,
+    );
   });
 });
 
@@ -137,7 +171,9 @@ describe("POST /api/projects/:id/repositories — connect", () => {
       connectionStatus: "ACTIVE",
     });
 
-    const row = await prisma.repository.findUniqueOrThrow({ where: { id: res.body.repository.id } });
+    const row = await prisma.repository.findUniqueOrThrow({
+      where: { id: res.body.repository.id },
+    });
     expect(row.indexStatus).toBe("PENDING");
     expect(row.connectionStatus).toBe("ACTIVE");
     expect(row.githubRepoId).toBe(metadata.githubRepoId);
@@ -153,7 +189,11 @@ describe("POST /api/projects/:id/repositories — connect", () => {
 
   it("does not leak installationId/githubRepoId as anything but decimal strings (BigInt-safe DTO)", async () => {
     const project = await createProject();
-    mockRepo({ owner: "octocat", name: "big-ids", githubRepoId: 9_007_199_254_740_993n });
+    mockRepo({
+      owner: "octocat",
+      name: "big-ids",
+      githubRepoId: 9_007_199_254_740_993n,
+    });
 
     const res = await request(app)
       .post(`/api/projects/${project.id}/repositories`)
@@ -175,13 +215,18 @@ describe("POST /api/projects/:id/repositories — connect", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
-    expect(res.body.error.details.fieldErrors.repoUrl[0]).toBe("That doesn't look like a GitHub repository URL");
+    expect(res.body.error.details.fieldErrors.repoUrl[0]).toBe(
+      "That doesn't look like a GitHub repository URL",
+    );
     expect(repositoryGithub.getRepository).not.toHaveBeenCalled();
   });
 
   it("installation lacks access: 403 with a distinct message", async () => {
     const project = await createProject();
-    vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({ ok: false, reason: "NOT_ACCESSIBLE" });
+    vi.mocked(repositoryGithub.getRepository).mockResolvedValueOnce({
+      ok: false,
+      reason: "NOT_ACCESSIBLE",
+    });
 
     const res = await request(app)
       .post(`/api/projects/${project.id}/repositories`)
@@ -197,7 +242,12 @@ describe("POST /api/projects/:id/repositories — connect", () => {
 
   it("empty repository: 422 with a distinct message", async () => {
     const project = await createProject();
-    mockRepo({ owner: "octocat", name: "empty-repo", sizeKib: 0, defaultBranch: null });
+    mockRepo({
+      owner: "octocat",
+      name: "empty-repo",
+      sizeKib: 0,
+      defaultBranch: null,
+    });
 
     const res = await request(app)
       .post(`/api/projects/${project.id}/repositories`)
@@ -206,7 +256,9 @@ describe("POST /api/projects/:id/repositories — connect", () => {
 
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("UNPROCESSABLE_ENTITY");
-    expect(res.body.error.message).toBe("That repository is empty — push at least one commit before connecting it");
+    expect(res.body.error.message).toBe(
+      "That repository is empty — push at least one commit before connecting it",
+    );
   });
 
   it("over the size cap: 422 with a message DISTINCT from the empty-repository one", async () => {
@@ -221,13 +273,23 @@ describe("POST /api/projects/:id/repositories — connect", () => {
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("UNPROCESSABLE_ENTITY");
     expect(res.body.error.message).toMatch(/too large/);
-    expect(res.body.error.message).not.toBe("That repository is empty — push at least one commit before connecting it");
+    expect(res.body.error.message).not.toBe(
+      "That repository is empty — push at least one commit before connecting it",
+    );
   });
 
   it("same repository, same project, twice: 409 on the second, exactly one row in the database", async () => {
     const project = await createProject();
-    mockRepo({ owner: "octocat", name: "repeat-repo", githubRepoId: 555_111_222n });
-    mockRepo({ owner: "octocat", name: "repeat-repo", githubRepoId: 555_111_222n });
+    mockRepo({
+      owner: "octocat",
+      name: "repeat-repo",
+      githubRepoId: 555_111_222n,
+    });
+    mockRepo({
+      owner: "octocat",
+      name: "repeat-repo",
+      githubRepoId: 555_111_222n,
+    });
 
     const first = await request(app)
       .post(`/api/projects/${project.id}/repositories`)
@@ -242,15 +304,25 @@ describe("POST /api/projects/:id/repositories — connect", () => {
     expect(second.status).toBe(409);
     expect(second.body.error.code).toBe("CONFLICT");
 
-    const rows = await prisma.repository.findMany({ where: { projectId: project.id, githubRepoId: 555_111_222n } });
+    const rows = await prisma.repository.findMany({
+      where: { projectId: project.id, githubRepoId: 555_111_222n },
+    });
     expect(rows).toHaveLength(1);
   });
 
   it("the SAME GitHub repository connected to TWO DIFFERENT projects: both 202, two independent rows", async () => {
     const projectA = await createProject("Project A");
     const projectB = await createProject("Project B");
-    mockRepo({ owner: "octocat", name: "shared-repo", githubRepoId: 777_888_999n });
-    mockRepo({ owner: "octocat", name: "shared-repo", githubRepoId: 777_888_999n });
+    mockRepo({
+      owner: "octocat",
+      name: "shared-repo",
+      githubRepoId: 777_888_999n,
+    });
+    mockRepo({
+      owner: "octocat",
+      name: "shared-repo",
+      githubRepoId: 777_888_999n,
+    });
 
     const resA = await request(app)
       .post(`/api/projects/${projectA.id}/repositories`)
@@ -265,15 +337,27 @@ describe("POST /api/projects/:id/repositories — connect", () => {
     expect(resB.status).toBe(202);
     expect(resA.body.repository.id).not.toBe(resB.body.repository.id);
 
-    const rows = await prisma.repository.findMany({ where: { githubRepoId: 777_888_999n } });
+    const rows = await prisma.repository.findMany({
+      where: { githubRepoId: 777_888_999n },
+    });
     expect(rows).toHaveLength(2);
-    expect(new Set(rows.map((r) => r.projectId))).toEqual(new Set([projectA.id, projectB.id]));
+    expect(new Set(rows.map((r) => r.projectId))).toEqual(
+      new Set([projectA.id, projectB.id]),
+    );
   });
 
   it("concurrency: two simultaneous connects of the same repository to the same project produce one row and one 409", async () => {
     const project = await createProject();
-    mockRepo({ owner: "octocat", name: "race-repo", githubRepoId: 424_242_424n });
-    mockRepo({ owner: "octocat", name: "race-repo", githubRepoId: 424_242_424n });
+    mockRepo({
+      owner: "octocat",
+      name: "race-repo",
+      githubRepoId: 424_242_424n,
+    });
+    mockRepo({
+      owner: "octocat",
+      name: "race-repo",
+      githubRepoId: 424_242_424n,
+    });
 
     const [first, second] = await Promise.all([
       request(app)
@@ -291,7 +375,9 @@ describe("POST /api/projects/:id/repositories — connect", () => {
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual([202, 409]);
 
-    const rows = await prisma.repository.findMany({ where: { projectId: project.id, githubRepoId: 424_242_424n } });
+    const rows = await prisma.repository.findMany({
+      where: { projectId: project.id, githubRepoId: 424_242_424n },
+    });
     expect(rows).toHaveLength(1);
   });
 
@@ -325,7 +411,9 @@ describe("GET /api/repositories/:id", () => {
   });
 
   it("returns 404 for a repository id that was never connected", async () => {
-    const res = await request(app).get("/api/repositories/never-existed").set("Cookie", user.cookie);
+    const res = await request(app)
+      .get("/api/repositories/never-existed")
+      .set("Cookie", user.cookie);
     expect(res.status).toBe(404);
   });
 });
@@ -348,7 +436,14 @@ describe("GET /api/repositories/:id/index-status (phase-03 §7)", () => {
     // The exact six-field shape §7 specifies — no `id`, no `filesSkipped` (that is
     // IndexJobSummaryDto's, not this cheap-poll DTO's).
     expect(Object.keys(res.body).sort()).toEqual(
-      ["status", "currentStep", "progressPercent", "filesTotal", "filesProcessed", "error"].sort(),
+      [
+        "status",
+        "currentStep",
+        "progressPercent",
+        "filesTotal",
+        "filesProcessed",
+        "error",
+      ].sort(),
     );
     expect(res.body.status).toBe("PENDING");
     expect(res.body.currentStep).toBeNull();
@@ -357,7 +452,9 @@ describe("GET /api/repositories/:id/index-status (phase-03 §7)", () => {
   });
 
   it("returns 404 for a repository id that was never connected", async () => {
-    const res = await request(app).get("/api/repositories/never-existed/index-status").set("Cookie", user.cookie);
+    const res = await request(app)
+      .get("/api/repositories/never-existed/index-status")
+      .set("Cookie", user.cookie);
     expect(res.status).toBe(404);
   });
 });
@@ -381,7 +478,12 @@ describe("POST /api/repositories/:id/index (phase-03 §7)", () => {
     expect(res.status).toBe(202);
     expect(res.body).toHaveProperty("indexJobId");
     expect(emitRepositoryIndexRequested).toHaveBeenCalledWith(
-      expect.objectContaining({ repositoryId: connected.body.repository.id, mode: "FULL", reason: "manual", indexJobId: res.body.indexJobId }),
+      expect.objectContaining({
+        repositoryId: connected.body.repository.id,
+        mode: "FULL",
+        reason: "manual",
+        indexJobId: res.body.indexJobId,
+      }),
     );
   });
 
@@ -393,7 +495,10 @@ describe("POST /api/repositories/:id/index (phase-03 §7)", () => {
       .set("Cookie", user.cookie)
       .send({ repoUrl: "https://github.com/octocat/already-indexing-repo" })
       .expect(202);
-    await prisma.repository.update({ where: { id: connected.body.repository.id }, data: { indexStatus: "INDEXING" } });
+    await prisma.repository.update({
+      where: { id: connected.body.repository.id },
+      data: { indexStatus: "INDEXING" },
+    });
 
     const res = await request(app)
       .post(`/api/repositories/${connected.body.repository.id}/index`)
@@ -429,7 +534,10 @@ describe("POST /api/repositories/:id/index (phase-03 §7)", () => {
       .send({ repoUrl: "https://github.com/octocat/rate-limited-repo" })
       .expect(202);
     vi.mocked(emitRepositoryIndexRequested).mockClear();
-    vi.mocked(checkRateLimit).mockResolvedValueOnce({ allowed: false, retryAfterSeconds: 1800 });
+    vi.mocked(checkRateLimit).mockResolvedValueOnce({
+      allowed: false,
+      retryAfterSeconds: 1800,
+    });
 
     const res = await request(app)
       .post(`/api/repositories/${connected.body.repository.id}/index`)
@@ -442,7 +550,10 @@ describe("POST /api/repositories/:id/index (phase-03 §7)", () => {
   });
 
   it("returns 404 for a repository id that was never connected", async () => {
-    const res = await request(app).post("/api/repositories/never-existed/index").set("Cookie", user.cookie).send({ mode: "FULL" });
+    const res = await request(app)
+      .post("/api/repositories/never-existed/index")
+      .set("Cookie", user.cookie)
+      .send({ mode: "FULL" });
     expect(res.status).toBe(404);
   });
 });
@@ -458,17 +569,29 @@ describe("DELETE /api/repositories/:id — disconnect", () => {
       .expect(202);
     const repositoryId = connected.body.repository.id;
 
-    const before = await request(app).get(`/api/projects/${project.id}`).set("Cookie", user.cookie);
-    expect(before.body.repositories.map((r: { id: string }) => r.id)).toContain(repositoryId);
+    const before = await request(app)
+      .get(`/api/projects/${project.id}`)
+      .set("Cookie", user.cookie);
+    expect(before.body.repositories.map((r: { id: string }) => r.id)).toContain(
+      repositoryId,
+    );
 
-    const res = await request(app).delete(`/api/repositories/${repositoryId}`).set("Cookie", user.cookie);
+    const res = await request(app)
+      .delete(`/api/repositories/${repositoryId}`)
+      .set("Cookie", user.cookie);
     expect(res.status).toBe(202);
 
-    const row = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryId } });
+    const row = await prisma.repository.findUniqueOrThrow({
+      where: { id: repositoryId },
+    });
     expect(row.connectionStatus).toBe("DISCONNECTED");
 
-    const after = await request(app).get(`/api/projects/${project.id}`).set("Cookie", user.cookie);
-    expect(after.body.repositories.map((r: { id: string }) => r.id)).not.toContain(repositoryId);
+    const after = await request(app)
+      .get(`/api/projects/${project.id}`)
+      .set("Cookie", user.cookie);
+    expect(
+      after.body.repositories.map((r: { id: string }) => r.id),
+    ).not.toContain(repositoryId);
   });
 
   it("is idempotent — a repeat DELETE also returns 202 and does not change the row further", async () => {
@@ -481,27 +604,39 @@ describe("DELETE /api/repositories/:id — disconnect", () => {
       .expect(202);
     const repositoryId = connected.body.repository.id;
 
-    const first = await request(app).delete(`/api/repositories/${repositoryId}`).set("Cookie", user.cookie);
-    const firstUpdatedAt = (await prisma.repository.findUniqueOrThrow({ where: { id: repositoryId } })).updatedAt;
+    const first = await request(app)
+      .delete(`/api/repositories/${repositoryId}`)
+      .set("Cookie", user.cookie);
+    const firstUpdatedAt = (
+      await prisma.repository.findUniqueOrThrow({ where: { id: repositoryId } })
+    ).updatedAt;
 
-    const second = await request(app).delete(`/api/repositories/${repositoryId}`).set("Cookie", user.cookie);
+    const second = await request(app)
+      .delete(`/api/repositories/${repositoryId}`)
+      .set("Cookie", user.cookie);
 
     expect(first.status).toBe(202);
     expect(second.status).toBe(202);
-    const after = await prisma.repository.findUniqueOrThrow({ where: { id: repositoryId } });
+    const after = await prisma.repository.findUniqueOrThrow({
+      where: { id: repositoryId },
+    });
     expect(after.connectionStatus).toBe("DISCONNECTED");
     expect(after.updatedAt.toISOString()).toBe(firstUpdatedAt.toISOString());
   });
 
   it("returns 404 for a repository that was never connected", async () => {
-    const res = await request(app).delete("/api/repositories/never-existed").set("Cookie", user.cookie);
+    const res = await request(app)
+      .delete("/api/repositories/never-existed")
+      .set("Cookie", user.cookie);
     expect(res.status).toBe(404);
   });
 });
 
 describe("Database verification (§14)", () => {
   it("GithubInstallation.userId correctly attributes the installation to the user who installed it", async () => {
-    const row = await prisma.githubInstallation.findUniqueOrThrow({ where: { id: installation.id } });
+    const row = await prisma.githubInstallation.findUniqueOrThrow({
+      where: { id: installation.id },
+    });
     expect(row.userId).toBe(user.id);
   });
 
@@ -526,7 +661,9 @@ describe("Database verification (§14)", () => {
       .send({ repoUrl: "https://github.com/octocat/status-check-repo" })
       .expect(202);
 
-    const rows = await prisma.repository.findMany({ where: { projectId: project.id } });
+    const rows = await prisma.repository.findMany({
+      where: { projectId: project.id },
+    });
     expect(rows.map((r) => r.indexStatus)).toEqual(["PENDING"]);
   });
 });

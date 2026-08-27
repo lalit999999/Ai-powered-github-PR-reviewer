@@ -16,7 +16,11 @@
  *
  * See docs/decisions/phase-02-log.md §7 for why the asymmetry was kept.
  */
-export const CONNECTION_STATUSES = ["ACTIVE", "DISCONNECTED", "ACCESS_LOST"] as const;
+export const CONNECTION_STATUSES = [
+  "ACTIVE",
+  "DISCONNECTED",
+  "ACCESS_LOST",
+] as const;
 
 export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
 
@@ -34,7 +38,10 @@ export const CONNECTION_STATUS = {
 
 /** Narrows an arbitrary column value read back from Postgres. */
 export function isConnectionStatus(value: unknown): value is ConnectionStatus {
-  return typeof value === "string" && (CONNECTION_STATUSES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (CONNECTION_STATUSES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -170,7 +177,9 @@ export interface IndexJobSummaryDto {
   error: unknown;
 }
 
-export function toIndexJobSummaryDto(record: IndexJobRecord): IndexJobSummaryDto {
+export function toIndexJobSummaryDto(
+  record: IndexJobRecord,
+): IndexJobSummaryDto {
   return {
     id: record.id,
     status: record.status,

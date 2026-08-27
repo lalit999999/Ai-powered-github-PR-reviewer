@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Prisma, prisma } from "@repo/db";
-import type { FileClassification, IndexState, ParseState, SkipReason } from "@repo/shared";
+import type {
+  FileClassification,
+  IndexState,
+  ParseState,
+  SkipReason,
+} from "@repo/shared";
 
 /**
  * `plan.md` §8.2 step 6: batched, upsert-based `RepositoryFile` persistence. The
@@ -69,14 +74,22 @@ export const REPOSITORY_FILE_BATCH_SIZE = 1000;
  * 200,000-file repository firing 200 concurrent multi-row statements would be a
  * self-inflicted connection-pool exhaustion, not a throughput win.
  */
-export async function upsertRepositoryFiles(files: readonly RepositoryFileUpsertInput[]): Promise<void> {
-  for (let offset = 0; offset < files.length; offset += REPOSITORY_FILE_BATCH_SIZE) {
+export async function upsertRepositoryFiles(
+  files: readonly RepositoryFileUpsertInput[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < files.length;
+    offset += REPOSITORY_FILE_BATCH_SIZE
+  ) {
     const batch = files.slice(offset, offset + REPOSITORY_FILE_BATCH_SIZE);
     await upsertBatch(batch);
   }
 }
 
-async function upsertBatch(batch: readonly RepositoryFileUpsertInput[]): Promise<void> {
+async function upsertBatch(
+  batch: readonly RepositoryFileUpsertInput[],
+): Promise<void> {
   if (batch.length === 0) return;
 
   const now = new Date();
@@ -148,7 +161,10 @@ async function upsertBatch(batch: readonly RepositoryFileUpsertInput[]): Promise
  * `commitSha`) just widen the window where a concurrent read sees neither the old nor
  * the new row for a still-current path, for no benefit.
  */
-export async function sweepStaleRepositoryFiles(repositoryId: string, targetCommitSha: string): Promise<number> {
+export async function sweepStaleRepositoryFiles(
+  repositoryId: string,
+  targetCommitSha: string,
+): Promise<number> {
   const result = await prisma.repositoryFile.deleteMany({
     where: { repositoryId, commitSha: { not: targetCommitSha } },
   });
@@ -171,7 +187,10 @@ export interface RepositoryFileGraphInput {
  * (see that function's header comment), so the id an existing file ends up with is not
  * knowable to the caller without asking Postgres after the upsert has committed.
  */
-export async function findRepositoryFilesByCommit(repositoryId: string, commitSha: string): Promise<RepositoryFileGraphInput[]> {
+export async function findRepositoryFilesByCommit(
+  repositoryId: string,
+  commitSha: string,
+): Promise<RepositoryFileGraphInput[]> {
   const rows = await prisma.repositoryFile.findMany({
     where: { repositoryId, commitSha },
     select: { id: true, path: true, indexState: true, isTest: true },
@@ -180,7 +199,10 @@ export async function findRepositoryFilesByCommit(repositoryId: string, commitSh
   // this file's own upsert header comment), so Prisma's generated type is `string`, not
   // the app-level `IndexState` union; narrowed here at the one place this table's rows
   // become a typed `GraphBuilderFileInput`.
-  return rows.map((row) => ({ ...row, indexState: row.indexState as IndexState }));
+  return rows.map((row) => ({
+    ...row,
+    indexState: row.indexState as IndexState,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -231,14 +253,22 @@ export interface RepositoryFileGraphMetadataUpdate {
 
 /** Same batch size as {@link upsertRepositoryFiles} — one statement per 1,000 rows,
  * sequential batches (the same shared-connection-pool reasoning applies identically here). */
-export async function updateRepositoryFileGraphMetadata(updates: readonly RepositoryFileGraphMetadataUpdate[]): Promise<void> {
-  for (let offset = 0; offset < updates.length; offset += REPOSITORY_FILE_BATCH_SIZE) {
+export async function updateRepositoryFileGraphMetadata(
+  updates: readonly RepositoryFileGraphMetadataUpdate[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < updates.length;
+    offset += REPOSITORY_FILE_BATCH_SIZE
+  ) {
     const batch = updates.slice(offset, offset + REPOSITORY_FILE_BATCH_SIZE);
     await updateGraphMetadataBatch(batch);
   }
 }
 
-async function updateGraphMetadataBatch(batch: readonly RepositoryFileGraphMetadataUpdate[]): Promise<void> {
+async function updateGraphMetadataBatch(
+  batch: readonly RepositoryFileGraphMetadataUpdate[],
+): Promise<void> {
   if (batch.length === 0) return;
 
   // Every value is explicitly cast — a bound parameter carries no type of its own until

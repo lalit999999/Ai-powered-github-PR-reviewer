@@ -49,12 +49,23 @@ export const CALL_AMBIGUITY_MAX_CANDIDATES = 3;
  * excluded too: with no `new_expression` capture (see this module's header), a
  * `call.name` matching a class name is almost always either noise or a shadowing bare
  * function with the same name — resolving it would be a guess, not a signal. */
-const CALLABLE_KINDS = new Set<SymbolKind>(["FUNCTION", "ARROW_FUNCTION", "METHOD", "HOOK", "REACT_COMPONENT"]);
+const CALLABLE_KINDS = new Set<SymbolKind>([
+  "FUNCTION",
+  "ARROW_FUNCTION",
+  "METHOD",
+  "HOOK",
+  "REACT_COMPONENT",
+]);
 
 /** Kinds eligible for a receiver-less (`foo()`) call — excludes `METHOD`, which requires
  * qualification (`obj.foo()` or `this.foo()`) to ever be reached by a bare call in valid
  * JS/TS. */
-const BARE_CALL_KINDS = new Set<SymbolKind>(["FUNCTION", "ARROW_FUNCTION", "HOOK", "REACT_COMPONENT"]);
+const BARE_CALL_KINDS = new Set<SymbolKind>([
+  "FUNCTION",
+  "ARROW_FUNCTION",
+  "HOOK",
+  "REACT_COMPONENT",
+]);
 
 // ---------------------------------------------------------------------------
 // Input / output shapes
@@ -88,7 +99,8 @@ export interface CallResolverFileInput {
   importResolutions: ReadonlyMap<string, ImportResolution>;
 }
 
-export type CallResolutionRule = "SAME_FILE" | "NAMED_IMPORT" | "UNIQUE_REPO_MATCH" | "AMBIGUOUS_TIEBREAK";
+export type CallResolutionRule =
+  "SAME_FILE" | "NAMED_IMPORT" | "UNIQUE_REPO_MATCH" | "AMBIGUOUS_TIEBREAK";
 
 export interface ResolvedCallEdge {
   fromSymbolId: string;
@@ -128,7 +140,10 @@ interface IndexedSymbol extends CallResolverSymbol {
  * documented, deliberate narrowing of recall (never of precision) for repositories with a
  * genuinely undetectable package boundary.
  */
-function buildNameIndex(files: readonly CallResolverFileInput[], perPackage: boolean): Map<string, Map<string, IndexedSymbol[]>> {
+function buildNameIndex(
+  files: readonly CallResolverFileInput[],
+  perPackage: boolean,
+): Map<string, Map<string, IndexedSymbol[]>> {
   const index = new Map<string, Map<string, IndexedSymbol[]>>();
 
   for (const file of files) {
@@ -140,7 +155,11 @@ function buildNameIndex(files: readonly CallResolverFileInput[], perPackage: boo
     }
     for (const symbol of file.symbols) {
       if (!CALLABLE_KINDS.has(symbol.kind)) continue;
-      const indexed: IndexedSymbol = { ...symbol, filePath: file.filePath, packageName: file.packageName };
+      const indexed: IndexedSymbol = {
+        ...symbol,
+        filePath: file.filePath,
+        packageName: file.packageName,
+      };
       const existing = byName.get(symbol.name);
       if (existing) existing.push(indexed);
       else byName.set(symbol.name, [indexed]);
@@ -150,7 +169,11 @@ function buildNameIndex(files: readonly CallResolverFileInput[], perPackage: boo
   return index;
 }
 
-function candidatesForName(index: Map<string, Map<string, IndexedSymbol[]>>, bucketKey: string, name: string): IndexedSymbol[] {
+function candidatesForName(
+  index: Map<string, Map<string, IndexedSymbol[]>>,
+  bucketKey: string,
+  name: string,
+): IndexedSymbol[] {
   return index.get(bucketKey)?.get(name) ?? [];
 }
 
@@ -158,14 +181,26 @@ function candidatesForName(index: Map<string, Map<string, IndexedSymbol[]>>, buc
 // Rule 1 — same file
 // ---------------------------------------------------------------------------
 
-function resolveSameFile(callName: string, receiver: string | undefined, callerClassName: string | undefined, fileSymbols: readonly CallResolverSymbol[]): CallResolverSymbol | null {
+function resolveSameFile(
+  callName: string,
+  receiver: string | undefined,
+  callerClassName: string | undefined,
+  fileSymbols: readonly CallResolverSymbol[],
+): CallResolverSymbol | null {
   if (receiver === undefined) {
-    const match = fileSymbols.find((s) => s.name === callName && BARE_CALL_KINDS.has(s.kind));
+    const match = fileSymbols.find(
+      (s) => s.name === callName && BARE_CALL_KINDS.has(s.kind),
+    );
     return match ?? null;
   }
 
   if (receiver === "this" && callerClassName !== undefined) {
-    const match = fileSymbols.find((s) => s.name === callName && s.kind === "METHOD" && s.parentSymbol === callerClassName);
+    const match = fileSymbols.find(
+      (s) =>
+        s.name === callName &&
+        s.kind === "METHOD" &&
+        s.parentSymbol === callerClassName,
+    );
     if (match) return match;
   }
 
@@ -173,7 +208,9 @@ function resolveSameFile(callName: string, receiver: string | undefined, callerC
   // same-file method match by name alone — a same-file coincidence is already the
   // highest-confidence rule, and requiring exact receiver-to-class proof here would just
   // duplicate rule 5's own (already-conservative) check one rule too early.
-  const methodMatch = fileSymbols.find((s) => s.name === callName && s.kind === "METHOD");
+  const methodMatch = fileSymbols.find(
+    (s) => s.name === callName && s.kind === "METHOD",
+  );
   return methodMatch ?? null;
 }
 
@@ -198,22 +235,34 @@ function resolveNamedImport(
   const imports = file.parsedFile.imports;
 
   if (receiver === undefined) {
-    const imp = imports.find((i) => !i.isTypeOnly && i.named.includes(callName));
+    const imp = imports.find(
+      (i) => !i.isTypeOnly && i.named.includes(callName),
+    );
     if (!imp) return null;
     const resolution = file.importResolutions.get(imp.specifier);
     if (!resolution || resolution.status !== "RESOLVED") return null;
     const targetFile = filesByPath.get(resolution.targetFilePath);
     if (!targetFile) return null;
-    return targetFile.symbols.find((s) => s.name === callName && CALLABLE_KINDS.has(s.kind)) ?? null;
+    return (
+      targetFile.symbols.find(
+        (s) => s.name === callName && CALLABLE_KINDS.has(s.kind),
+      ) ?? null
+    );
   }
 
-  const namespaceImp = imports.find((i) => !i.isTypeOnly && i.namespace === receiver);
+  const namespaceImp = imports.find(
+    (i) => !i.isTypeOnly && i.namespace === receiver,
+  );
   if (!namespaceImp) return null;
   const resolution = file.importResolutions.get(namespaceImp.specifier);
   if (!resolution || resolution.status !== "RESOLVED") return null;
   const targetFile = filesByPath.get(resolution.targetFilePath);
   if (!targetFile) return null;
-  return targetFile.symbols.find((s) => s.name === callName && CALLABLE_KINDS.has(s.kind)) ?? null;
+  return (
+    targetFile.symbols.find(
+      (s) => s.name === callName && CALLABLE_KINDS.has(s.kind),
+    ) ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -236,11 +285,19 @@ function resolveNamedImport(
  * resolve it (e.g. a `this.foo()` call to a method not itself declared in `F`, which is
  * not valid TS but this module never assumes the input is type-checked).
  */
-function isReceiverClassInScope(receiver: string, candidate: IndexedSymbol, file: CallResolverFileInput): boolean {
+function isReceiverClassInScope(
+  receiver: string,
+  candidate: IndexedSymbol,
+  file: CallResolverFileInput,
+): boolean {
   if (receiver === "this") return true;
   const className = candidate.parentSymbol;
   if (!className) return false;
-  return file.parsedFile.imports.some((imp) => !imp.isTypeOnly && (imp.default === className || imp.named.includes(className)));
+  return file.parsedFile.imports.some(
+    (imp) =>
+      !imp.isTypeOnly &&
+      (imp.default === className || imp.named.includes(className)),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -263,14 +320,21 @@ function topLevelSegment(filePath: string): string {
  * original candidate set is used — narrowing that would otherwise discard every option is
  * not applied.
  */
-function narrowAmbiguousCandidates(candidates: readonly IndexedSymbol[], callerFile: CallResolverFileInput): IndexedSymbol[] {
+function narrowAmbiguousCandidates(
+  candidates: readonly IndexedSymbol[],
+  callerFile: CallResolverFileInput,
+): IndexedSymbol[] {
   if (callerFile.packageName !== null) {
-    const samePackage = candidates.filter((c) => c.packageName === callerFile.packageName);
+    const samePackage = candidates.filter(
+      (c) => c.packageName === callerFile.packageName,
+    );
     if (samePackage.length > 0) return samePackage;
   }
 
   const callerTopLevel = topLevelSegment(callerFile.filePath);
-  const sameTopLevelDir = candidates.filter((c) => topLevelSegment(c.filePath) === callerTopLevel);
+  const sameTopLevelDir = candidates.filter(
+    (c) => topLevelSegment(c.filePath) === callerTopLevel,
+  );
   if (sameTopLevelDir.length > 0) return sameTopLevelDir;
 
   return [...candidates];
@@ -293,20 +357,42 @@ function resolveCallSite(
   filesByPath: ReadonlyMap<string, CallResolverFileInput>,
   index: Map<string, Map<string, IndexedSymbol[]>>,
   perPackage: boolean,
-): { edge: ResolvedCallEdge | null; edges?: ResolvedCallEdge[]; ambiguitySkipped: boolean } {
+): {
+  edge: ResolvedCallEdge | null;
+  edges?: ResolvedCallEdge[];
+  ambiguitySkipped: boolean;
+} {
   const { file, callerSymbolId, callerClassName, callName, receiver } = ctx;
 
   // Rule 1 — same file.
-  const sameFile = resolveSameFile(callName, receiver, callerClassName, file.symbols);
+  const sameFile = resolveSameFile(
+    callName,
+    receiver,
+    callerClassName,
+    file.symbols,
+  );
   if (sameFile) {
-    return { edge: { fromSymbolId: callerSymbolId, toSymbolId: sameFile.id, rule: "SAME_FILE", confidence: CALL_CONFIDENCE_SAME_FILE }, ambiguitySkipped: false };
+    return {
+      edge: {
+        fromSymbolId: callerSymbolId,
+        toSymbolId: sameFile.id,
+        rule: "SAME_FILE",
+        confidence: CALL_CONFIDENCE_SAME_FILE,
+      },
+      ambiguitySkipped: false,
+    };
   }
 
   // Rule 2 — named import (bare call) or namespace-import member call.
   const namedImport = resolveNamedImport(callName, receiver, file, filesByPath);
   if (namedImport) {
     return {
-      edge: { fromSymbolId: callerSymbolId, toSymbolId: namedImport.id, rule: "NAMED_IMPORT", confidence: CALL_CONFIDENCE_NAMED_IMPORT },
+      edge: {
+        fromSymbolId: callerSymbolId,
+        toSymbolId: namedImport.id,
+        rule: "NAMED_IMPORT",
+        confidence: CALL_CONFIDENCE_NAMED_IMPORT,
+      },
       ambiguitySkipped: false,
     };
   }
@@ -322,7 +408,9 @@ function resolveCallSite(
     // uniqueness/ambiguity is even evaluated, exactly as §0's framing describes ("else
     // treat as step 4" applies to the *remaining* ambiguity among candidates that do pass
     // the receiver check, not to candidates that fail it outright).
-    candidates = candidates.filter((c) => isReceiverClassInScope(receiver, c, file));
+    candidates = candidates.filter((c) =>
+      isReceiverClassInScope(receiver, c, file),
+    );
   } else {
     candidates = candidates.filter((c) => BARE_CALL_KINDS.has(c.kind));
   }
@@ -332,7 +420,12 @@ function resolveCallSite(
   if (candidates.length === 1) {
     const only = candidates[0]!;
     return {
-      edge: { fromSymbolId: callerSymbolId, toSymbolId: only.id, rule: "UNIQUE_REPO_MATCH", confidence: CALL_CONFIDENCE_UNIQUE_REPO_MATCH },
+      edge: {
+        fromSymbolId: callerSymbolId,
+        toSymbolId: only.id,
+        rule: "UNIQUE_REPO_MATCH",
+        confidence: CALL_CONFIDENCE_UNIQUE_REPO_MATCH,
+      },
       ambiguitySkipped: false,
     };
   }
@@ -369,7 +462,10 @@ function resolveCallSite(
  * 0` from the same {@link RepoContext} the import-resolver used, so both resolvers agree
  * on whether this repository is a monorepo.
  */
-export function resolveCalls(files: readonly CallResolverFileInput[], perPackage: boolean): CallResolutionResult {
+export function resolveCalls(
+  files: readonly CallResolverFileInput[],
+  perPackage: boolean,
+): CallResolutionResult {
   const filesByPath = new Map(files.map((f) => [f.filePath, f]));
   const index = buildNameIndex(files, perPackage);
 
@@ -382,11 +478,18 @@ export function resolveCalls(files: readonly CallResolverFileInput[], perPackage
       const callerSymbol = file.symbols[i];
       if (!callerSymbol) continue; // caller/parsedFile arrays must correlate 1:1 by position
 
-      const callerClassName = parsedSymbol.kind === "METHOD" ? parsedSymbol.parentSymbol : undefined;
+      const callerClassName =
+        parsedSymbol.kind === "METHOD" ? parsedSymbol.parentSymbol : undefined;
 
       for (const call of parsedSymbol.calls) {
         const result = resolveCallSite(
-          { file, callerSymbolId: callerSymbol.id, callerClassName, callName: call.name, receiver: call.receiver },
+          {
+            file,
+            callerSymbolId: callerSymbol.id,
+            callerClassName,
+            callName: call.name,
+            receiver: call.receiver,
+          },
           filesByPath,
           index,
           perPackage,

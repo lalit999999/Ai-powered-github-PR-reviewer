@@ -5,7 +5,10 @@ import type { CodeDependencyInsertInput } from "../../src/indexing/persistence/c
 import { insertCodeDependencies } from "../../src/indexing/persistence/code-dependency.repository.js";
 import type { CodeSymbolInsertInput } from "../../src/indexing/persistence/code-symbol.repository.js";
 import { insertCodeSymbols } from "../../src/indexing/persistence/code-symbol.repository.js";
-import { getFilesImportingFile, getInboundCallers } from "../../src/indexing/graph/graph-queries.repository.js";
+import {
+  getFilesImportingFile,
+  getInboundCallers,
+} from "../../src/indexing/graph/graph-queries.repository.js";
 import { resetDatabase } from "./db-helpers.js";
 import { seedRepository } from "./repository-helpers.js";
 
@@ -66,7 +69,10 @@ beforeAll(async () => {
 
   // --- Files ---
   const fileIds: string[] = [];
-  const filePathValues = Array.from({ length: FILE_COUNT }, (_, i) => `src/pkg-${(i % 20).toString()}/file-${i.toString()}.ts`);
+  const filePathValues = Array.from(
+    { length: FILE_COUNT },
+    (_, i) => `src/pkg-${(i % 20).toString()}/file-${i.toString()}.ts`,
+  );
   for (let i = 0; i < FILE_COUNT; i += 1) {
     const created = await prisma.repositoryFile.create({
       data: {
@@ -122,7 +128,10 @@ beforeAll(async () => {
   // --- CALLS edges: every symbol calls CALLS_PER_SYMBOL others, plus a deliberately hot
   // target with many extra inbound callers (the getInboundCallers query's own subject). ---
   const edgeRows: CodeDependencyInsertInput[] = [];
-  function edgeRow(overrides: Partial<CodeDependencyInsertInput> & Pick<CodeDependencyInsertInput, "kind">): CodeDependencyInsertInput {
+  function edgeRow(
+    overrides: Partial<CodeDependencyInsertInput> &
+      Pick<CodeDependencyInsertInput, "kind">,
+  ): CodeDependencyInsertInput {
     return {
       id: randomUUID(),
       repositoryId,
@@ -142,23 +151,51 @@ beforeAll(async () => {
   for (let i = 0; i < allSymbolIds.length; i += 1) {
     for (let c = 0; c < CALLS_PER_SYMBOL; c += 1) {
       const targetIdx = (i + c + 1) % allSymbolIds.length;
-      edgeRows.push(edgeRow({ kind: "CALLS", fromSymbolId: allSymbolIds[i]!, toSymbolId: allSymbolIds[targetIdx]!, confidence: 0.7 }));
+      edgeRows.push(
+        edgeRow({
+          kind: "CALLS",
+          fromSymbolId: allSymbolIds[i]!,
+          toSymbolId: allSymbolIds[targetIdx]!,
+          confidence: 0.7,
+        }),
+      );
     }
   }
   // 50 extra, distinct callers of hotSymbolId so getInboundCallers has real fan-in to sort.
   for (let i = 0; i < 50; i += 1) {
-    edgeRows.push(edgeRow({ kind: "CALLS", fromSymbolId: allSymbolIds[i]!, toSymbolId: hotSymbolId, confidence: 0.5 + i / 100 }));
+    edgeRows.push(
+      edgeRow({
+        kind: "CALLS",
+        fromSymbolId: allSymbolIds[i]!,
+        toSymbolId: hotSymbolId,
+        confidence: 0.5 + i / 100,
+      }),
+    );
   }
 
   // --- IMPORTS edges: a long linear chain (fileIds[0] <- fileIds[1] <- ... ) for the
   // depth-2 recursive CTE query, plus scattered noise imports for volume. ---
   for (let i = 1; i < IMPORT_CHAIN_LENGTH; i += 1) {
-    edgeRows.push(edgeRow({ kind: "IMPORTS", fromFileId: fileIds[i]!, toFileId: fileIds[i - 1]!, resolution: "RESOLVED" }));
+    edgeRows.push(
+      edgeRow({
+        kind: "IMPORTS",
+        fromFileId: fileIds[i]!,
+        toFileId: fileIds[i - 1]!,
+        resolution: "RESOLVED",
+      }),
+    );
   }
   for (let i = 0; i < FILE_COUNT; i += 1) {
     const target = fileIds[(i * 37 + 11) % FILE_COUNT]!;
     if (target === fileIds[i]) continue;
-    edgeRows.push(edgeRow({ kind: "IMPORTS", fromFileId: fileIds[i]!, toFileId: target, resolution: "RESOLVED" }));
+    edgeRows.push(
+      edgeRow({
+        kind: "IMPORTS",
+        fromFileId: fileIds[i]!,
+        toFileId: target,
+        resolution: "RESOLVED",
+      }),
+    );
   }
 
   await insertCodeDependencies(edgeRows);
@@ -189,9 +226,19 @@ describe("graph query plans at scale — 10,000+ symbols, 30,000+ edges (plan.md
     printPlan("getInboundCallers", plan);
 
     const nodes = flattenPlan(plan);
-    const seqScans = nodes.filter((n) => n["Node Type"] === "Seq Scan" && (n["Relation Name"] === "CodeDependency" || n["Relation Name"] === "CodeSymbol"));
+    const seqScans = nodes.filter(
+      (n) =>
+        n["Node Type"] === "Seq Scan" &&
+        (n["Relation Name"] === "CodeDependency" ||
+          n["Relation Name"] === "CodeSymbol"),
+    );
     expect(seqScans).toEqual([]);
-    const indexNodes = nodes.filter((n) => n["Node Type"] === "Index Scan" || n["Node Type"] === "Bitmap Index Scan" || n["Node Type"] === "Index Only Scan");
+    const indexNodes = nodes.filter(
+      (n) =>
+        n["Node Type"] === "Index Scan" ||
+        n["Node Type"] === "Bitmap Index Scan" ||
+        n["Node Type"] === "Index Only Scan",
+    );
     expect(indexNodes.length).toBeGreaterThan(0);
 
     // Real caller data, not an empty result the planner trivially fast-pathed.
@@ -218,13 +265,24 @@ describe("graph query plans at scale — 10,000+ symbols, 30,000+ edges (plan.md
     printPlan("getFilesImportingFile", plan);
 
     const nodes = flattenPlan(plan);
-    const seqScans = nodes.filter((n) => n["Node Type"] === "Seq Scan" && n["Relation Name"] === "CodeDependency");
+    const seqScans = nodes.filter(
+      (n) =>
+        n["Node Type"] === "Seq Scan" &&
+        n["Relation Name"] === "CodeDependency",
+    );
     expect(seqScans).toEqual([]);
-    const indexNodes = nodes.filter((n) => n["Node Type"] === "Index Scan" || n["Node Type"] === "Bitmap Index Scan" || n["Node Type"] === "Index Only Scan");
+    const indexNodes = nodes.filter(
+      (n) =>
+        n["Node Type"] === "Index Scan" ||
+        n["Node Type"] === "Bitmap Index Scan" ||
+        n["Node Type"] === "Index Only Scan",
+    );
     expect(indexNodes.length).toBeGreaterThan(0);
 
     const executionTimeMs = rows[0]!["QUERY PLAN"][0]!["Execution Time"];
-    console.log(`getFilesImportingFile execution time: ${executionTimeMs.toFixed(2)}ms (budget ${QUERY_BUDGET_MS.toString()}ms)`);
+    console.log(
+      `getFilesImportingFile execution time: ${executionTimeMs.toFixed(2)}ms (budget ${QUERY_BUDGET_MS.toString()}ms)`,
+    );
     expect(executionTimeMs).toBeLessThan(QUERY_BUDGET_MS);
 
     // The real query call, proving depth actually reaches 2 on this seeded chain.

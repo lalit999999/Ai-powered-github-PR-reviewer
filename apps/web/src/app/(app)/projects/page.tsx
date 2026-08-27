@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { listProjects } from "@/lib/api";
 
 /**
@@ -18,7 +23,8 @@ export default async function ProjectsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            A project is the tenancy root — repositories connect into one in Phase 02.
+            A project is the tenancy root — repositories connect into one in
+            Phase 02.
           </p>
         </div>
         <CreateProjectDialog />
@@ -40,7 +46,8 @@ export default async function ProjectsPage() {
                   <CardHeader>
                     <CardTitle>{project.name}</CardTitle>
                     <CardDescription>
-                      {project.slug} · created {new Date(project.createdAt).toLocaleDateString()}
+                      {project.slug} · created{" "}
+                      {new Date(project.createdAt).toLocaleDateString()}
                     </CardDescription>
                   </CardHeader>
                 </Card>

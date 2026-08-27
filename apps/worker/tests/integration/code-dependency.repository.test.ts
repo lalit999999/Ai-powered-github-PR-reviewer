@@ -24,7 +24,10 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function seedRepositoryFile(repositoryId: string, path: string): Promise<string> {
+async function seedRepositoryFile(
+  repositoryId: string,
+  path: string,
+): Promise<string> {
   const file = await prisma.repositoryFile.create({
     data: {
       repositoryId,
@@ -41,15 +44,28 @@ async function seedRepositoryFile(repositoryId: string, path: string): Promise<s
   return file.id;
 }
 
-async function seedCodeSymbol(repositoryId: string, fileId: string, name: string): Promise<string> {
+async function seedCodeSymbol(
+  repositoryId: string,
+  fileId: string,
+  name: string,
+): Promise<string> {
   const symbol = await prisma.codeSymbol.create({
-    data: { repositoryId, fileId, name, kind: "FUNCTION", startLine: 1, endLine: 2, commitSha: "sha1" },
+    data: {
+      repositoryId,
+      fileId,
+      name,
+      kind: "FUNCTION",
+      startLine: 1,
+      endLine: 2,
+      commitSha: "sha1",
+    },
   });
   return symbol.id;
 }
 
 function makeEdge(
-  overrides: Partial<CodeDependencyInsertInput> & Pick<CodeDependencyInsertInput, "repositoryId" | "kind">,
+  overrides: Partial<CodeDependencyInsertInput> &
+    Pick<CodeDependencyInsertInput, "repositoryId" | "kind">,
 ): CodeDependencyInsertInput {
   return {
     id: randomUUID(),
@@ -66,7 +82,16 @@ function makeEdge(
   };
 }
 
-const ALL_KINDS: DependencyKind[] = ["IMPORTS", "EXPORTS", "CONTAINS", "CALLS", "EXTENDS", "IMPLEMENTS", "REFERENCES", "TESTS"];
+const ALL_KINDS: DependencyKind[] = [
+  "IMPORTS",
+  "EXPORTS",
+  "CONTAINS",
+  "CALLS",
+  "EXTENDS",
+  "IMPLEMENTS",
+  "REFERENCES",
+  "TESTS",
+];
 
 describe("insertCodeDependencies", () => {
   it("bulk inserts across all eight DependencyKind values", async () => {
@@ -89,7 +114,9 @@ describe("insertCodeDependencies", () => {
 
     const counts = await insertCodeDependencies(edges);
 
-    const total = await prisma.codeDependency.count({ where: { repositoryId: repo.id } });
+    const total = await prisma.codeDependency.count({
+      where: { repositoryId: repo.id },
+    });
     expect(total).toBe(ALL_KINDS.length);
     for (const kind of ALL_KINDS) {
       expect(counts[kind]?.RESOLVED).toBe(1);
@@ -101,7 +128,12 @@ describe("insertCodeDependencies", () => {
     const fileA = await seedRepositoryFile(repo.id, "src/a.ts");
     const fileB = await seedRepositoryFile(repo.id, "src/b.ts");
 
-    const edge = makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: fileA, toFileId: fileB });
+    const edge = makeEdge({
+      repositoryId: repo.id,
+      kind: "IMPORTS",
+      fromFileId: fileA,
+      toFileId: fileB,
+    });
 
     await insertCodeDependencies([edge]);
     // A distinct id, but identical identity columns (repositoryId, kind, from/to) — the
@@ -111,7 +143,9 @@ describe("insertCodeDependencies", () => {
     const duplicate = { ...edge, id: randomUUID() };
     const counts = await insertCodeDependencies([duplicate]);
 
-    expect(await prisma.codeDependency.count({ where: { repositoryId: repo.id } })).toBe(1);
+    expect(
+      await prisma.codeDependency.count({ where: { repositoryId: repo.id } }),
+    ).toBe(1);
     // The conflict-skipped row is correctly excluded from the returned insert count.
     expect(counts.IMPORTS?.RESOLVED).toBe(0);
   });
@@ -121,11 +155,18 @@ describe("insertCodeDependencies", () => {
     const fileA = await seedRepositoryFile(repo.id, "src/a.ts");
     const fileB = await seedRepositoryFile(repo.id, "src/b.ts");
 
-    const edge = makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: fileA, toFileId: fileB });
+    const edge = makeEdge({
+      repositoryId: repo.id,
+      kind: "IMPORTS",
+      fromFileId: fileA,
+      toFileId: fileB,
+    });
     await insertCodeDependencies([edge]);
     await insertCodeDependencies([{ ...edge, id: randomUUID() }]);
 
-    expect(await prisma.codeDependency.count({ where: { repositoryId: repo.id } })).toBe(1);
+    expect(
+      await prisma.codeDependency.count({ where: { repositoryId: repo.id } }),
+    ).toBe(1);
   });
 });
 
@@ -138,14 +179,32 @@ describe("deleteCodeDependenciesByRepository — tenant isolation", () => {
     const fileB1 = await seedRepositoryFile(repoB.id, "src/b1.ts");
     const fileB2 = await seedRepositoryFile(repoB.id, "src/b2.ts");
 
-    await insertCodeDependencies([makeEdge({ repositoryId: repoA.id, kind: "IMPORTS", fromFileId: fileA1, toFileId: fileA2 })]);
-    await insertCodeDependencies([makeEdge({ repositoryId: repoB.id, kind: "IMPORTS", fromFileId: fileB1, toFileId: fileB2 })]);
+    await insertCodeDependencies([
+      makeEdge({
+        repositoryId: repoA.id,
+        kind: "IMPORTS",
+        fromFileId: fileA1,
+        toFileId: fileA2,
+      }),
+    ]);
+    await insertCodeDependencies([
+      makeEdge({
+        repositoryId: repoB.id,
+        kind: "IMPORTS",
+        fromFileId: fileB1,
+        toFileId: fileB2,
+      }),
+    ]);
 
     const removed = await deleteCodeDependenciesByRepository(repoA.id);
     expect(removed).toBe(1);
 
-    expect(await prisma.codeDependency.count({ where: { repositoryId: repoA.id } })).toBe(0);
-    expect(await prisma.codeDependency.count({ where: { repositoryId: repoB.id } })).toBe(1);
+    expect(
+      await prisma.codeDependency.count({ where: { repositoryId: repoA.id } }),
+    ).toBe(0);
+    expect(
+      await prisma.codeDependency.count({ where: { repositoryId: repoB.id } }),
+    ).toBe(1);
   });
 });
 
@@ -162,12 +221,32 @@ describe("countInboundEdgesByFile", () => {
 
     await insertCodeDependencies([
       // Direct file-level edge into `util`.
-      makeEdge({ repositoryId: repo.id, kind: "IMPORTS", fromFileId: caller1, toFileId: util }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "IMPORTS",
+        fromFileId: caller1,
+        toFileId: util,
+      }),
       // Two symbol-level edges into utilFn (owned by `util`).
-      makeEdge({ repositoryId: repo.id, kind: "CALLS", fromFileId: caller1, toSymbolId: utilFn }),
-      makeEdge({ repositoryId: repo.id, kind: "CALLS", fromFileId: caller2, toSymbolId: utilFn }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "CALLS",
+        fromFileId: caller1,
+        toSymbolId: utilFn,
+      }),
+      makeEdge({
+        repositoryId: repo.id,
+        kind: "CALLS",
+        fromFileId: caller2,
+        toSymbolId: utilFn,
+      }),
       // Noise in a different repository — must not leak into repo's counts.
-      makeEdge({ repositoryId: other.id, kind: "IMPORTS", fromFileId: otherFile, toFileId: otherFile }),
+      makeEdge({
+        repositoryId: other.id,
+        kind: "IMPORTS",
+        fromFileId: otherFile,
+        toFileId: otherFile,
+      }),
     ]);
 
     const counts = await countInboundEdgesByFile(repo.id);

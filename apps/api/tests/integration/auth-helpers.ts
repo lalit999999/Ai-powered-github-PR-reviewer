@@ -26,7 +26,9 @@ export interface SeededUser {
   cookie: string;
 }
 
-export async function seedSignedInUser(githubLogin: string): Promise<SeededUser> {
+export async function seedSignedInUser(
+  githubLogin: string,
+): Promise<SeededUser> {
   seq += 1;
   const user = await prisma.user.create({
     data: {
@@ -48,7 +50,11 @@ export async function seedSignedInUser(githubLogin: string): Promise<SeededUser>
 
   // The non-`__Secure-` name is what @auth/core uses over plain http, which is what
   // supertest speaks (verified in tests/integration/auth.test.ts).
-  return { id: user.id, githubLogin, cookie: `authjs.session-token=${sessionToken}` };
+  return {
+    id: user.id,
+    githubLogin,
+    cookie: `authjs.session-token=${sessionToken}`,
+  };
 }
 
 /** Signs the user out the way Auth.js does — by removing the session row — so the old

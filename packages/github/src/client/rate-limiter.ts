@@ -51,9 +51,15 @@ export function createRateLimitPolicy(options: RateLimitPolicyOptions) {
   const logger = options.logger ?? createLogger("github.client");
   const maxWaitSeconds = options.maxWaitSeconds ?? MAX_RATE_LIMIT_WAIT_SECONDS;
   const maxRetries = options.maxRetries ?? MAX_RATE_LIMIT_RETRIES;
-  const installationId = options.installationId === null ? null : options.installationId.toString();
+  const installationId =
+    options.installationId === null ? null : options.installationId.toString();
 
-  const decide = (kind: "primary" | "secondary", retryAfter: number, endpoint: string, retryCount: number): boolean => {
+  const decide = (
+    kind: "primary" | "secondary",
+    retryAfter: number,
+    endpoint: string,
+    retryCount: number,
+  ): boolean => {
     const willRetry = retryAfter <= maxWaitSeconds && retryCount < maxRetries;
     logger.warn("github rate limit hit", {
       installationId,
@@ -68,10 +74,20 @@ export function createRateLimitPolicy(options: RateLimitPolicyOptions) {
   };
 
   return {
-    onRateLimit(retryAfter: number, requestOptions: Required<EndpointDefaults>, _octokit: Octokit, retryCount: number) {
+    onRateLimit(
+      retryAfter: number,
+      requestOptions: Required<EndpointDefaults>,
+      _octokit: Octokit,
+      retryCount: number,
+    ) {
       // A rate limit is explicitly NOT revocation — §12 requires the two stay
       // distinguishable, and this path never marks a repository ACCESS_LOST.
-      return decide("primary", retryAfter, endpointOf(requestOptions), retryCount);
+      return decide(
+        "primary",
+        retryAfter,
+        endpointOf(requestOptions),
+        retryCount,
+      );
     },
 
     onSecondaryRateLimit(
@@ -82,7 +98,12 @@ export function createRateLimitPolicy(options: RateLimitPolicyOptions) {
     ) {
       // Secondary ("abuse") limits mean we are being too aggressive rather than out of
       // budget. Same ceiling applies: honor GitHub's stated wait, up to a point.
-      return decide("secondary", retryAfter, endpointOf(requestOptions), retryCount);
+      return decide(
+        "secondary",
+        retryAfter,
+        endpointOf(requestOptions),
+        retryCount,
+      );
     },
   };
 }

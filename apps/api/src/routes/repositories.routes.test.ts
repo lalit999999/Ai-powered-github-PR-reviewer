@@ -19,10 +19,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@repo/db", () => ({ prisma: {} }));
 
 const requireSession = vi.fn();
-vi.mock("../lib/auth/session.js", () => ({ requireSession: () => requireSession() }));
+vi.mock("../lib/auth/session.js", () => ({
+  requireSession: () => requireSession(),
+}));
 
 const requireTenantAccess = vi.fn();
-vi.mock("../lib/auth/tenant-access.js", () => ({ requireTenantAccess: (...args: unknown[]) => requireTenantAccess(...args) }));
+vi.mock("../lib/auth/tenant-access.js", () => ({
+  requireTenantAccess: (...args: unknown[]) => requireTenantAccess(...args),
+}));
 
 vi.mock("../modules/repositories/repository.service.js", () => ({
   connectRepository: vi.fn(),
@@ -44,10 +48,19 @@ vi.mock("../modules/projects/project.service.js", () => ({
 
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
-  return { ...actual, createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) };
+  return {
+    ...actual,
+    createLogger: () => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    }),
+  };
 });
 
-const repositoryService = await import("../modules/repositories/repository.service.js");
+const repositoryService =
+  await import("../modules/repositories/repository.service.js");
 const { UnauthenticatedError } = await import("../lib/errors.js");
 const { errorHandler, requestContext } = await import("../lib/http.js");
 const apiRoutes = (await import("./index.js")).default;
@@ -90,18 +103,27 @@ function buildApp(): Express {
 const app = buildApp();
 
 function signedIn(): void {
-  requireSession.mockResolvedValue({ user: { id: USER_ID }, expires: "2099-01-01T00:00:00.000Z" });
+  requireSession.mockResolvedValue({
+    user: { id: USER_ID },
+    expires: "2099-01-01T00:00:00.000Z",
+  });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireTenantAccess.mockResolvedValue({ userId: USER_ID, projectId: PROJECT_ID, repositoryId: REPOSITORY_ID });
+  requireTenantAccess.mockResolvedValue({
+    userId: USER_ID,
+    projectId: PROJECT_ID,
+    repositoryId: REPOSITORY_ID,
+  });
 });
 
 describe("POST /api/projects/:projectId/repositories (§7)", () => {
   it("answers 202 with the repository envelope", async () => {
     signedIn();
-    vi.mocked(repositoryService.connectRepository).mockResolvedValue(repositoryDto);
+    vi.mocked(repositoryService.connectRepository).mockResolvedValue(
+      repositoryDto,
+    );
 
     const res = await request(app)
       .post(`/api/projects/${PROJECT_ID}/repositories`)
@@ -119,18 +141,24 @@ describe("POST /api/projects/:projectId/repositories (§7)", () => {
    */
   it("receives :projectId from the parent mount — mergeParams is actually set", async () => {
     signedIn();
-    vi.mocked(repositoryService.connectRepository).mockResolvedValue(repositoryDto);
+    vi.mocked(repositoryService.connectRepository).mockResolvedValue(
+      repositoryDto,
+    );
 
     await request(app)
       .post(`/api/projects/${PROJECT_ID}/repositories`)
       .send({ repoUrl: "https://github.com/octocat/Hello-World" });
 
-    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), { projectId: PROJECT_ID });
+    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), {
+      projectId: PROJECT_ID,
+    });
   });
 
   it("resolves tenancy on the project, then validates, then delegates", async () => {
     signedIn();
-    vi.mocked(repositoryService.connectRepository).mockResolvedValue(repositoryDto);
+    vi.mocked(repositoryService.connectRepository).mockResolvedValue(
+      repositoryDto,
+    );
 
     await request(app)
       .post(`/api/projects/${PROJECT_ID}/repositories`)
@@ -146,7 +174,9 @@ describe("POST /api/projects/:projectId/repositories (§7)", () => {
   it("400s on a body with neither field, without touching the service", async () => {
     signedIn();
 
-    const res = await request(app).post(`/api/projects/${PROJECT_ID}/repositories`).send({});
+    const res = await request(app)
+      .post(`/api/projects/${PROJECT_ID}/repositories`)
+      .send({});
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
@@ -158,15 +188,22 @@ describe("POST /api/projects/:projectId/repositories (§7)", () => {
 
     const res = await request(app)
       .post(`/api/projects/${PROJECT_ID}/repositories`)
-      .send({ repoUrl: "https://github.com/octocat/Hello-World", githubRepoId: "1296269" });
+      .send({
+        repoUrl: "https://github.com/octocat/Hello-World",
+        githubRepoId: "1296269",
+      });
 
     expect(res.status).toBe(400);
   });
 
   it("401s without a session, before any validation", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    const res = await request(app).post(`/api/projects/${PROJECT_ID}/repositories`).send({});
+    const res = await request(app)
+      .post(`/api/projects/${PROJECT_ID}/repositories`)
+      .send({});
 
     expect(res.status).toBe(401);
     expect(requireTenantAccess).not.toHaveBeenCalled();
@@ -196,20 +233,28 @@ describe("GET /api/repositories/:repositoryId (§7)", () => {
 
     await request(app).get(`/api/repositories/${REPOSITORY_ID}`);
 
-    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), { repositoryId: REPOSITORY_ID });
+    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), {
+      repositoryId: REPOSITORY_ID,
+    });
   });
 
   it("401s without a session", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    await expect(request(app).get(`/api/repositories/${REPOSITORY_ID}`)).resolves.toMatchObject({ status: 401 });
+    await expect(
+      request(app).get(`/api/repositories/${REPOSITORY_ID}`),
+    ).resolves.toMatchObject({ status: 401 });
   });
 });
 
 describe("DELETE /api/repositories/:repositoryId (§7)", () => {
   it("answers 202 and echoes the repositoryId", async () => {
     signedIn();
-    vi.mocked(repositoryService.disconnectRepository).mockResolvedValue(undefined);
+    vi.mocked(repositoryService.disconnectRepository).mockResolvedValue(
+      undefined,
+    );
 
     const res = await request(app).delete(`/api/repositories/${REPOSITORY_ID}`);
 
@@ -219,18 +264,26 @@ describe("DELETE /api/repositories/:repositoryId (§7)", () => {
 
   it("is idempotent at the route level — a repeat call still answers 202", async () => {
     signedIn();
-    vi.mocked(repositoryService.disconnectRepository).mockResolvedValue(undefined);
+    vi.mocked(repositoryService.disconnectRepository).mockResolvedValue(
+      undefined,
+    );
 
     await request(app).delete(`/api/repositories/${REPOSITORY_ID}`);
-    const second = await request(app).delete(`/api/repositories/${REPOSITORY_ID}`);
+    const second = await request(app).delete(
+      `/api/repositories/${REPOSITORY_ID}`,
+    );
 
     expect(second.status).toBe(202);
   });
 
   it("401s without a session", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    await expect(request(app).delete(`/api/repositories/${REPOSITORY_ID}`)).resolves.toMatchObject({ status: 401 });
+    await expect(
+      request(app).delete(`/api/repositories/${REPOSITORY_ID}`),
+    ).resolves.toMatchObject({ status: 401 });
   });
 });
 
@@ -248,7 +301,9 @@ describe("GET /api/repositories/:repositoryId/index-status (§7)", () => {
     signedIn();
     vi.mocked(repositoryService.getIndexStatus).mockResolvedValue(statusBody);
 
-    const res = await request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`);
+    const res = await request(app).get(
+      `/api/repositories/${REPOSITORY_ID}/index-status`,
+    );
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(statusBody);
@@ -260,13 +315,19 @@ describe("GET /api/repositories/:repositoryId/index-status (§7)", () => {
 
     await request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`);
 
-    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), { repositoryId: REPOSITORY_ID });
+    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), {
+      repositoryId: REPOSITORY_ID,
+    });
   });
 
   it("401s without a session", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    await expect(request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`)).resolves.toMatchObject({
+    await expect(
+      request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`),
+    ).resolves.toMatchObject({
       status: 401,
     });
   });
@@ -288,7 +349,9 @@ describe("GET /api/repositories/:repositoryId/knowledge (phase-04 §7)", () => {
     signedIn();
     vi.mocked(repositoryService.getKnowledge).mockResolvedValue(knowledgeBody);
 
-    const res = await request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`);
+    const res = await request(app).get(
+      `/api/repositories/${REPOSITORY_ID}/knowledge`,
+    );
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(knowledgeBody);
@@ -300,13 +363,19 @@ describe("GET /api/repositories/:repositoryId/knowledge (phase-04 §7)", () => {
 
     await request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`);
 
-    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), { repositoryId: REPOSITORY_ID });
+    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), {
+      repositoryId: REPOSITORY_ID,
+    });
   });
 
   it("401s without a session", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    await expect(request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`)).resolves.toMatchObject({
+    await expect(
+      request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`),
+    ).resolves.toMatchObject({
       status: 401,
     });
   });
@@ -315,9 +384,13 @@ describe("GET /api/repositories/:repositoryId/knowledge (phase-04 §7)", () => {
 describe("POST /api/repositories/:repositoryId/index (§7)", () => {
   it("answers 202 with { indexJobId }", async () => {
     signedIn();
-    vi.mocked(repositoryService.triggerIndex).mockResolvedValue({ indexJobId: "job-1" });
+    vi.mocked(repositoryService.triggerIndex).mockResolvedValue({
+      indexJobId: "job-1",
+    });
 
-    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "FULL" });
+    const res = await request(app)
+      .post(`/api/repositories/${REPOSITORY_ID}/index`)
+      .send({ mode: "FULL" });
 
     expect(res.status).toBe(202);
     expect(res.body).toEqual({ indexJobId: "job-1" });
@@ -326,7 +399,9 @@ describe("POST /api/repositories/:repositoryId/index (§7)", () => {
   it("400s mode: INCREMENTAL, without touching the service", async () => {
     signedIn();
 
-    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "INCREMENTAL" });
+    const res = await request(app)
+      .post(`/api/repositories/${REPOSITORY_ID}/index`)
+      .send({ mode: "INCREMENTAL" });
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
@@ -336,7 +411,9 @@ describe("POST /api/repositories/:repositoryId/index (§7)", () => {
   it("400s a missing mode", async () => {
     signedIn();
 
-    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({});
+    const res = await request(app)
+      .post(`/api/repositories/${REPOSITORY_ID}/index`)
+      .send({});
 
     expect(res.status).toBe(400);
     expect(repositoryService.triggerIndex).not.toHaveBeenCalled();
@@ -345,9 +422,13 @@ describe("POST /api/repositories/:repositoryId/index (§7)", () => {
   it("409s when the service reports the repository is already indexing", async () => {
     signedIn();
     const { ConflictError } = await import("../lib/errors.js");
-    vi.mocked(repositoryService.triggerIndex).mockRejectedValue(new ConflictError("This repository is already being indexed"));
+    vi.mocked(repositoryService.triggerIndex).mockRejectedValue(
+      new ConflictError("This repository is already being indexed"),
+    );
 
-    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "FULL" });
+    const res = await request(app)
+      .post(`/api/repositories/${REPOSITORY_ID}/index`)
+      .send({ mode: "FULL" });
 
     expect(res.status).toBe(409);
   });
@@ -356,20 +437,29 @@ describe("POST /api/repositories/:repositoryId/index (§7)", () => {
     signedIn();
     const { TooManyRequestsError } = await import("../lib/errors.js");
     vi.mocked(repositoryService.triggerIndex).mockRejectedValue(
-      new TooManyRequestsError("Too many index requests for this repository — try again later", {
-        details: { retryAfterSeconds: 1800 },
-      }),
+      new TooManyRequestsError(
+        "Too many index requests for this repository — try again later",
+        {
+          details: { retryAfterSeconds: 1800 },
+        },
+      ),
     );
 
-    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({ mode: "FULL" });
+    const res = await request(app)
+      .post(`/api/repositories/${REPOSITORY_ID}/index`)
+      .send({ mode: "FULL" });
 
     expect(res.status).toBe(429);
   });
 
   it("401s without a session, before any validation", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    const res = await request(app).post(`/api/repositories/${REPOSITORY_ID}/index`).send({});
+    const res = await request(app)
+      .post(`/api/repositories/${REPOSITORY_ID}/index`)
+      .send({});
 
     expect(res.status).toBe(401);
     expect(requireTenantAccess).not.toHaveBeenCalled();
@@ -399,20 +489,33 @@ describe("GET /api/github/installations (§7)", () => {
   });
 
   it("401s without a session", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    await expect(request(app).get("/api/github/installations")).resolves.toMatchObject({ status: 401 });
+    await expect(
+      request(app).get("/api/github/installations"),
+    ).resolves.toMatchObject({ status: 401 });
   });
 });
 
 describe("GET /api/github/installations/:id/repos (§7)", () => {
   it("answers 200 with { repos } and passes the coerced bigint id plus ?q", async () => {
     signedIn();
-    vi.mocked(repositoryService.listInstallationRepositories).mockResolvedValue([
-      { githubRepoId: "1296269", fullName: "octocat/Hello-World", isPrivate: false, defaultBranch: "main" },
-    ]);
+    vi.mocked(repositoryService.listInstallationRepositories).mockResolvedValue(
+      [
+        {
+          githubRepoId: "1296269",
+          fullName: "octocat/Hello-World",
+          isPrivate: false,
+          defaultBranch: "main",
+        },
+      ],
+    );
 
-    const res = await request(app).get("/api/github/installations/4242/repos?q=hello");
+    const res = await request(app).get(
+      "/api/github/installations/4242/repos?q=hello",
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.repos).toHaveLength(1);
@@ -426,16 +529,24 @@ describe("GET /api/github/installations/:id/repos (§7)", () => {
   it("400s on a non-numeric installation id", async () => {
     signedIn();
 
-    const res = await request(app).get("/api/github/installations/not-a-number/repos");
+    const res = await request(app).get(
+      "/api/github/installations/not-a-number/repos",
+    );
 
     expect(res.status).toBe(400);
-    expect(repositoryService.listInstallationRepositories).not.toHaveBeenCalled();
+    expect(
+      repositoryService.listInstallationRepositories,
+    ).not.toHaveBeenCalled();
   });
 
   it("401s without a session", async () => {
-    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+    requireSession.mockRejectedValue(
+      new UnauthenticatedError("Authentication required"),
+    );
 
-    await expect(request(app).get("/api/github/installations/4242/repos")).resolves.toMatchObject({ status: 401 });
+    await expect(
+      request(app).get("/api/github/installations/4242/repos"),
+    ).resolves.toMatchObject({ status: 401 });
   });
 });
 
