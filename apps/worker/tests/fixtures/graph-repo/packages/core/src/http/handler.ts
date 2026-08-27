@@ -11,5 +11,11 @@ import { capitalize } from "@utils/string-utils";
  * step 3 of the ladder for this one call site.
  */
 export function handler(body: string): string {
-  return capitalize(body);
+  return capitalize(sanitize(body));
+}
+
+/** Same-file call (rule 1) from `handler` above, plus a built-in-method call
+ * (`.replace`) that must not be confused with any repo symbol. */
+function sanitize(body: string): string {
+  return body.replace(/\s+/g, " ").trim();
 }

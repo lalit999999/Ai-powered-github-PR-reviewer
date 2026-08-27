@@ -7,3 +7,8 @@
 export function runJob(payload: string): boolean {
   return validate(payload);
 }
+
+/** Same-file call (rule 1) to `runJob` above. */
+export function runJobs(payloads: readonly string[]): boolean {
+  return payloads.every((payload) => runJob(payload));
+}

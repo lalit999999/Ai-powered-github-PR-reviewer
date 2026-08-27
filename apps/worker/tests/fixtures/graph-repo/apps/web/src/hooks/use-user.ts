@@ -13,3 +13,13 @@ export function useUser(id: string): UserState {
 function formatUserName(id: string): string {
   return `user-${id}`;
 }
+
+/** A second hook, calling the first (rule 1, HOOK-to-HOOK). */
+export function useUserGreeting(id: string): string {
+  const user = useUser(id);
+  return greet(user.name);
+}
+
+function greet(name: string): string {
+  return `Hello, ${name.toUpperCase()}!`;
+}

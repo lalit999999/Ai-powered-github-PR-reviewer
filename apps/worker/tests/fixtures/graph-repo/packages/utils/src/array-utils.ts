@@ -22,3 +22,18 @@ export function unique<T>(items: readonly T[]): T[] {
   }
   return result;
 }
+
+/** Same-file calls (rule 1) to both `chunk` and `unique` above. */
+export function chunkUnique<T>(items: readonly T[], size: number): T[][] {
+  return chunk(unique(items), size);
+}
+
+/** Built-in-only calls (`Array.prototype.reduce`/`join`) — no repo symbol
+ * named `reduce` or `join` exists, so both are correct abstentions. */
+export function sum(items: readonly number[]): string {
+  return items.reduce((total, item) => total + item, 0).toString();
+}
+
+export function joinAll(items: readonly string[][]): string {
+  return items.map((batch) => batch.join(",")).join(";");
+}

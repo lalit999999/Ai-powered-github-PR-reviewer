@@ -20,3 +20,9 @@ export class DateFormatter implements Serializable {
 export function formatDate(epochMs: number): string {
   return new DateFormatter(epochMs).serialize();
 }
+
+/** Same-file call (rule 1) to `formatDate` above, plus a built-in call
+ * (`Array.prototype.map`) that must not resolve to any repo symbol. */
+export function formatDates(epochMsList: readonly number[]): string[] {
+  return epochMsList.map((epochMs) => formatDate(epochMs));
+}

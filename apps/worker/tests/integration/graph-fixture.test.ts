@@ -23,15 +23,15 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
   it("produces the expected file, symbol, and edge counts", async () => {
     const { graph } = await indexGraphRepoFixture();
 
-    // 48 RepositoryFile rows total: 37 real TS/TSX source files parsed OK, 1 deliberately
+    // 54 RepositoryFile rows total: 43 real TS/TSX source files parsed OK, 1 deliberately
     // malformed (FAILED), and 10 manifest/markdown files (package.json × 5, tsconfig.json
     // × 5 counted together below, pnpm-workspace.yaml, MANIFEST.md) that are never
     // eligible for parsing at all (NOT_PARSED).
-    expect(graph.filesParsedOk).toBe(37);
+    expect(graph.filesParsedOk).toBe(43);
     expect(graph.parseFailureCount).toBe(1);
     expect(graph.filesNotParsed).toBe(10);
-    expect(graph.symbolsCreated).toBe(51);
-    expect(graph.edgesCreated).toBe(143);
+    expect(graph.symbolsCreated).toBe(93);
+    expect(graph.edgesCreated).toBe(263);
     expect(graph.unresolvedImportRatio).toBe(0);
   });
 
@@ -113,7 +113,7 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
   });
 
   describe("findInboundCallers — exact, hand-verified caller sets", () => {
-    it("capitalize (packages/utils/src/string-utils.ts) — called cross-package from two files", async () => {
+    it("capitalize (packages/utils/src/string-utils.ts) — five callers, two same-file, three cross-file/cross-package", async () => {
       const { repository } = await indexGraphRepoFixture();
       const symbol = await prisma.codeSymbol.findFirstOrThrow({
         where: { repositoryId: repository.id, name: "capitalize" },
@@ -123,10 +123,18 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
       const callers = await getInboundCallers(repository.id, [symbol.id]);
       const set = callers.map((c) => `${c.filePath}::${c.symbolName}`).sort();
 
-      expect(set).toEqual(["packages/core/src/http/handler.ts::handler", "packages/utils/src/registry.ts::index"].sort());
+      expect(set).toEqual(
+        [
+          "packages/utils/src/string-utils.ts::capitalizeAndLog",
+          "packages/utils/src/string-utils.ts::padAndCapitalize",
+          "src/checks/verify-utils.ts::checkCapitalize",
+          "packages/core/src/http/handler.ts::handler",
+          "packages/utils/src/registry.ts::index",
+        ].sort(),
+      );
     });
 
-    it("handler (packages/core/src/http/handler.ts) — one clean named-import caller, one ambiguous ", async () => {
+    it("handler (packages/core/src/http/handler.ts) — one clean named-import caller, one ambiguous", async () => {
       const { repository } = await indexGraphRepoFixture();
       const file = await prisma.repositoryFile.findFirstOrThrow({
         where: { repositoryId: repository.id, path: "packages/core/src/http/handler.ts" },
@@ -143,17 +151,19 @@ describe("graph-repo fixture — structural facts (phase-04 §14)", () => {
       expect(set).toEqual(["packages/core/src/http/router.ts::route", "packages/core/src/jobs/dispatch.ts::dispatch"].sort());
     });
 
-    it("touch (packages/core/src/models/base-entity.ts) — one caller, three levels down the class hierarchy", async () => {
+    it("bump (packages/core/src/models/entity.ts) — one same-file caller, one caller inherited through NamedEntity", async () => {
       const { repository } = await indexGraphRepoFixture();
       const symbol = await prisma.codeSymbol.findFirstOrThrow({
-        where: { repositoryId: repository.id, name: "touch" },
+        where: { repositoryId: repository.id, name: "bump" },
         select: { id: true },
       });
 
       const callers = await getInboundCallers(repository.id, [symbol.id]);
+      const set = callers.map((c) => `${c.filePath}::${c.symbolName}`).sort();
 
-      expect(callers).toHaveLength(1);
-      expect(callers[0]).toMatchObject({ symbolName: "bump", filePath: "packages/core/src/models/entity.ts" });
+      expect(set).toEqual(
+        ["packages/core/src/models/entity.ts::bumpTwice", "packages/core/src/models/named-entity.ts::rename"].sort(),
+      );
     });
   });
 

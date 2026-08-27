@@ -1,3 +1,4 @@
+import { logLine } from "@fixture/utils/src/string-utils";
 import { hashPassword } from "@fixture/utils/src/hash";
 import { createSession, verifySession } from "./session";
 
@@ -13,4 +14,10 @@ export function login(username: string, password: string): boolean {
   const hashed = hashPassword(password);
   const session = createSession(username);
   return hashed.length > 0 && verifySession(session);
+}
+
+/** A second cross-package named import (rule 2) — `logLine`, from the same
+ * `@fixture/utils` deep-subpath style as `hashPassword` above. */
+export function logLoginAttempt(username: string): string {
+  return logLine(`login attempt: ${username}`);
 }

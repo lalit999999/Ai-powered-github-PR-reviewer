@@ -8,6 +8,12 @@ import { capitalize } from "@utils/string-utils";
  * `.test.`/`.spec.` in the filename), but it imports `vitest` directly. See
  * `apps/web/tests/user-card.test.tsx` for the path-convention counterpart.
  */
+/** A named helper (unlike the `test(...)` callback below, this has a real
+ * enclosing symbol) — a clean cross-package rule-2 call to `capitalize`. */
+function checkCapitalize(input: string): boolean {
+  return capitalize(input).length > 0;
+}
+
 test("capitalize works", () => {
-  expect(capitalize("ok")).toBe("Ok");
+  expect(checkCapitalize("ok")).toBe(true);
 });

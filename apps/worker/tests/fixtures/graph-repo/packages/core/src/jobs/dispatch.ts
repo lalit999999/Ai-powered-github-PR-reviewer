@@ -9,3 +9,9 @@
 export function dispatch(payload: string): string {
   return handler(payload);
 }
+
+/** Same-file call (rule 1) to `dispatch` above — a clean positive case
+ * sitting right next to the file's own deliberate ambiguity. */
+export function dispatchAll(payloads: readonly string[]): string[] {
+  return payloads.map((payload) => dispatch(payload));
+}

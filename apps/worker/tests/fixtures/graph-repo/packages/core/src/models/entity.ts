@@ -14,4 +14,9 @@ export class Entity extends BaseEntity {
     this.version += 1;
     this.touch();
   }
+
+  bumpTwice(): void {
+    this.bump();
+    this.bump();
+  }
 }

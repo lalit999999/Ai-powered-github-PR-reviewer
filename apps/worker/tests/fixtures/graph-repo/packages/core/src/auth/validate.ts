@@ -4,3 +4,8 @@
 export function validate(input: unknown): boolean {
   return typeof input === "string" && input.length > 0;
 }
+
+/** Same-file call (rule 1) to `validate` above. */
+export function validateAll(inputs: readonly unknown[]): boolean {
+  return inputs.every((input) => validate(input));
+}

@@ -11,4 +11,9 @@ export class BaseEntity {
   touch(): void {
     this.createdAt = Date.now();
   }
+
+  ageMs(): number {
+    this.touch();
+    return Date.now() - this.createdAt;
+  }
 }

@@ -10,10 +10,25 @@ import type { Middleware } from "./middleware-types";
  */
 export class AuthMiddleware implements Middleware {
   checkAuth(): boolean {
-    return this.hasToken();
+    return this.hasToken() && this.hasValidHeader();
+  }
+
+  run(headerValue: string): boolean {
+    this.recordAttempt(headerValue);
+    return this.checkAuth();
   }
 
   private hasToken(): boolean {
     return true;
   }
+
+  private hasValidHeader(): boolean {
+    return true;
+  }
+
+  private recordAttempt(headerValue: string): void {
+    this.lastAttemptLength = headerValue.trim().length;
+  }
+
+  private lastAttemptLength = 0;
 }

@@ -42,6 +42,7 @@ graph-repo/
 | Test files — some by path pattern, some only by framework import | `apps/web/tests/user-card.test.tsx` (path convention). `src/checks/verify-utils.ts` (no path convention at all — detected only because it imports `vitest`). |
 | A file that is genuinely unparseable | `src/broken/unparseable.ts` — an unclosed parameter list near the top of a small file, calibrated (per Prompt 2's own finding) to clear the >10% error-node tolerance ratio. |
 | A call site whose correct resolution is genuinely ambiguous, N>3 | `src/api/handler.ts` calls bare `render()`; four same-named candidates exist (`src/components/*-render.ts`), all sharing the caller's own bucket (`packageName: "graph-repo-fixture"`, the root manifest), so rule 4's `N > 3` skip is expected to produce **no** edge. |
+| The N=3 ambiguity boundary (allowed, not skipped) | `src/api/dispatcher.ts` calls bare `process()`; exactly three same-named candidates exist (`src/processors/*-processor.ts`) — `CALL_AMBIGUITY_MAX_CANDIDATES` itself, so all three produce `AMBIGUOUS_TIEBREAK` edges at `0.4/3`, not a skip. |
 
 ## Other things this fixture exercises
 

@@ -15,6 +15,12 @@ export class NamedEntity extends Entity implements Serializable {
   }
 
   serialize(): string {
+    this.touch();
     return `${this.id}:${this.name}`;
+  }
+
+  rename(next: string): void {
+    this.name = next.trim();
+    this.bump();
   }
 }

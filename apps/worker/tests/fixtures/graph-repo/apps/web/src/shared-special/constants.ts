@@ -6,3 +6,9 @@
 export function appName(): string {
   return "graph-repo-fixture-web";
 }
+
+/** Same-file call (rule 1) to `appName` above, plus a built-in call
+ * (`.toUpperCase`). */
+export function appNameUpper(): string {
+  return appName().toUpperCase();
+}

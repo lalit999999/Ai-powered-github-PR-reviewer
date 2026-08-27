@@ -10,9 +10,15 @@ export function createSession(userId: string): SessionRecord {
   return { userId, expiresAt: Date.now() + SESSION_TTL_MS };
 }
 
-/** Same-file call to createSession — rule 1 (SAME_FILE) is only reachable
- * from another symbol in this file; verifySession itself does not call it,
- * kept here only as the session record's producer for login.ts to import. */
 export function verifySession(record: SessionRecord): boolean {
   return record.expiresAt > Date.now();
+}
+
+/** Same-file calls (rule 1) to both of this file's other exports — a clean,
+ * unambiguous positive case reached from a third function. */
+export function refreshSession(record: SessionRecord): SessionRecord {
+  if (!verifySession(record)) {
+    return createSession(record.userId);
+  }
+  return record;
 }

@@ -9,3 +9,8 @@ import { siblingValue } from "./sibling.js";
 export function legacyEntry(): number {
   return siblingValue() * 2;
 }
+
+/** Same-file call (rule 1) to `legacyEntry` above. */
+export function legacyEntryDoubled(): number {
+  return legacyEntry() * 2;
+}

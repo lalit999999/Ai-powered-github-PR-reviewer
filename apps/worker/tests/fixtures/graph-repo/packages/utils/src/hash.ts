@@ -9,3 +9,9 @@ export function hashPassword(password: string): string {
   }
   return hash.toString(16);
 }
+
+/** Same-file call (rule 1) to `hashPassword`, plus a built-in call
+ * (`.padStart`) with no repo-symbol collision. */
+export function hashPasswordPadded(password: string, width: number): string {
+  return hashPassword(password).padStart(width, "0");
+}
