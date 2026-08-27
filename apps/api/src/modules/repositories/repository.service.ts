@@ -15,6 +15,8 @@ import { checkRateLimit } from "../../lib/rate-limit.js";
 import { createLogger } from "@repo/observability";
 import * as indexJobRepository from "./index-job.repository.js";
 import * as installationRepository from "./installation.repository.js";
+import { getKnowledgeAggregates } from "./knowledge.repository.js";
+import { toRepositoryKnowledgeDto, type RepositoryKnowledgeDto } from "./knowledge.types.js";
 import {
   NO_ACCESS_MESSAGE,
   assertNotAlreadyConnected,
@@ -505,6 +507,31 @@ export async function getIndexStatus(tenant: TenantContext): Promise<IndexStatus
     filesProcessed: 0,
     error: repository.indexError,
   };
+}
+
+/**
+ * `GET /api/repositories/:id/knowledge` (phase-04 §7) — the debug/knowledge-graph panel's
+ * one read. Exactly `getIndexStatus`'s own shape: re-reads `findByIdForProject` to prove
+ * the repository still exists and is still this tenant's (defence in depth, same
+ * discipline every read in this module follows), 404s via `requireTenantAccess` if not —
+ * this function is never reached for a repository the caller does not own.
+ *
+ * Deliberately does **not** gate on `indexStatus === "INDEXED"` here — that is the web
+ * panel's own rendering decision (phase-04 §3), not an API-level restriction. A repository
+ * indexed before this phase shipped, or one whose graph build has not run yet, still
+ * answers with real (zero) counts rather than a 404 or an error; the client decides what
+ * to do with a knowledge summary that's all zeroes.
+ */
+export async function getKnowledge(tenant: TenantContext): Promise<RepositoryKnowledgeDto> {
+  const repositoryId = requireRepositoryId(tenant);
+  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+
+  if (!repository) {
+    throw new NotFoundError("Project not found");
+  }
+
+  const aggregates = await getKnowledgeAggregates(repositoryId);
+  return toRepositoryKnowledgeDto(aggregates);
 }
 
 /** `POST /api/repositories/:id/index`'s 10/hour/repository limit (§7/§28). */

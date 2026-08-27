@@ -334,6 +334,41 @@ describe("cross-tenant access — user B cannot reach user A's repository's inde
   });
 });
 
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *  PHASE 04 EXTENSION — the knowledge route, same three-part pattern.
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * phase-04 §7: `GET /api/repositories/:id/knowledge` shares `requireTenantAccess` with
+ * every other repository route — this confirms the shared seam covers it too, and that
+ * no aggregate query in `knowledge.repository.ts` is reachable before tenancy is proven.
+ */
+describe("cross-tenant access — user B cannot reach user A's repository's knowledge graph", () => {
+  it("GET /api/repositories/:id/knowledge — 404, not 403, not the aggregates", async () => {
+    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}/knowledge`).set("Cookie", userB.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("fileCount");
+    expect(res.body).not.toHaveProperty("symbolCount");
+  });
+
+  it("refuses identically whether the repository is foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await request(app).get(`/api/repositories/${repositoryOfA.id}/knowledge`).set("Cookie", userB.cookie);
+    const nonexistent = await request(app)
+      .get("/api/repositories/00000000-0000-0000-0000-000000000000/knowledge")
+      .set("Cookie", userB.cookie);
+
+    expect(foreign.status).toBe(nonexistent.status);
+    expect(foreign.body).toEqual(nonexistent.body);
+  });
+
+  it("user A is still able to read their own repository's knowledge graph — not a blanket deny", async () => {
+    const res = await request(app).get(`/api/repositories/${repositoryOfA.id}/knowledge`).set("Cookie", userA.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("fileCount");
+  });
+});
+
 describe("cross-tenant access — GitHub installations", () => {
   it("GET /api/github/installations — user B's list only ever contains user B's own installations", async () => {
     await prisma.account.create({

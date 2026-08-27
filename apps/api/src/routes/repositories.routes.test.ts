@@ -29,6 +29,7 @@ vi.mock("../modules/repositories/repository.service.js", () => ({
   getRepositoryDetail: vi.fn(),
   disconnectRepository: vi.fn(),
   getIndexStatus: vi.fn(),
+  getKnowledge: vi.fn(),
   triggerIndex: vi.fn(),
   listInstallationRepositories: vi.fn(),
   syncInstallations: vi.fn(),
@@ -266,6 +267,46 @@ describe("GET /api/repositories/:repositoryId/index-status (§7)", () => {
     requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
 
     await expect(request(app).get(`/api/repositories/${REPOSITORY_ID}/index-status`)).resolves.toMatchObject({
+      status: 401,
+    });
+  });
+});
+
+describe("GET /api/repositories/:repositoryId/knowledge (phase-04 §7)", () => {
+  const knowledgeBody = {
+    fileCount: 10,
+    symbolCount: 40,
+    edgeCount: 60,
+    unresolvedImportRatio: 0.05,
+    topFilesByInboundEdges: [],
+    edgeCountByKind: { CALLS: 30, IMPORTS: 30 },
+    parseStateCounts: { OK: 10 },
+    topUnresolvedSpecifiers: [],
+  };
+
+  it("answers 200 with the knowledge DTO", async () => {
+    signedIn();
+    vi.mocked(repositoryService.getKnowledge).mockResolvedValue(knowledgeBody);
+
+    const res = await request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(knowledgeBody);
+  });
+
+  it("resolves tenancy by repositoryId", async () => {
+    signedIn();
+    vi.mocked(repositoryService.getKnowledge).mockResolvedValue(knowledgeBody);
+
+    await request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`);
+
+    expect(requireTenantAccess).toHaveBeenCalledWith(expect.anything(), { repositoryId: REPOSITORY_ID });
+  });
+
+  it("401s without a session", async () => {
+    requireSession.mockRejectedValue(new UnauthenticatedError("Authentication required"));
+
+    await expect(request(app).get(`/api/repositories/${REPOSITORY_ID}/knowledge`)).resolves.toMatchObject({
       status: 401,
     });
   });

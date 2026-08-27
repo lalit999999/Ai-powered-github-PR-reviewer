@@ -112,3 +112,18 @@ export async function triggerIndex(req: Request, res: Response): Promise<void> {
 
   res.status(202).json({ indexJobId });
 }
+
+/**
+ * GET /api/repositories/:repositoryId/knowledge — phase-04 §7. Internal/debug read path;
+ * same 404-for-missing/foreign/deleted-parent convention as every other route in this
+ * file (`requireTenantAccess`'s own doc comment) — never 403 (§1 non-negotiable rule 1).
+ */
+export async function getKnowledge(req: Request, res: Response): Promise<void> {
+  const session = await requireSession(req);
+  const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
+
+  const tenant = await requireTenantAccess(session, { repositoryId });
+  const knowledge = await repositoryService.getKnowledge(tenant);
+
+  res.status(200).json(knowledge);
+}

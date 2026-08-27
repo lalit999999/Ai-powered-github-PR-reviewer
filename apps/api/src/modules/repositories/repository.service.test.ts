@@ -31,6 +31,7 @@ vi.mock("./installation.repository.js", () => ({
   findGithubAccessToken: vi.fn(),
 }));
 vi.mock("./index-job.repository.js", () => ({ findLatestForRepository: vi.fn() }));
+vi.mock("./knowledge.repository.js", () => ({ getKnowledgeAggregates: vi.fn() }));
 vi.mock("../../lib/rate-limit.js", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@repo/github", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@repo/github")>()),
@@ -54,6 +55,7 @@ vi.mock("@repo/observability", async (importOriginal) => {
 const repositoryRepository = await import("./repository.repository.js");
 const installationRepository = await import("./installation.repository.js");
 const indexJobRepository = await import("./index-job.repository.js");
+const knowledgeRepository = await import("./knowledge.repository.js");
 const { checkRateLimit } = await import("../../lib/rate-limit.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { emitRepositoryIndexRequested } = await import("../../inngest/emit.js");
@@ -63,6 +65,7 @@ const {
   connectRepository,
   disconnectRepository,
   getIndexStatus,
+  getKnowledge,
   getRepositoryDetail,
   listInstallationRepositories,
   syncInstallations,
@@ -89,6 +92,7 @@ const mockedCreate = vi.mocked(repositoryRepository.create);
 const mockedMarkDisconnected = vi.mocked(repositoryRepository.markDisconnected);
 const mockedFindByIdForProject = vi.mocked(repositoryRepository.findByIdForProject);
 const mockedFindLatestIndexJob = vi.mocked(indexJobRepository.findLatestForRepository);
+const mockedGetKnowledgeAggregates = vi.mocked(knowledgeRepository.getKnowledgeAggregates);
 const mockedCheckRateLimit = vi.mocked(checkRateLimit);
 
 function installationRow(overrides: Partial<InstallationRecord> = {}): InstallationRecord {
@@ -521,6 +525,41 @@ describe("getIndexStatus (§7 — the cheap polling endpoint)", () => {
     mockedFindByIdForProject.mockResolvedValue(null);
 
     await expect(getIndexStatus({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({ httpStatus: 404 });
+  });
+});
+
+describe("getKnowledge (phase-04 §7 — the knowledge/debug panel's one read)", () => {
+  it("re-verifies ownership through findByIdForProject, then returns the DTO the repository layer's aggregates produce", async () => {
+    mockedFindByIdForProject.mockResolvedValue(repositoryRow());
+    mockedGetKnowledgeAggregates.mockResolvedValue({
+      fileTotals: { fileCount: 3, parseStateCounts: { OK: 2, FAILED: 1 } },
+      symbolCount: 12,
+      edgeTotals: { edgeCount: 20, edgeCountByKind: { CALLS: 15, IMPORTS: 5 }, unresolvedImportRatio: 0.2 },
+      topUnresolvedSpecifiers: [{ rawSpecifier: "./missing.js", count: 1 }],
+      topFilesByInboundEdges: [{ fileId: "file-1", path: "src/a.ts", inboundEdgeCount: 4 }],
+    });
+
+    const knowledge = await getKnowledge({ ...TENANT, repositoryId: "repo-1" });
+
+    expect(mockedFindByIdForProject).toHaveBeenCalledWith(PROJECT_ID, "repo-1");
+    expect(mockedGetKnowledgeAggregates).toHaveBeenCalledWith("repo-1");
+    expect(knowledge).toEqual({
+      fileCount: 3,
+      symbolCount: 12,
+      edgeCount: 20,
+      unresolvedImportRatio: 0.2,
+      topFilesByInboundEdges: [{ fileId: "file-1", path: "src/a.ts", inboundEdgeCount: 4 }],
+      edgeCountByKind: { CALLS: 15, IMPORTS: 5 },
+      parseStateCounts: { OK: 2, FAILED: 1 },
+      topUnresolvedSpecifiers: [{ rawSpecifier: "./missing.js", count: 1 }],
+    });
+  });
+
+  it("404s if the repository vanished, and never runs the aggregate queries", async () => {
+    mockedFindByIdForProject.mockResolvedValue(null);
+
+    await expect(getKnowledge({ ...TENANT, repositoryId: "repo-1" })).rejects.toMatchObject({ httpStatus: 404 });
+    expect(mockedGetKnowledgeAggregates).not.toHaveBeenCalled();
   });
 });
 
