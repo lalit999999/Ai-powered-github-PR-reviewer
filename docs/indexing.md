@@ -1,15 +1,20 @@
-# Repository indexing (files only — Phase 03)
+# Repository indexing (files, symbols, and the dependency graph — Phases 03–04)
 
 What gets indexed, what gets skipped and why, in what order, and where the numbers that
 control it live. This is the one place that list is written down — extend it here, not
 by re-deriving the rules from the source on demand (phase-03-repository-indexing.md §16
-Definition of Done names this file explicitly).
+Definition of Done names this file explicitly; phase-04's own §16 extends the same
+instruction to symbols and edges).
 
-Scope note: this phase indexes **files** only — no parsing, no symbols, no dependency
-graph (Phase 04), no chunking or embeddings (Phase 05). `Repository.indexStatus=INDEXED`
-at the end of this phase means "the file inventory is complete," nothing more; see
-phase-03-repository-indexing.md §1 for how that meaning changes as later phases append
-steps to the same `repository-index` Inngest function.
+Scope note: this file used to say "files only — no parsing, no symbols, no dependency
+graph." That was Phase 03's scope, and it is no longer accurate — Phase 04 (Prompts 1–5)
+appended steps 7–9 to the same `repository-index` Inngest function: every eligible
+TS/JS/TSX file is now parsed with tree-sitter, and its symbols and dependency edges are
+persisted alongside the file inventory. `Repository.indexStatus=INDEXED` now means "the
+file inventory **and** the knowledge graph are both complete" — still short of Phase 05's
+chunking/embeddings, which is the next thing to append. See "What Phase 04 added" below
+for the full detail; everything above that section is still Phase 03's own subject and is
+unchanged.
 
 ## The pipeline, end to end
 
@@ -33,8 +38,31 @@ repository/index.requested
   ▼
 6. Persist RepositoryFile rows         (repository-file.repository.ts) — batched upsert + stale-row sweep
   ▼
+7. Parse every eligible file            (parser-pool.ts + typescript.adapter.ts) — tree-sitter, batches of 200
+  │  produces a ParsedFile per file: imports, exports, symbols, per-symbol calls, heritage
+  ▼
+8. Persist CodeSymbol rows              (code-symbol.repository.ts) — pass 1's output, batched insert
+  ▼
+9. Resolve imports and calls, persist CodeDependency rows   (graph-builder.ts, pass 2)
+  │  builds the in-memory name index, runs import-resolver.ts + call-resolver.ts,
+  │  bulk-inserts every edge kind, updates RepositoryFile.symbolCount/inboundEdgeCount/
+  │  packageName/isTest/parseState
+  ▼
 Mark Repository INDEXED, set indexedCommitSha; mark IndexJob SUCCEEDED
 ```
+
+**Steps 7–9 are not separate Inngest steps**, despite the numbering above matching
+`plan.md` §8.2's own step list. They run inside the same `step.run("fetch-extract-persist",
+...)` callback steps 3–6 already use, for the identical reason steps 3–6 are one coarse
+unit: `graph-builder.ts` needs the still-live extracted `rootDir` to read source text from
+(to parse it) and the freshly-persisted `RepositoryFile` ids (to stamp as `CodeSymbol.fileId`
+and edge endpoints), and that temp directory is removed the instant the extraction
+callback returns. See `indexer.service.ts`'s own header comment for the full argument —
+this is a deliberate deviation from the phase document's own step numbering, not an
+oversight, and it means the batch-of-200 parsing loop (step 7) runs _inside_ one Inngest
+step's retry unit, which is exactly why `graph-builder.ts`'s batch size is
+attempt-aware (`batchSizeForAttempt`) rather than relying on Inngest's own per-step retry
+to shrink anything.
 
 Exactly **two** GitHub API calls per full run: resolving the head commit, and fetching
 the tarball. Metadata (`owner`/`name`/`defaultBranch`) is read from the `Repository` row
@@ -226,6 +254,99 @@ timestamps rather than a separately-computed duration field. Skip reasons are lo
 would be a real cost on a 200,000-file repository. See `apps/worker/src/indexing/walk-tree.ts`'s
 own completion log line for the exact shape.
 
+## What Phase 04 added
+
+### What gets parsed, and what does not
+
+Every `RepositoryFile` row with `indexState=INDEXED` **and** a parseable language
+(`typescript`, `tsx`, or `javascript` — `selectLanguage` in `parser-pool.ts`, decided from
+the file extension, not the coarser `RepositoryFile.language` column, which collapses
+`.tsx` into `"typescript"`) is eligible for parsing. Everything else —
+`indexState=SKIPPED` rows, `.json`/`.md`/`.yaml` files, Python/Go/Rust source (out of MVP
+scope, `plan.md` Assumption A4) — is left at `parseState=NOT_PARSED` and contributes no
+symbols or edges, but its `RepositoryFile` row (and, for Phase 05, its text content) is
+otherwise untouched.
+
+A file that _is_ eligible but fails to parse cleanly — tree-sitter throws, or the
+error/missing-node ratio exceeds the adapter's 10% tolerance — gets `parseState=FAILED`.
+It stays `indexState=INDEXED` (still usable for Phase 05's text/semantic search); only its
+symbol/edge contribution is empty. One malformed file never fails the overall index job —
+see `docs/parsing.md` for the calibration behind that 10% threshold and the acceptance
+test that proves the failure is contained.
+
+### Symbol kinds extracted
+
+The full `SymbolKind` vocabulary (`packages/shared/src/indexing.ts`):
+`FUNCTION`, `ARROW_FUNCTION`, `CLASS`, `METHOD`, `INTERFACE`, `TYPE_ALIAS`, `ENUM`,
+`REACT_COMPONENT`, `HOOK`, `VARIABLE`.
+
+**`VARIABLE` is declared but never produced.** No tree-sitter query pattern or adapter
+branch extracts a plain variable/constant binding whose value is not itself a
+function/arrow-function/class (`export const CONFIG = { ... }` produces zero symbols) — a
+deliberate scope match to `plan.md` §10.2's own construct list, not an oversight, recorded
+in `docs/decisions/phase-04-log.md` (Prompt 2 §8) and reflected in this fixture repo's own
+`config.ts` example (`apps/worker/tests/fixtures/graph-repo/packages/core/src/config.ts`).
+
+`REACT_COMPONENT` and `HOOK` are naming-convention heuristics, not semantic analysis: a
+PascalCase function returning JSX is a component; a function matching `^use[A-Z0-9]` is a
+hook. A function that happens to match one of these patterns without actually being a
+component/hook is misclassified — an accepted, rare false positive.
+
+### Edge kinds produced — and the one that is deliberately absent
+
+The full `DependencyKind` vocabulary (`packages/shared/src/indexing.ts`, and the real
+Postgres `DependencyKind` enum): `IMPORTS`, `EXPORTS`, `CONTAINS`, `CALLS`, `EXTENDS`,
+`IMPLEMENTS`, `REFERENCES`, `TESTS`.
+
+**`REFERENCES` is never produced.** It is declared in the enum (`plan.md`'s own edge list
+names it as "type usage — weaker than CALLS") but no tree-sitter query pattern captures a
+bare type-reference use site (`let x: Foo`, a generic type argument, an interface field's
+type annotation) — `ParsedFile` carries no data `graph-builder.ts` could build a
+`REFERENCES` edge from. A real, deliberate scope gap (`graph-builder.ts`'s own header
+comment), not an oversight; a future phase that needs type-usage edges has to add the
+capture first.
+
+Every other kind's origin, one line each:
+
+| Kind                     | Produced from                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONTAINS`               | One edge per extracted symbol, `fromFileId → toSymbolId` — the highest-volume edge in the graph.                                                                                                                                                                                                                                                                                                                                                                                 |
+| `EXPORTS`                | A file's own locally-declared, exported symbols. A re-export (`export * from`/`export { x } from`) has no local symbol id to point at and is correctly skipped — see `IMPORTS` below for what a re-export _does_ produce.                                                                                                                                                                                                                                                        |
+| `IMPORTS`                | Every resolved specifier, all three resolutions (`RESOLVED`/`EXTERNAL`/`UNRESOLVED`) get a row. A re-export statement (`export * from "./x"`) folds into this same edge set — the adapter's `extractExports` treats it as simultaneously an import and an export, per its own header comment — so a barrel file gets a real `IMPORTS` edge to each module it re-exports from, one hop only (re-exports are not chased transitively; see `docs/parsing.md`'s known-gaps section). |
+| `CALLS`                  | The five-rule confidence heuristic — see `docs/parsing.md` for the full ladder.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `EXTENDS` / `IMPLEMENTS` | Class/interface heritage, resolved with the identical rule _structure_ and confidence constants as `CALLS` (restricted to `CLASS`/`INTERFACE`-kind candidates) — `plan.md` has no separate heritage-resolution rule, and heritage is a strict subset of the same "resolve a bare name to a declaration" problem.                                                                                                                                                                 |
+| `TESTS`                  | A test file (`RepositoryFile.isTest`, upgraded from Phase 03's path-only signal to `pathBased \|\| frameworkImport`) to every non-test file it resolves an import to.                                                                                                                                                                                                                                                                                                            |
+
+### Resolution ladders and confidence values
+
+**Imports** (`import-resolver.ts`), in order, each step terminal on a shape match: relative
+path → `tsconfig` `paths` alias (longest-prefix match) → workspace package name → bare
+specifier (`EXTERNAL`, no file edge) → `UNRESOLVED`.
+
+**Calls and heritage** (`call-resolver.ts`, and `graph-builder.ts`'s heritage resolution
+reusing the same constants), ranked by confidence:
+
+| Confidence  | Rule                 | Meaning                                                                                                                                          |
+| ----------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0.95        | `SAME_FILE`          | The target is declared in the same file as the call site.                                                                                        |
+| 0.9         | `NAMED_IMPORT`       | A named (or namespace-member) import resolved to its target file's matching export.                                                              |
+| 0.7         | `UNIQUE_REPO_MATCH`  | Exactly one exported symbol with that name, repo-wide or per-package.                                                                            |
+| `0.4 / N`   | `AMBIGUOUS_TIEBREAK` | 2–3 candidates survive narrowing (same package, then same top-level directory) — an edge to _each_, at reduced confidence; never a guess at one. |
+| — (no edge) | skipped              | More than 3 candidates survive narrowing — ambiguity is worse than absence (`plan.md` §11.4 rule 4).                                             |
+
+These values are the contract Phase 08's Context Engine ranks retrieval by — see
+`docs/parsing.md` for why ~70–98% call precision is accepted by design rather than a defect
+to chase toward 100%, and what the confidence bands are actually for.
+
+### What `INDEXED` means now
+
+`Repository.indexStatus=INDEXED` means: the file inventory is complete (Phase 03), every
+eligible file has been parsed (`RepositoryFile.parseState` is `OK`/`FAILED`/`NOT_PARSED`
+for every row), and every resolvable symbol/edge has been persisted
+(`RepositoryFile.symbolCount`/`inboundEdgeCount`/`packageName`/`isTest` all reflect the
+graph build, not their Phase-03-only defaults). It does **not** mean chunks or embeddings
+exist yet — that is Phase 05's own extension of the same terminal step.
+
 ## Where the code lives
 
 ```
@@ -238,6 +359,19 @@ apps/worker/src/indexing/
   persistence/repository-file.repository.ts   batched upsert (1,000 rows/statement) + stale-row sweep
   persistence/index-job.repository.ts         IndexJob lifecycle and progress writes
   persistence/repository.repository.ts        the lock, SHA resolution, terminal Repository writes
-  indexer.service.ts               the Inngest-agnostic fetch→extract→walk→persist seam
+  parsing/tree-sitter/parser-pool.ts           the tree-sitter parser pool, language selection, error tolerance
+  parsing/tree-sitter/queries.ts               the inlined tree-sitter query strings (imports/exports/symbols/calls/heritage)
+  parsing/adapters/typescript.adapter.ts       normalizes query captures into a ParsedFile
+  parsing/parsed-file.types.ts                 the ParsedFile contract — the parsing/graph layer boundary
+  graph/repo-context.ts                        tsconfig paths/baseUrl, workspace detection, package manifests
+  graph/import-resolver.ts                     the five-step import resolution ladder
+  graph/call-resolver.ts                       the five-rule, confidence-ranked call resolution heuristic
+  graph/test-detection.ts                      path-convention + framework-import test-file detection
+  graph/graph-builder.ts                       the two-pass graph builder (parse+persist symbols, then resolve+persist edges)
+  graph/graph-queries.repository.ts            the SQL the Context Engine (Phase 08) will call — inbound callers, dependents, knowledge aggregates
+  persistence/code-symbol.repository.ts        batched CodeSymbol insert
+  persistence/code-dependency.repository.ts    batched CodeDependency insert, conflict-safe
+  indexer.service.ts               the Inngest-agnostic fetch→extract→walk→persist→parse→graph seam
 apps/worker/src/inngest/functions/repository-index.ts   the Inngest function wrapping all of the above
+apps/api/src/modules/repositories/knowledge.repository.ts   the knowledge-panel's own read-side aggregates
 ```

@@ -621,3 +621,416 @@ each resolver, asserted under a 200ms bound in CI.
       explicitly defined by `plan.md`; worth revisiting if prompt 5's precision
       measurement shows this tie-break behaving oddly on a real repository's directory
       shape.
+
+---
+
+# Phase 04 — Prompt 4 Decision Log
+
+**Written retroactively by Prompt 5**, from the committed code and its own doc comments —
+Prompt 4 itself never wrote this section (its five commits landed with no accompanying
+log entry). Reconstructed rather than skipped, since Prompt 5's own non-negotiable rules
+require reading "Prompt 4's own decision log" before starting, and because the persistence
+layer, the graph builder, and the query module all carry enough header-comment reasoning
+to reconstruct the real decisions faithfully rather than guessing. Where a decision could
+not be reconstructed with confidence, it is marked as such rather than invented.
+
+Commits: `25e6586` schema (actually Prompt 1's, listed for context) →
+`e4efe75`/`e2eac9d`/`9db295e`/`25b3905` (Prompts 1–2, prior sections) →
+`b3c9038` batched `CodeSymbol` persistence → `325803d` batched `CodeDependency`
+persistence → `a41d3c2` the two-pass graph builder → `51357c7` `RepositoryFile` graph
+metadata → `85f9add` `graph-queries.repository.ts` → `2d056d8` wiring into
+`repository-index` → `9572de9` end-to-end integration coverage.
+
+## 1. `parentSymbolId` and the fourth `CodeDependency` index — both additions beyond §6's literal schema block
+
+Neither is in `phase-04-code-parsing-and-knowledge-graph.md` §6's own Prisma sketch,
+and both are load-bearing:
+
+- **`CodeSymbol.parentSymbolId`** (`schema.prisma`): the enclosing class/interface's own
+  `CodeSymbol.id`, for a method. Without it, a method's `CodeSymbol` row has no way to
+  answer "which class declares this" without a fragile name-based join back through
+  `startLine`/`endLine` ranges — and `graph-builder.ts`'s own heritage resolution and the
+  call resolver's `callerClassName` derivation (`parentSymbol` on `CallResolverSymbol`,
+  from `ParsedSymbol.parentSymbol`) both need it directly. Resolved to a real id only
+  after both symbols in a pair have real ids (pass 1's own `nameToId` map, per-file), which
+  is exactly why it is a pass-1 concern, not a schema afterthought.
+- **`@@index([repositoryId, fromSymbolId, kind])`** on `CodeDependency`: the fourth index,
+  beyond the three §6 names explicitly (`toSymbolId`, `fromFileId`, `toFileId`, each with
+  `kind`). Comment at the index's own site: "outbound symbol traversal (`plan.md` §9:
+  'Traversed outbound gives dependencies the changed code relies on')" — none of the three
+  named indexes serve `WHERE repositoryId = ? AND fromSymbolId = ANY(...) AND kind = ?`,
+  which is the mirror-image query of `getInboundCallers` (Phase 08 will need both
+  directions of the graph, not just "who calls this").
+
+## 2. `RepositoryFile` has no `content` column — content only exists inside the extraction window
+
+Not a Phase 04 decision so much as an inherited Phase 03 fact this phase had to design
+around: `RepositoryFile` was never given a `content` column (Phase 03 hashes bytes and
+discards them — `docs/indexing.md`'s content-hash section). This phase's parser therefore
+cannot read a file's source from the database at all; `indexer.service.ts`'s own header
+comment states the consequence directly: `upsertRepositoryFiles`/`sweepStaleRepositoryFiles`
+were moved _inside_ the `onExtracted` callback specifically so that persisting file rows,
+building the repo context, and parsing/building the graph could all run while the extracted
+temp directory (`rootDir`) is still live — because building the knowledge graph needs both
+the persisted `RepositoryFile` ids _and_ the still-live filesystem to read source text from,
+and `rootDir` is removed the instant `onExtracted` returns. This is also why steps 7–9
+could not be separate Inngest steps (see `docs/indexing.md`'s pipeline section) — a
+separate `step.run` boundary would mean the temp directory no longer exists by the time a
+later step tried to read it.
+
+## 3. Full-replace idempotency, and the delete order that avoids a dangling foreign key
+
+`buildKnowledgeGraph`'s own header: "every existing `CodeDependency` row for `repositoryId`
+is deleted, then every existing `CodeSymbol` row, before this run inserts a single fresh
+row — **edges before symbols**, because `CodeDependency` has no foreign key to `CodeSymbol`
+(a dangling `toSymbolId` would otherwise sit on a still-live edge row between the two
+deletes)." The _insert_ order is the reverse for the identical reason (symbols must exist
+with real ids before an edge can reference them). This is prompt-1 §2.5's idempotency
+model (full replacement, scoped to the repository) actually implemented, not merely
+declared — `graph-fixture.test.ts`'s "re-running graph resolution... produces no duplicate
+edges" test (Prompt 5) is the first place this was verified end to end against a real
+Postgres rather than only asserted by the code's own structure.
+
+## 4. Attempt-aware batch sizing is the honest mechanism, not simulated OOM detection
+
+`batchSizeForAttempt`'s own comment: "There is no way to observe an OOM from inside the
+process it kills — the only honest signal available here is 'this run is a retry', so
+smaller batches on a retry is the whole mechanism, stated plainly rather than dressed up as
+OOM detection." 200 files/batch on attempt 0, 100 on attempt 1, 50 on attempt 2+. Whether a
+_true_ OOM was ever reproduced under a memory-limited container to prove this actually
+helps is not recorded anywhere in the committed code or tests — carried forward as
+outstanding below, and exercised directly (a forced throw, not a real OOM) in Prompt 5's
+own §5.8 acceptance pass.
+
+## 5. `CONTAINS` is emitted for every symbol, deliberately, despite being the highest-volume edge kind
+
+`runPass2`'s own comment calls out `CONTAINS` as "the highest-volume edge, deliberately
+emitted in full" and points to "this prompt's own report for the write-time/table-size
+call" — that report does not exist (never written), so the actual write-time/table-size
+trade-off analysis behind this choice is not recoverable from the repository. What is
+recoverable: `CONTAINS` is what lets `graph-queries.repository.ts`'s
+`countInboundEdgesByFile` count edges to a file's symbols without a separate join table,
+and Phase 08's "what's in this file" queries have no other edge kind to use. The measured
+cost is in Prompt 5's own numbers below (§ Phase 04 Prompt 5's THE NUMBERS) — `CONTAINS`
+is 51/93 and 20,000/59,800 of two different measured runs' total edge counts, i.e. roughly
+a third to over half of all edges in a real graph.
+
+## 6. `getInboundCallers`'s kind set includes `REFERENCES`, which is never produced
+
+`graph-queries.repository.ts`'s `INBOUND_CALLER_KINDS` constant includes `'REFERENCES'`
+alongside `'CALLS'`/`'EXTENDS'`/`'IMPLEMENTS'`, even though (per `docs/parsing.md`, this
+prompt's own finding) `REFERENCES` is never actually produced by `graph-builder.ts`. Not a
+bug — the query is written against the full intended vocabulary so that if a future phase
+adds `REFERENCES` production, `getInboundCallers` picks it up automatically with no query
+change. Recorded here so a future reader does not "clean up" the unreachable kind out of
+the `IN (...)` list and then wonder why adding `REFERENCES` production later does nothing.
+
+## Outstanding — carried forward from the reconstructed record
+
+- [ ] Whether a genuine OOM was ever reproduced under a memory-limited container to prove
+      `batchSizeForAttempt`'s retry-based sizing actually helps is not recorded anywhere —
+      Prompt 5 §5.8 exercises the mechanism with a forced throw, not a real OOM.
+- [ ] The write-time/table-size cost analysis behind emitting `CONTAINS` in full (rather
+      than, say, deriving it from `CodeSymbol.fileId` at query time) is referenced by the
+      code's own comment but the report it points to does not exist. Prompt 5's measured
+      numbers (10k-file run: `CONTAINS` = 20,000 of 59,800 total edges) are the closest
+      thing to an answer now on record.
+
+---
+
+# Phase 04 — Prompt 5 Decision Log
+
+Records the judgment calls made implementing **Prompt 5** — precision measurement, the
+knowledge panel, CI, and phase closeout. Same convention as the sections above.
+
+## 1. Sub-task 5.1 — the fixture repository's shape, and the packageName-is-never-null finding
+
+Designed as a small monorepo (`@fixture/core` ↔ `@fixture/utils` mutual dependency,
+`@fixture/web` consuming both) plus a top-level `src/` with no package of its own — every
+hard case §2.1 names is represented; see the fixture's own `MANIFEST.md` for the full
+table.
+
+**A design assumption caught and corrected before it became a wrong doc claim:** the
+original plan was "top-level files have `packageName: null`." The real, measured behavior
+is different — `getPackageNameForFile`'s nearest-ancestor lookup finds the **repository
+root's own `package.json`** (`{"name": "graph-repo-fixture"}`) for any file with no closer
+package manifest above it, since the root manifest exists and nothing about the lookup
+distinguishes "outside every workspace" from "no package.json above this file at all."
+`packageName` is only ever `null` when the second condition genuinely holds. Caught by
+running the real pipeline and reading its actual output before writing the structural
+test's assertions (the same "measure, don't assert" discipline §1 rule 4 requires) — the
+MANIFEST.md and `graph-fixture.test.ts` were both corrected to state the real behavior,
+not the assumed one.
+
+**The exact symbol/edge counts (93 symbols, 263 edges) are asserted exactly, not as
+ranges**, per sub-task 5.1's own instruction ("exact expected caller sets, not range
+checks") — extended to the whole-fixture counts too, since a range check on a
+hand-designed, fully-understood fixture would hide a real regression (an accidentally
+duplicated edge, a broken resolution rule) behind a passing test.
+
+## 2. Sub-task 5.2 — the label schema had to grow one field beyond the given sketch
+
+The prompt's own given `graph-repo-labels.json` shape has exactly two label outcomes:
+`expected: {toFile, toSymbol}` (a specific target) or `expected: null` (correct
+abstention). Real fixture data produced a third, genuine outcome the schema had no field
+for: a call site where the _correct_ behavior is neither a single target nor silence, but
+an edge to **every** plausible candidate at reduced confidence (rule 4's N=2/N=3
+ambiguous-but-not-skipped case — `plan.md` §11.4 itself specifies this as the correct
+behavior, not a compromise). Labeling these as `expected: null` would have scored the
+resolver's _correct_ fan-out as a false positive; labeling them as a single
+`expected: {toFile, toSymbol}` would have picked one candidate arbitrarily and penalized
+the resolver for correctly refusing to do the same.
+
+**Resolution: added `expectedAmbiguousSet: [{toFile, toSymbol}, ...]`**, used only for
+these entries (`expected` stays `null` on them, `expectedAmbiguousSet` is authoritative).
+`call-precision.test.ts` scores such an entry correct only when the resolver's edges match
+the set exactly — every member present, nothing extra. Defined explicitly in both the
+labels file's own `methodology` field and the test's own header comment, per §1 rule 4's
+"the definition must be written into the test file so nobody quietly changes it."
+
+**Two genuine resolver misses were discovered while labeling** (not fabricated to satisfy
+"an honest miss is worth more than a false tick," and not previously documented anywhere):
+the barrel single-hop re-export limitation (`apps/web/src/main.ts`'s `login()` call) and an
+aliased-import name mismatch (`router.ts`'s `webhookHandler()` call — the resolver
+compares the call site's _local_ name against the target file's _declared_ name, and an
+`import { x as y }` alias breaks that comparison). Both are written up in full in
+`docs/parsing.md`'s "Known gaps" section. **Neither was fixed** — precision measured
+98/100 = 98.0%, comfortably clear of the 70% target, and §5.2's own instruction is to fix
+the resolver only if precision falls short; fixing either gap would touch already-shipped,
+already-tested Prompt 2/3 code for a target that was already met.
+
+**A separate, unrelated finding surfaced while building the fixture's call density, not
+by the precision measurement itself:** a symbol that calls the exact same target twice, by
+name, with no distinguishing receiver, produces only **one** `ParsedCall`, not two — the
+second, syntactically identical call site does not survive from the tree-sitter query
+match to the adapter's per-symbol `calls` array. Reproduced twice independently
+(`entity.ts`'s `bumpTwice`, `button-render.ts`'s `renderTwice`). This is an **adapter**
+recall gap (Prompt 2's module), not a resolver precision issue — the one call site that
+_is_ captured resolves correctly — and is out of this prompt's own scope to fix, recorded
+in `docs/parsing.md` and here for whichever future prompt next touches the adapter.
+
+## 3. Sub-task 5.3 — three separate measurements, one surprising finding each
+
+**(a) 10,000 realistic files in 18 seconds**, not "under 5 minutes" by a small margin —
+555.8 files/s, 1,111.6 symbols/s, peak RSS 481.3 MB. Far faster than the budget implies is
+necessary, on this session's own hardware (12-core x86_64, 15 GB RAM, a virtualized/sandboxed
+Linux environment — not bare metal, stated plainly since the number is machine-relative).
+Extended `repository-index-performance.test.ts`'s existing 5,000-file generator with a
+**second, separate** `describe` block (`buildRealisticRepoTarball`) rather than modifying
+the first — the existing 5k test's own near-empty `export const value = i` content was
+kept as-is (it still proves the file-inventory pipeline's batching/streaming properties,
+which is what it was written for), and the new block proves parse/resolve throughput
+specifically, which needed real imports, functions, and calls the old generator never had.
+
+**(b) This monorepo's own unresolved-import ratio is 0.00%** (0/1,133 real imports),
+indexed directly via `walkTree`/`buildRepoContext`/`buildKnowledgeGraph` against the
+worktree's own root — no tarball needed, since the source is already on disk exactly
+where a real extracted repository would be. **This repository's own `tests/fixtures/**`
+directories were excluded from the walk** before measuring — they were written by the same
+person tuning this resolver and deliberately contain unresolvable imports, so including
+them would have measured the fixture author's own deliberate adversarial content, not this
+codebase's real health.
+
+**(c) Query plans hold at 10,000+ symbols / 30,000+ edges** — `graph-queries.repository.test.ts`
+(Prompt 4)'s own `EXPLAIN ANALYZE` test only ever seeded a handful of rows, small enough
+that Postgres _correctly_ prefers a sequential scan (the exact wrong-reason-to-pass trap
+`plan.md` §41.3 warns about). The new `graph-query-plans.test.ts` seeds 10,000 `CodeSymbol`
+rows and over 30,450 `CodeDependency` rows and re-asserts index usage at a size where the
+assertion is actually meaningful — both queries used `Index Scan`/`Index Only Scan`, zero
+`Seq Scan`, and the depth-2 recursive CTE executed in 2.18ms against a 500ms budget (a
+deliberately generous ~6× the production 80ms p95, stated as such, to absorb a shared CI
+container's variance without loosening the bound so far it stops catching a real
+regression).
+
+## 4. Sub-task 5.4 — `unresolvedByReason` does not exist; substituted with top unresolved specifiers
+
+`phase-04-code-parsing-and-knowledge-graph.md` §7 asks the knowledge endpoint to enrich its
+payload with `unresolvedByReason`, keyed on "Prompt 3's `UnresolvedReason` union" — no such
+union exists anywhere in this codebase (`import-resolver.ts`'s `ImportResolution` carries
+only `{status: "UNRESOLVED", specifier}`, never a reason code). Substituted with
+`topUnresolvedSpecifiers: [{rawSpecifier, count}]` — the same shape sub-task 5.3(b)'s own
+ad-hoc SQL already uses to answer "which imports, and how often" — because it answers the
+identical actionable question without inventing a classification the resolver never
+produces. `knowledge.repository.ts`'s own header names this substitution explicitly.
+
+**"One round trip if you can manage it" was read as "no N+1," not literally one query.**
+The payload spans three unrelated tables (`RepositoryFile`, `CodeSymbol`, `CodeDependency`);
+four independent, already-indexed aggregate queries run in parallel (`Promise.all`)
+instead — each one a single `GROUP BY`/`COUNT`, none of them looping per row. The fifth
+query (top unresolved specifiers) is skipped entirely, not just filtered client-side, when
+the edge-totals query already reports zero unresolved imports — the common case on a
+well-formed repository gets one fewer round trip.
+
+**Record-shape types were moved to `knowledge.types.ts` and imported by
+`knowledge.repository.ts`**, not the reverse (an early draft did it backwards) — matching
+`repository.repository.ts`'s own established convention that the repository layer imports
+its record shapes, never declares and exports them itself.
+
+## 5. Sub-task 5.5 — the fetcher lives in the component, not `lib/api.ts`, despite what §7's prose literally says
+
+Prompt 5's own text says "add the client type and fetcher to `apps/web/src/lib/api.ts`."
+Followed for the **type** (`RepositoryKnowledge`, mirroring the DTO field-for-field) but
+not the **fetcher function** — `api.ts`'s own header comment states plainly that every
+function in that file is a server-side client reading `next/headers`, and
+`index-status-poller.tsx` already established the precedent this component follows
+instead: a client component's own `credentials: "include"` fetch is necessarily local to
+that component, because `apiFetch` cannot run in client code at all. Prompt 5's own later
+sentence ("follow `index-status-poller.tsx`'s established conventions... that component
+does its own `credentials: "include"` fetch instead") is the instruction actually followed;
+the type-only placement in `api.ts` is the part of the earlier sentence that is genuinely
+satisfiable without contradicting it.
+
+**Verified against a real, running stack, not just component logic read on paper**: a
+disposable Postgres container, the real `apps/api` dev server, and the real `apps/web` dev
+server, with a hand-seeded `Session` row (the same shape `apps/api/tests/integration/auth-helpers.ts`
+already uses) driving a headless Chromium session. All three required states were captured
+in one page: hidden while `INDEXING`, the "re-index to build it" message for an `INDEXED`
+repository with zero symbols, and the full panel — including the >15% unresolved-ratio
+warning actually turning red — against real seeded `CodeSymbol`/`CodeDependency` rows read
+through the real API. All temporary infrastructure (the disposable Postgres container, both
+dev servers) was torn down afterward; `postgresdb`/`redisdb` were restored to the stopped
+state they were found in.
+
+## 6. Sub-task 5.6 — CI is written, locally validated, and moved into place, but has not run on GitHub
+
+The workflow was moved to `.github/workflows/ci.yml` (the missing `s` was the entire reason
+nothing had ever triggered), fully uncommented, and updated for the current repository
+shape: Node 22, pnpm 11.2.2, `SKIP_PERF_TESTS=1` for the two genuinely slow/machine-shape-
+sensitive perf tests (their numbers are recorded by hand in this log instead of re-verified
+on every CI run against a shared, variable-performance runner), and a dedicated grammar-load
+step — a `node -e` script that parses one real snippet of each of the three grammars right
+after the real build, on the actual Linux CI runner, failing loudly (an uncaught throw) if
+the binding does not work there. This is the direct mitigation for this phase's own leading
+named risk (`plan.md` §45: "tree-sitter WASM vs. native binding differences across
+environments") — verified locally that the script itself works correctly (all three
+grammars load, each parses and extracts the expected one symbol) before it was ever
+written into the workflow.
+
+**A `pnpm format:check` step was added**, beyond the original template's own step list —
+not asked for explicitly, but a natural consequence of fixing the pre-existing formatting
+drift below: without this step, CI would have no way to catch the drift from recurring.
+
+**Not yet run on GitHub.** Pushing this branch and opening a PR (the only way to actually
+fire the workflow's `pull_request`/`push-to-main` triggers) was offered and explicitly
+declined by the user this prompt for this session — recorded here plainly, not glossed
+over: `phase-04-code-parsing-and-knowledge-graph.md` §16/§23 and this prompt's own §5 both
+treat "CI green on GitHub" as a gate, and that gate is **not met**. The workflow is
+syntactically valid (parsed with PyYAML), and its grammar-check step's own logic was
+verified locally against the real compiled output — but neither of those is the same
+claim as "ran on GitHub and went green," and this log does not pretend otherwise.
+
+## 7. A pre-existing, repository-wide formatting drift was found and fixed — not part of any single sub-task, its own commit
+
+`pnpm format:check` failed against 255+ files at the very start of this prompt, before any
+of Prompt 5's own edits — confirmed pre-existing by checking out a clean stash of just this
+session's own changes and re-running the check against bare `HEAD`. Not a defect in any
+prior prompt's own work (every prior prompt's own verification gate ran `pnpm lint`/
+`pnpm typecheck`, never `pnpm format:check` — `phase-03-log.md` §0 records exactly this:
+"`pnpm format:check` was not re-run — it was already known-failing... a `prettier.config.js`/
+`.prettierrc` conflict predating this phase"). Turning CI on for the first time is exactly
+the situation that would have surfaced this as a hard failure the moment `pull_request`
+validation began, so it was fixed as direct preparation for sub-task 5.6, in its own
+dedicated commit, before the CI commit itself.
+
+**`pnpm-lock.yaml` and `packages/db/src/generated/**` were excluded from the reformat and
+added to `.prettierignore`.** A first, unfiltered `prettier --write .` rewrote the entire
+lockfile (quote-style/key-ordering differences between prettier's own YAML formatter and
+pnpm's lockfile writer) — a ~14,000-line diff with zero semantic content, reverted
+immediately once discovered. The Prisma-generated client was excluded for the identical
+reason: reformatting a generated artifact only fights its own generator on the next
+`prisma generate`.
+
+## What Phase 05 inherits
+
+The full handoff — read this section first if you are the session generating Phase 05's
+prompts.
+
+- **`CodeSymbol` boundary data for the AST chunker.** Every symbol row carries
+  `startLine`/`endLine` (1-indexed, inclusive, from tree-sitter's own node span) and
+  `kind`. A chunk must never start mid-function (`plan.md` §12.1) — the direct,
+  actionable consequence is that a chunk boundary should snap to the nearest
+  `CodeSymbol.startLine`/`endLine`, not an arbitrary line-count window, for any file with
+  `parseState="OK"`. `parentSymbolId` gives a method's enclosing class, useful if Phase 05
+  wants to chunk a class as a unit rather than method-by-method. A file with
+  `parseState="FAILED"` or `"NOT_PARSED"` has **no** symbol rows at all — Phase 05's
+  chunker needs its own fallback (line-count windowing, most likely) for those files, since
+  they are still real, still-indexed, still-needed-for-semantic-search files
+  (`docs/indexing.md`'s row/no-row-adjacent state table).
+- **`graph-queries.repository.ts`'s full API**: `getInboundCallers(repositoryId,
+symbolIds, limit?)`, `getFilesImportingFile(repositoryId, fileId, maxDepth?)`,
+  `getKnowledgeGraphSummary(repositoryId, topFilesLimit?)`. All three are already
+  cross-tenant-safe (every query scoped by `repositoryId` in its own `WHERE`), already
+  index-backed at the 10,000-symbol/30,000-edge scale (Prompt 5 §5.3(c)), and already
+  return plain `number`s, never `bigint`, at their own boundary. Phase 05 needs no new
+  query file for anything these three already answer.
+- **The terminal step's location, and the standing relocation instruction.** It still
+  lives in `apps/worker/src/inngest/functions/repository-index.ts`, in the
+  `step.run("mark-repository-indexed", ...)` block, positioned directly after the single
+  coarse `fetch-extract-persist` step (which now internally covers Phase 03's steps 1–6
+  _and_ Phase 04's steps 7–9 — see "Steps 7–9 are not separate Inngest steps" in
+  `docs/indexing.md`). Phase 05 relocates this same block again, to after its own new
+  steps 10–13, per that block's own comment: "this block is written to be _moved_, not
+  rewritten." If Phase 05's own steps also need the live extraction directory (likely, if
+  chunking reads source text the same way parsing does), they belong inside the same
+  `onExtracted` callback in `indexer.service.ts`, for the identical reason Phase 04's own
+  steps ended up there — not as new, separate Inngest steps.
+- **The `contentHash` contract Phase 05's embedding cache depends on.** `walk-tree.ts`'s
+  own header: `sha256` of the file's raw bytes, exactly as extracted, no line-ending or
+  BOM normalization. Stable across repeated indexes of the same commit **only if every
+  consumer hashes the same way** — Phase 05's embedding-cache key must reuse this hash
+  directly, not recompute one with any normalization step, or cache hits will silently
+  never occur.
+- **Content is only available inside the extraction window — the same constraint that
+  shaped this phase's parser now constrains Phase 05's chunker.** `RepositoryFile` has no
+  `content` column (§2 above); source text exists only for the duration of
+  `archive-extractor.ts`'s `onExtracted` callback. Phase 05's chunker either reads source
+  text inside that same window (most likely: another addition to the same callback, right
+  after Phase 04's own graph-build call) or Phase 05 has to solve re-fetching content some
+  other way. This is not a new problem Phase 05 introduces — it is the same one this
+  phase's own Prompt 4 solved by moving persistence _inside_ the callback, and the same
+  solution shape almost certainly applies again.
+- **Known gaps and their measured cost**, so Phase 05 (and Phase 08, downstream of it)
+  knows what it's actually building on:
+  - `REFERENCES` is declared in the schema and the shared vocabulary but never produced —
+    zero type-usage edges exist in any repository this phase has indexed. If Phase 08's
+    context ranking ever wants "where is this type used," the capture has to be added
+    first; nothing today produces it.
+  - `packageName` on a top-level file (no closer package.json than the repository root)
+    resolves to the **root manifest's own name**, not `null` — `null` only occurs when no
+    `package.json` exists anywhere above the file. Any future logic branching on
+    `packageName === null` to mean "not in any package" is checking the wrong condition.
+  - `complexity` (`CodeSymbol.complexity`) is populated by the Prompt 2 adapter but its
+    exact definition (which branches/loops count, whether short-circuit boolean operators
+    are counted) was not re-derived or re-verified by this prompt — read
+    `typescript.adapter.ts`'s own complexity-computation code directly before relying on
+    the number meaning anything precise.
+  - Call-edge precision measured 98/100 = 98.0% on a curated fixture explicitly built to
+    exercise every hard case the resolver's own rules name; expect a **lower** number on
+    a large, chaotic real-world repository, closer to the 70–80% `plan.md` names as the
+    realistic target. The two measured misses (barrel re-export chasing, aliased-import
+    name mismatch) and the adapter-level repeated-call-site gap are all documented in
+    `docs/parsing.md`'s "Known gaps" section — read it before any future prompt is tempted
+    to "improve" `call-resolver.ts` without first checking whether Phase 08's ranking is
+    actually starved for it.
+
+## Outstanding — carried forward for a human/future session
+
+- [ ] **CI has not been run on GitHub** (§6 above) — the workflow is complete,
+      locally validated, and syntactically checked, but "actually ran and went green" is
+      unverified. Push the branch and open a PR against `main` to close this gap; watch
+      the Actions run; iterate on the workflow file if anything in the CI environment
+      differs from what this session validated locally (Docker version, runner resource
+      limits, network access to the npm registry — see `docs/decisions/phase-04-log.md`'s
+      Prompt 1 §7 for the exact class of problem a CI runner's own network behavior can
+      surface that a developer's own machine does not).
+- [ ] Whether a genuine worker OOM was ever reproduced under a memory-limited container to
+      prove `batchSizeForAttempt`'s retry-based sizing actually helps remains unverified —
+      carried forward from Prompt 4's own reconstructed record above. §5.8's acceptance
+      pass exercises the mechanism with a forced throw on attempt 1, not a real OOM.
+- [ ] The barrel single-hop re-export limitation and the aliased-import name-mismatch gap
+      (§2 above, full detail in `docs/parsing.md`) are accepted, not fixed. Either is a
+      real, scoped improvement for a future prompt if Phase 08's retrieval quality is ever
+      found to be measurably starved by them specifically.
+- [ ] The repeated-identical-call-site adapter gap (§2 above) affects edge cardinality on
+      a real, if probably uncommon, code shape (`this.x(); this.x();` with no
+      distinguishing receiver) — Prompt 2's own module, out of this prompt's scope.
