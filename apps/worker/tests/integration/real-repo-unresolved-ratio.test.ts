@@ -142,5 +142,11 @@ describe("unresolved-import ratio — indexing this monorepo itself (phase-04 §
     }
 
     expect(ratio).toBeLessThan(0.15);
-  });
+  }, 300_000); // a real filesystem walk + full parse of this monorepo — ~7s measured in
+  // isolation, but apps/api's own Testcontainers-backed test:integration run runs
+  // concurrently with this one (turbo does not serialize across packages by default),
+  // and two simultaneous Testcontainers Postgres instances plus this test's own
+  // real tree-sitter parsing of 500+ files is measurably slower under that contention.
+  // A generous budget here is the honest fix — this test's own correctness does not
+  // depend on wall-clock speed the way the dedicated perf suite's does.
 });

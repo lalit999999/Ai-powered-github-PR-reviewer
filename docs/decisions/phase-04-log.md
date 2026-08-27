@@ -1013,6 +1013,29 @@ symbolIds, limit?)`, `getFilesImportingFile(repositoryId, fileId, maxDepth?)`,
     to "improve" `call-resolver.ts` without first checking whether Phase 08's ranking is
     actually starved for it.
 
+## 8. `docker build -f Dockerfile.worker .` succeeded in this session — Prompt 1's own outstanding item is now resolved
+
+Prompt 1's log (§7, "the Docker build could not be completed in this environment") left
+this as the phase's leading open risk-mitigation gap, after four failed attempts across
+two sessions, all failing on npm-registry concurrency limits in that session's sandbox.
+This session's sandbox had the same slow, rate-limited registry (individual tarball
+downloads logged at 5–40 KiB/s, well under pnpm's own 50 KiB/s warning threshold) but,
+given enough wall-clock time (the build that finally succeeded ran unbounded in the
+background rather than against a short timeout), completed cleanly: image built, tagged
+`prreviewer-worker:phase04`, 1.04 GB. Booted with `docker run` and, more specifically to
+this phase's own named risk (`plan.md` §45: "tree-sitter WASM vs. native binding
+differences across environments"), **all three tree-sitter grammars loaded and parsed
+correctly inside the actual built container** — the same `typescript`/`tsx`/`javascript`
+check the CI workflow's own grammar-load step runs, verified here against the real image
+rather than only the local dev environment. This is direct, concrete evidence the
+binding works in the actual deployment environment, independent of whether the CI
+workflow itself has run on GitHub yet (§6 above — it has not).
+
+Not re-attempted repeatedly to build confidence in a stable success rate — the sandbox's
+own network behavior (slow, not fundamentally broken) means a short-timeout attempt can
+still fail the way Prompt 1's four attempts did; a generous, unbounded-timeout attempt is
+what actually succeeds, and this session ran exactly one of those.
+
 ## Outstanding — carried forward for a human/future session
 
 - [ ] **CI has not been run on GitHub** (§6 above) — the workflow is complete,
