@@ -21,6 +21,17 @@ import { seedRepository } from "./repository-helpers.js";
  * `tests/integration/` suite, no separate config): set `SKIP_PERF_TESTS=1` locally for a
  * quicker iteration loop; nothing skips it in a full run or in CI once CI exists (see
  * docs/decisions/phase-03-log.md's Outstanding list — CI does not run at all yet).
+ *
+ * Prompt 5, sub-task 5.3(a): extends the file above rather than forking it, per that
+ * sub-task's own instruction. `ORDINARY_FIXTURE` (below) generates `export const value =
+ * i` content that produces almost no `CodeSymbol`/`CodeDependency` rows at all
+ * (`SymbolKind.VARIABLE` is a known, documented gap — see docs/decisions/phase-04-log.md,
+ * Prompt 2 §8) — real enough to prove the file-inventory pipeline stays fast at scale, but
+ * not the parse/resolve pipeline this phase actually added. `buildRealisticRepoTarball`
+ * below is the phase-04-specific addition: every generated file has real imports, several
+ * functions, and calls between them, so the 10,000-file test actually exercises
+ * tree-sitter parsing and the full graph-builder — the number phase-04 §15's acceptance
+ * criterion cares about is parse+resolve throughput, not just file-inventory throughput.
  */
 describe.skipIf(process.env.SKIP_PERF_TESTS === "1")("repository-index — performance and scale (§14/§15/§21/§22)", () => {
   const FILE_COUNT = 5000;
@@ -146,4 +157,147 @@ describe.skipIf(process.env.SKIP_PERF_TESTS === "1")("repository-index — perfo
       `[perf] ${FILE_COUNT.toString()} files: ${durationMs.toString()}ms, ${joinSpy.mock.calls.length.toString()} batch statements, rss growth ${rssGrowthMb.toFixed(1)}MB`,
     );
   });
+});
+
+/**
+ * Prompt 5, sub-task 5.3(a): phase-04 §15's own acceptance criterion — "a 10,000-file
+ * repository completes parsing in under 5 minutes" — measured against **realistically
+ * shaped** source, not `export const x = 1`. Every generated file has a relative import to
+ * its predecessor in the same directory, two exported functions, and a real call between
+ * them, so tree-sitter, the import resolver, and the call resolver all do genuine work
+ * across all 10,000 files — not just the file-inventory pipeline `ORDINARY_FIXTURE`/
+ * `KNOWLEDGE_GRAPH_FIXTURE`-style content exercises above.
+ *
+ * Separate `describe` block, same `SKIP_PERF_TESTS=1` opt-out as the suite above — this is
+ * the slower of the two by a wide margin (10,000 real parses + a full pass-2 resolution,
+ * not 5,000 near-empty files), so it is kept as its own `it`, not folded into the block
+ * above, to keep each test's own timing signal legible.
+ */
+describe.skipIf(process.env.SKIP_PERF_TESTS === "1")("repository-index — 10,000-file parse budget, realistic content (phase-04 §15)", () => {
+  const REALISTIC_FILE_COUNT = 10_000;
+  const FILES_PER_DIR = 100;
+  const TOP_LEVEL = "octocat-10k-fixture-deadbeef";
+
+  /**
+   * File 0 in each directory is self-contained; files 1..N-1 import the previous file's
+   * `helper` and call it from their own `helper`, alongside a same-file call to a second,
+   * local function — two `CALLS` edges and one `IMPORTS` edge per file (bar the first in
+   * each directory), plus two `CodeSymbol` rows. ~150–200 bytes of real TypeScript per
+   * file, not padding — small enough that 10,000 files stays a reasonably sized archive,
+   * large enough that every construct this phase extracts is genuinely exercised.
+   */
+  function generateFileContent(dir: string, indexInDir: number): string {
+    const local = `function local${indexInDir.toString()}(x: number): number {\n  return x * 2;\n}\n\n`;
+    if (indexInDir === 0) {
+      return `${local}export function helper0(x: number): number {\n  return local0(x) + 1;\n}\n`;
+    }
+    const prevImport = `import { helper${(indexInDir - 1).toString()} } from "./file-${(indexInDir - 1).toString()}.js";\n\n`;
+    return (
+      `${prevImport}${local}export function helper${indexInDir.toString()}(x: number): number {\n` +
+      `  return local${indexInDir.toString()}(x) + helper${(indexInDir - 1).toString()}(x);\n}\n`
+    );
+  }
+
+  async function buildRealisticRepoTarball(fileCount: number): Promise<Buffer> {
+    const pack = tarStream.pack();
+    pack.entry({ name: `${TOP_LEVEL}/package.json` }, '{"name":"perf-10k-fixture"}\n');
+    const dirCount = Math.ceil(fileCount / FILES_PER_DIR);
+    let written = 0;
+    for (let d = 0; d < dirCount && written < fileCount; d += 1) {
+      const dir = `pkg-${d.toString()}`;
+      for (let i = 0; i < FILES_PER_DIR && written < fileCount; i += 1, written += 1) {
+        pack.entry({ name: `${TOP_LEVEL}/${dir}/file-${i.toString()}.ts` }, generateFileContent(dir, i));
+      }
+    }
+    pack.finalize();
+    const chunks: Buffer[] = [];
+    for await (const chunk of pack) chunks.push(chunk as Buffer);
+    return gzipSync(Buffer.concat(chunks));
+  }
+
+  function toWebStream(buffer: Buffer): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(buffer));
+        controller.close();
+      },
+    });
+  }
+
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it(`parses and resolves a realistic ${REALISTIC_FILE_COUNT.toString()}-file repository within 5 minutes, reporting throughput and peak RSS`, async () => {
+    const { indexRepository } = await import("../../src/indexing/indexer.service.js");
+    const repo = await seedRepository();
+    const buffer = await buildRealisticRepoTarball(REALISTIC_FILE_COUNT);
+    const tempRootDir = await fs.mkdtemp(path.join(os.tmpdir(), "repo-index-10k-perf-test-"));
+
+    if (globalThis.gc) globalThis.gc();
+    const rssBefore = process.memoryUsage().rss;
+    let peakRss = rssBefore;
+    const rssPoll = setInterval(() => {
+      peakRss = Math.max(peakRss, process.memoryUsage().rss);
+    }, 250);
+
+    const startedAt = Date.now();
+    const result = await indexRepository({
+      installationId: repo.installationId,
+      owner: repo.owner,
+      repo: repo.name,
+      sha: "perf10ksha1",
+      repositoryId: repo.id,
+      jobId: "job-10k-perf-test",
+      tempRootDir,
+      maxTotalBytes: 200 * 1024 * 1024,
+      maxFileCount: 20_000,
+      attempt: 0,
+      fetchTarball: async () => ({ ok: true, stream: toWebStream(buffer) }),
+    });
+    const durationMs = Date.now() - startedAt;
+    clearInterval(rssPoll);
+    peakRss = Math.max(peakRss, process.memoryUsage().rss);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    // +1 for the fixture's own package.json (NOT_PARSED, but still a real indexed file).
+    expect(result.filesIndexed).toBe(REALISTIC_FILE_COUNT + 1);
+    expect(result.parseFailureCount).toBe(0);
+    // Every file but the first in each of the 100 directories produces exactly one
+    // resolved CALLS edge to its predecessor's helper, plus one same-file call to its own
+    // local() — both should resolve cleanly (relative imports, same-file calls are the
+    // easiest resolution rules), so the unresolved ratio on this synthetic, well-formed
+    // repository should be exactly zero.
+    expect(result.unresolvedImportRatio).toBe(0);
+
+    // phase-04 §15's own bound: under 5 minutes.
+    expect(durationMs).toBeLessThan(5 * 60 * 1000);
+
+    const filesPerSecond = REALISTIC_FILE_COUNT / (durationMs / 1000);
+    const symbolsPerSecond = result.symbolsCreated / (durationMs / 1000);
+    const peakRssMb = peakRss / (1024 * 1024);
+
+    const dbFileCount = await prisma.repositoryFile.count({ where: { repositoryId: repo.id } });
+    expect(dbFileCount).toBe(REALISTIC_FILE_COUNT + 1);
+    const dbSymbolCount = await prisma.codeSymbol.count({ where: { repositoryId: repo.id } });
+    // Two functions (helperN, localN) per file, every file.
+    expect(dbSymbolCount).toBe(REALISTIC_FILE_COUNT * 2);
+
+    await fs.rm(tempRootDir, { recursive: true, force: true }).catch(() => undefined);
+
+    // The recorded baseline this sub-task's own report pastes verbatim — files/s and
+    // symbols/s make a future regression legible independent of the machine that measured
+    // it; the machine itself is recorded in the report alongside this line's output.
+    console.log(
+      `[perf-10k] ${REALISTIC_FILE_COUNT.toString()} files: ${durationMs.toString()}ms total ` +
+        `(${filesPerSecond.toFixed(1)} files/s, ${symbolsPerSecond.toFixed(1)} symbols/s), ` +
+        `symbolsCreated=${result.symbolsCreated.toString()}, edgesCreated=${result.edgesCreated.toString()}, ` +
+        `peak RSS ${peakRssMb.toFixed(1)}MB`,
+    );
+  }, 5 * 60 * 1000 + 30_000);
 });
