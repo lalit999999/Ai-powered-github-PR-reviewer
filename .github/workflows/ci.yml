@@ -56,6 +56,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Would have caught the phase-04/phase-06 merge that landed with seventeen files
+      # still carrying <<<<<<</>>>>>>> markers on main (docs/decisions/phase-05-log.md).
+      # `^=======$` is deliberately NOT checked — that pattern also matches an ordinary
+      # Markdown horizontal rule and would false-positive on docs/.
+      - name: Reject unresolved merge conflict markers
+        run: |
+          if grep -rn --exclude-dir=node_modules --exclude-dir=.git \
+               -e '^<<<<<<< ' -e '^>>>>>>> ' .; then
+            echo "Unresolved merge conflict markers found."
+            exit 1
+          fi
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11.2.2
@@ -74,6 +86,12 @@ jobs:
       # Needs no database connection.
       - name: Generate Prisma client
         run: pnpm db:generate
+
+      # Catches a one-sided relation (a model missing its back-relation field) at CI
+      # time instead of as a downstream compile error — this is exactly what let
+      # Repository's missing symbols/dependencies/pullRequests relations reach main.
+      - name: Validate Prisma schema
+        run: pnpm --filter @repo/db exec prisma validate
 
       - name: Lint
         run: pnpm lint
