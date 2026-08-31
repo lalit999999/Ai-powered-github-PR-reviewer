@@ -111,15 +111,18 @@ describe("JobTrackingMiddleware", () => {
     const middleware = new JobTrackingMiddleware({ client: {} as never });
     let observedTraceId: unknown;
 
-    await runWithTraceContext({ traceId: "generated-by-logging-middleware" }, async () => {
-      await middleware.wrapFunctionHandler({
-        ctx: ctxWithEventData({ traceId: "inbound-from-webhook" }) as never,
-        fn: {} as never,
-        next: async () => {
-          observedTraceId = getTraceContext()?.traceId;
-        },
-      });
-    });
+    await runWithTraceContext(
+      { traceId: "generated-by-logging-middleware" },
+      async () => {
+        await middleware.wrapFunctionHandler({
+          ctx: ctxWithEventData({ traceId: "inbound-from-webhook" }) as never,
+          fn: {} as never,
+          next: async () => {
+            observedTraceId = getTraceContext()?.traceId;
+          },
+        });
+      },
+    );
 
     expect(observedTraceId).toBe("inbound-from-webhook");
   });
@@ -128,15 +131,18 @@ describe("JobTrackingMiddleware", () => {
     const middleware = new JobTrackingMiddleware({ client: {} as never });
     let observedTraceId: unknown;
 
-    await runWithTraceContext({ traceId: "generated-by-logging-middleware" }, async () => {
-      await middleware.wrapFunctionHandler({
-        ctx: ctxWithEventData({ repositoryId: "repo-6" }) as never,
-        fn: {} as never,
-        next: async () => {
-          observedTraceId = getTraceContext()?.traceId;
-        },
-      });
-    });
+    await runWithTraceContext(
+      { traceId: "generated-by-logging-middleware" },
+      async () => {
+        await middleware.wrapFunctionHandler({
+          ctx: ctxWithEventData({ repositoryId: "repo-6" }) as never,
+          fn: {} as never,
+          next: async () => {
+            observedTraceId = getTraceContext()?.traceId;
+          },
+        });
+      },
+    );
 
     expect(observedTraceId).toBe("generated-by-logging-middleware");
   });
@@ -145,17 +151,20 @@ describe("JobTrackingMiddleware", () => {
     const middleware = new JobTrackingMiddleware({ client: {} as never });
     const observed: unknown[] = [];
 
-    await runWithTraceContext({ traceId: "generated-by-logging-middleware" }, async () => {
-      for (const badTraceId of ["", 12345, null]) {
-        await middleware.wrapFunctionHandler({
-          ctx: ctxWithEventData({ traceId: badTraceId }) as never,
-          fn: {} as never,
-          next: async () => {
-            observed.push(getTraceContext()?.traceId);
-          },
-        });
-      }
-    });
+    await runWithTraceContext(
+      { traceId: "generated-by-logging-middleware" },
+      async () => {
+        for (const badTraceId of ["", 12345, null]) {
+          await middleware.wrapFunctionHandler({
+            ctx: ctxWithEventData({ traceId: badTraceId }) as never,
+            fn: {} as never,
+            next: async () => {
+              observed.push(getTraceContext()?.traceId);
+            },
+          });
+        }
+      },
+    );
 
     expect(observed).toEqual([
       "generated-by-logging-middleware",

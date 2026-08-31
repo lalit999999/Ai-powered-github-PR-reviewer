@@ -3,7 +3,11 @@ import type { PullRequestReviewRequestedData } from "@repo/shared";
 import { InternalError } from "../../lib/errors.js";
 import * as repositoryRepository from "../repositories/repository.repository.js";
 import { routePullRequestEvent, type IgnoreReason } from "./event-router.js";
-import { syncInstallationEvent, syncInstallationRepositoriesEvent, syncRepositoryEvent } from "./installation-sync.js";
+import {
+  syncInstallationEvent,
+  syncInstallationRepositoriesEvent,
+  syncRepositoryEvent,
+} from "./installation-sync.js";
 import * as pullRequestRepository from "./pull-request.repository.js";
 import {
   extractAction,
@@ -88,7 +92,9 @@ export async function ingestDelivery(args: {
     // with one of them (or with an event `isAllowedEvent` would reject) is a caller
     // mistake in how Prompt 3's controller dispatches by event type, not a client
     // condition — a 500 surfaces the bug rather than silently mishandling the delivery.
-    throw new InternalError(`webhook ingestion service called with an unhandled event type: ${eventType}`);
+    throw new InternalError(
+      `webhook ingestion service called with an unhandled event type: ${eventType}`,
+    );
   }
 
   // Step 1 — parse. A failure here is a malformed-but-authentically-signed delivery
@@ -138,7 +144,9 @@ export async function ingestDelivery(args: {
   };
 
   // Step 3 — fan-out: every tenant this GitHub repository resolves to.
-  const tenants = await repositoryRepository.findConnectedByGithubRepoId(payload.repository.id);
+  const tenants = await repositoryRepository.findConnectedByGithubRepoId(
+    payload.repository.id,
+  );
 
   // Step 4 — the pure routing decision.
   const decision = routePullRequestEvent({ payload, tenants, traceId });
@@ -165,7 +173,10 @@ export async function ingestDelivery(args: {
 
   // Step 7 — durable before the send, so the sweeper (Prompt 4) can retry a send that
   // never returned without re-running tenant resolution.
-  await webhookEventRepository.savePendingDispatchPayload(webhookEventId, decision.events);
+  await webhookEventRepository.savePendingDispatchPayload(
+    webhookEventId,
+    decision.events,
+  );
 
   // Step 8.
   try {
@@ -176,12 +187,15 @@ export async function ingestDelivery(args: {
     // PENDING, exactly as inserted, so the sweeper finds it. Marking it FAILED would
     // make it invisible to the retry sweep for a failure that is, by construction, not
     // permanent.
-    logger.error("webhook dispatch failed; delivery stays PENDING for the sweeper", {
-      ...baseLogFields,
-      status: "PENDING",
-      latencyMs: Date.now() - startedAt,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error(
+      "webhook dispatch failed; delivery stays PENDING for the sweeper",
+      {
+        ...baseLogFields,
+        status: "PENDING",
+        latencyMs: Date.now() - startedAt,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
     return { status: "PENDING", reason: "DISPATCH_FAILED" };
   }
 
@@ -258,7 +272,8 @@ async function ingestMalformedPullRequestEvent(params: {
   parseErrorMessage: string;
   startedAt: number;
 }): Promise<IngestOutcome> {
-  const { deliveryId, eventType, rawPayload, parseErrorMessage, startedAt } = params;
+  const { deliveryId, eventType, rawPayload, parseErrorMessage, startedAt } =
+    params;
   const installationId = extractInstallationId(rawPayload);
   const repositoryFullName = extractRepositoryFullName(rawPayload);
 
@@ -283,16 +298,22 @@ async function ingestMalformedPullRequestEvent(params: {
   }
 
   const code = "MALFORMED_PAYLOAD";
-  await webhookEventRepository.markFailed(inserted.id, { code, message: parseErrorMessage });
-
-  logger.error("webhook delivery failed: malformed payload after a valid signature", {
-    deliveryId,
-    eventType,
-    installationId: installationId?.toString() ?? null,
-    status: "FAILED",
-    latencyMs: Date.now() - startedAt,
-    error: parseErrorMessage,
+  await webhookEventRepository.markFailed(inserted.id, {
+    code,
+    message: parseErrorMessage,
   });
+
+  logger.error(
+    "webhook delivery failed: malformed payload after a valid signature",
+    {
+      deliveryId,
+      eventType,
+      installationId: installationId?.toString() ?? null,
+      status: "FAILED",
+      latencyMs: Date.now() - startedAt,
+      error: parseErrorMessage,
+    },
+  );
 
   return { status: "FAILED", code };
 }
@@ -304,7 +325,8 @@ async function ingestMalformedPullRequestEvent(params: {
 // applied to the three sync event types the controller routes here instead.
 // ---------------------------------------------------------------------------
 
-export type SyncEventType = "installation" | "installation_repositories" | "repository";
+export type SyncEventType =
+  "installation" | "installation_repositories" | "repository";
 
 export type SyncIngestOutcome =
   | { status: "IGNORED"; reason: string }
@@ -355,7 +377,13 @@ export async function ingestSyncDelivery(args: {
     case "installation": {
       const parsed = installationEventSchema.safeParse(rawPayload);
       if (!parsed.success) {
-        return failSyncDelivery(inserted.id, deliveryId, eventType, parsed.error.message, startedAt);
+        return failSyncDelivery(
+          inserted.id,
+          deliveryId,
+          eventType,
+          parsed.error.message,
+          startedAt,
+        );
       }
       outcome = await syncInstallationEvent(parsed.data);
       break;
@@ -363,7 +391,13 @@ export async function ingestSyncDelivery(args: {
     case "installation_repositories": {
       const parsed = installationRepositoriesEventSchema.safeParse(rawPayload);
       if (!parsed.success) {
-        return failSyncDelivery(inserted.id, deliveryId, eventType, parsed.error.message, startedAt);
+        return failSyncDelivery(
+          inserted.id,
+          deliveryId,
+          eventType,
+          parsed.error.message,
+          startedAt,
+        );
       }
       outcome = await syncInstallationRepositoriesEvent(parsed.data);
       break;
@@ -371,7 +405,13 @@ export async function ingestSyncDelivery(args: {
     case "repository": {
       const parsed = repositoryEventSchema.safeParse(rawPayload);
       if (!parsed.success) {
-        return failSyncDelivery(inserted.id, deliveryId, eventType, parsed.error.message, startedAt);
+        return failSyncDelivery(
+          inserted.id,
+          deliveryId,
+          eventType,
+          parsed.error.message,
+          startedAt,
+        );
       }
       outcome = await syncRepositoryEvent(parsed.data);
       break;
@@ -402,15 +442,21 @@ async function failSyncDelivery(
   startedAt: number,
 ): Promise<SyncIngestOutcome> {
   const code = "MALFORMED_PAYLOAD";
-  await webhookEventRepository.markFailed(id, { code, message: parseErrorMessage });
-
-  logger.error("webhook delivery failed: malformed payload after a valid signature", {
-    deliveryId,
-    eventType,
-    status: "FAILED",
-    latencyMs: Date.now() - startedAt,
-    error: parseErrorMessage,
+  await webhookEventRepository.markFailed(id, {
+    code,
+    message: parseErrorMessage,
   });
+
+  logger.error(
+    "webhook delivery failed: malformed payload after a valid signature",
+    {
+      deliveryId,
+      eventType,
+      status: "FAILED",
+      latencyMs: Date.now() - startedAt,
+      error: parseErrorMessage,
+    },
+  );
 
   return { status: "FAILED", code };
 }

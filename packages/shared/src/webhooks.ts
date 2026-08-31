@@ -22,7 +22,12 @@
  * `DISPATCHED` (the Inngest send succeeded) or `FAILED` (it did not — the sweeper's
  * retry target, Prompt 4) or `IGNORED` (allow-listed event, but this delivery's own
  * action does not trigger a dispatch — e.g. `pull_request.edited`). */
-export const WEBHOOK_EVENT_STATUSES = ["PENDING", "DISPATCHED", "IGNORED", "FAILED"] as const;
+export const WEBHOOK_EVENT_STATUSES = [
+  "PENDING",
+  "DISPATCHED",
+  "IGNORED",
+  "FAILED",
+] as const;
 export type WebhookEventStatus = (typeof WEBHOOK_EVENT_STATUSES)[number];
 
 // ---------------------------------------------------------------------------
@@ -80,13 +85,22 @@ export const DEFAULT_PROJECT_REVIEW_SETTINGS: ProjectReviewSettings = {
  * one thing phase-06 §0 exists to prevent above everything else. Every branch below
  * returns a value; none of them re-throws or rethrows a parse error.
  */
-export function parseProjectReviewSettings(settings: unknown): ProjectReviewSettings {
-  if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
+export function parseProjectReviewSettings(
+  settings: unknown,
+): ProjectReviewSettings {
+  if (
+    typeof settings !== "object" ||
+    settings === null ||
+    Array.isArray(settings)
+  ) {
     return { ...DEFAULT_PROJECT_REVIEW_SETTINGS };
   }
 
   const raw = (settings as Record<string, unknown>).reviewDraftPullRequests;
   return {
-    reviewDraftPullRequests: typeof raw === "boolean" ? raw : DEFAULT_PROJECT_REVIEW_SETTINGS.reviewDraftPullRequests,
+    reviewDraftPullRequests:
+      typeof raw === "boolean"
+        ? raw
+        : DEFAULT_PROJECT_REVIEW_SETTINGS.reviewDraftPullRequests,
   };
 }

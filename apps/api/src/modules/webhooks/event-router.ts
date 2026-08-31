@@ -1,4 +1,7 @@
-import { parseProjectReviewSettings, type PullRequestReviewRequestedData } from "@repo/shared";
+import {
+  parseProjectReviewSettings,
+  type PullRequestReviewRequestedData,
+} from "@repo/shared";
 import {
   isReviewTriggeringAction,
   PULL_REQUEST_METADATA_ONLY_ACTIONS,
@@ -31,11 +34,22 @@ export type IgnoreReason =
   | "PUSH_NOT_HANDLED_IN_MVP";
 
 export type RouterDecision =
-  | { kind: "DISPATCH"; events: PullRequestReviewRequestedData[]; pullRequestUpserts: UpsertPullRequestInput[] }
-  | { kind: "PERSIST_ONLY"; pullRequestUpserts: UpsertPullRequestInput[]; reason: IgnoreReason }
+  | {
+      kind: "DISPATCH";
+      events: PullRequestReviewRequestedData[];
+      pullRequestUpserts: UpsertPullRequestInput[];
+    }
+  | {
+      kind: "PERSIST_ONLY";
+      pullRequestUpserts: UpsertPullRequestInput[];
+      reason: IgnoreReason;
+    }
   | { kind: "IGNORE"; reason: IgnoreReason };
 
-function buildUpsert(tenant: WebhookTenantTarget, payload: ParsedPullRequestEvent): UpsertPullRequestInput {
+function buildUpsert(
+  tenant: WebhookTenantTarget,
+  payload: ParsedPullRequestEvent,
+): UpsertPullRequestInput {
   return {
     repositoryId: tenant.repositoryId,
     number: payload.pull_request.number,
@@ -55,7 +69,10 @@ function buildUpsert(tenant: WebhookTenantTarget, payload: ParsedPullRequestEven
  * alone — and the fan-out silently stops working in production while every unit test
  * that only exercises one tenant at a time keeps passing.
  */
-function buildPrKey(tenant: WebhookTenantTarget, payload: ParsedPullRequestEvent): string {
+function buildPrKey(
+  tenant: WebhookTenantTarget,
+  payload: ParsedPullRequestEvent,
+): string {
   return `${tenant.repositoryId}:${payload.pull_request.number}:${payload.pull_request.head.sha}`;
 }
 
@@ -81,11 +98,15 @@ function buildEvent(
 }
 
 function isMetadataOnlyAction(action: string): boolean {
-  return (PULL_REQUEST_METADATA_ONLY_ACTIONS as readonly string[]).includes(action);
+  return (PULL_REQUEST_METADATA_ONLY_ACTIONS as readonly string[]).includes(
+    action,
+  );
 }
 
 function isStateSyncAction(action: string): boolean {
-  return (PULL_REQUEST_STATE_SYNC_ACTIONS as readonly string[]).includes(action);
+  return (PULL_REQUEST_STATE_SYNC_ACTIONS as readonly string[]).includes(
+    action,
+  );
 }
 
 /**
@@ -137,15 +158,25 @@ export function routePullRequestEvent(args: {
     return { kind: "IGNORE", reason: "NO_CONNECTED_REPOSITORY" };
   }
 
-  const pullRequestUpserts = tenants.map((tenant) => buildUpsert(tenant, payload));
+  const pullRequestUpserts = tenants.map((tenant) =>
+    buildUpsert(tenant, payload),
+  );
   const action = payload.action;
 
   if (isMetadataOnlyAction(action)) {
-    return { kind: "PERSIST_ONLY", pullRequestUpserts, reason: "EDITED_METADATA_ONLY" };
+    return {
+      kind: "PERSIST_ONLY",
+      pullRequestUpserts,
+      reason: "EDITED_METADATA_ONLY",
+    };
   }
 
   if (isStateSyncAction(action)) {
-    return { kind: "PERSIST_ONLY", pullRequestUpserts, reason: "ACTION_NOT_TRIGGERING" };
+    return {
+      kind: "PERSIST_ONLY",
+      pullRequestUpserts,
+      reason: "ACTION_NOT_TRIGGERING",
+    };
   }
 
   if (!isReviewTriggeringAction(action)) {
@@ -154,7 +185,11 @@ export function routePullRequestEvent(args: {
     // an explicit default rather than falling through to a dispatch, so a future
     // allow-listed action added to the matrix without a matching router branch fails
     // safe (persists, does not review) instead of failing open.
-    return { kind: "PERSIST_ONLY", pullRequestUpserts, reason: "ACTION_NOT_TRIGGERING" };
+    return {
+      kind: "PERSIST_ONLY",
+      pullRequestUpserts,
+      reason: "ACTION_NOT_TRIGGERING",
+    };
   }
 
   const events: PullRequestReviewRequestedData[] = [];
@@ -169,7 +204,11 @@ export function routePullRequestEvent(args: {
   }
 
   if (events.length === 0) {
-    return { kind: "PERSIST_ONLY", pullRequestUpserts, reason: "DRAFT_SKIPPED" };
+    return {
+      kind: "PERSIST_ONLY",
+      pullRequestUpserts,
+      reason: "DRAFT_SKIPPED",
+    };
   }
 
   return { kind: "DISPATCH", events, pullRequestUpserts };

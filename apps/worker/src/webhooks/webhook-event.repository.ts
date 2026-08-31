@@ -44,10 +44,22 @@ export interface PendingWebhookEvent {
  * `@@index([status, createdAt])` (schema.prisma, added in Prompt 1 specifically for this
  * query) is what makes this cheap at audit-ledger scale.
  */
-export async function findPendingOlderThan(olderThanMs: number, limit: number): Promise<PendingWebhookEvent[]> {
+export async function findPendingOlderThan(
+  olderThanMs: number,
+  limit: number,
+): Promise<PendingWebhookEvent[]> {
   return prisma.webhookEvent.findMany({
-    where: { status: PENDING, createdAt: { lt: new Date(Date.now() - olderThanMs) } },
-    select: { id: true, deliveryId: true, eventType: true, action: true, dispatchPayload: true },
+    where: {
+      status: PENDING,
+      createdAt: { lt: new Date(Date.now() - olderThanMs) },
+    },
+    select: {
+      id: true,
+      deliveryId: true,
+      eventType: true,
+      action: true,
+      dispatchPayload: true,
+    },
     orderBy: { createdAt: "asc" },
     take: limit,
   });
@@ -66,7 +78,10 @@ export async function markDispatched(id: string): Promise<void> {
 /** `PENDING → FAILED`. Reserved for a row whose `dispatchPayload` is null or
  * unparseable — a condition retrying will never fix, matching `apps/api`'s own
  * `markFailed` convention for a malformed-but-authentic delivery. */
-export async function markFailed(id: string, error: { code: string; message: string }): Promise<void> {
+export async function markFailed(
+  id: string,
+  error: { code: string; message: string },
+): Promise<void> {
   await prisma.webhookEvent.update({
     where: { id },
     data: { status: FAILED, error },

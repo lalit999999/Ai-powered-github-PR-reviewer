@@ -14,7 +14,10 @@ app.use(express.json());
 // wired up better than the noop ever could (docs/decisions/phase-03-log.md).
 app.use(
   "/api/inngest",
-  serve({ client: inngest, functions: [repositoryIndex, staleIndexSweeper, webhookSweeper] }),
+  serve({
+    client: inngest,
+    functions: [repositoryIndex, staleIndexSweeper, webhookSweeper],
+  }),
 );
 
 export default app;

@@ -21,16 +21,16 @@ security review — lives in [`github-app-permissions.md`](./github-app-permissi
 Go to **Settings → Developer settings → GitHub Apps → New GitHub App** (under your user
 account for a personal test App, or under the organization that should own it).
 
-| Field                                 | Value                                                                                                                                                                                                                                                  |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub App name**                   | Must be globally unique. Suffix it per environment, e.g. `gitprreviewer-staging`.                                                                                                                                                                   |
-| **Homepage URL**                      | The deployed `apps/web` origin (locally: `http://localhost:3000`).                                                                                                                                                                                  |
-| **Callback URL**                      | `$AUTH_URL/api/auth/callback/github` — the _same_ value the OAuth App uses. Only needed if "Request user authorization (OAuth) during installation" is ticked; leave that **unticked**, since sign-in already goes through the Phase 01 OAuth App. |
-| **Setup URL** (optional)              | Where GitHub sends the user after they install. Point it at the projects page, e.g. `$FRONTEND_URL/projects`.                                                                                                                                       |
-| **Webhook → Active**                  | ✅ **Yes.** Phase 06 built the receiving endpoint — see [Webhook delivery](#webhook-delivery).                                                                                                                                                      |
-| **Webhook URL**                       | `$API_ORIGIN/api/webhooks/github` (locally, a tunnel URL — see below).                                                                                                                                                                              |
-| **Webhook secret**                    | Generate with `openssl rand -hex 32`. This becomes `GITHUB_APP_WEBHOOK_SECRET`.                                                                                                                                                                     |
-| **Where can this App be installed?**  | "Any account" if it will serve other users; "Only on this account" for a personal test App.                                                                                                                                                         |
+| Field                                | Value                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub App name**                  | Must be globally unique. Suffix it per environment, e.g. `gitprreviewer-staging`.                                                                                                                                                                  |
+| **Homepage URL**                     | The deployed `apps/web` origin (locally: `http://localhost:3000`).                                                                                                                                                                                 |
+| **Callback URL**                     | `$AUTH_URL/api/auth/callback/github` — the _same_ value the OAuth App uses. Only needed if "Request user authorization (OAuth) during installation" is ticked; leave that **unticked**, since sign-in already goes through the Phase 01 OAuth App. |
+| **Setup URL** (optional)             | Where GitHub sends the user after they install. Point it at the projects page, e.g. `$FRONTEND_URL/projects`.                                                                                                                                      |
+| **Webhook → Active**                 | ✅ **Yes.** Phase 06 built the receiving endpoint — see [Webhook delivery](#webhook-delivery).                                                                                                                                                     |
+| **Webhook URL**                      | `$API_ORIGIN/api/webhooks/github` (locally, a tunnel URL — see below).                                                                                                                                                                             |
+| **Webhook secret**                   | Generate with `openssl rand -hex 32`. This becomes `GITHUB_APP_WEBHOOK_SECRET`.                                                                                                                                                                    |
+| **Where can this App be installed?** | "Any account" if it will serve other users; "Only on this account" for a personal test App.                                                                                                                                                        |
 
 ## 2. Permissions
 
@@ -53,12 +53,12 @@ write to repositories is a supply-chain attack surface (phase-02 §4 Security,
 
 Under **Subscribe to events**, tick:
 
-| Event                          | Needed by   | Notes                                                                                             |
-| ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------- |
-| `Installation`                 | Phase 06    | App installed, uninstalled, suspended, unsuspended — handled live.                                  |
-| `Installation repositories`    | Phase 06    | Repositories added to / removed from an existing installation — handled live.                       |
-| `Pull request`                 | Phase 06/07 | Opened, synchronize, reopened, closed — Phase 06 dispatches the event, Phase 07 reviews.             |
-| `Pull request review comment`  | Phase 13    | Subscribed now; not yet handled — see `docs/webhooks.md`'s "deliberately out of scope" section.     |
+| Event                         | Needed by   | Notes                                                                                           |
+| ----------------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| `Installation`                | Phase 06    | App installed, uninstalled, suspended, unsuspended — handled live.                              |
+| `Installation repositories`   | Phase 06    | Repositories added to / removed from an existing installation — handled live.                   |
+| `Pull request`                | Phase 06/07 | Opened, synchronize, reopened, closed — Phase 06 dispatches the event, Phase 07 reviews.        |
+| `Pull request review comment` | Phase 13    | Subscribed now; not yet handled — see `docs/webhooks.md`'s "deliberately out of scope" section. |
 
 Every event above except `Pull request review comment` has a live handler as of Phase 06
 — see [`docs/webhooks.md`](./webhooks.md) for the full event/action matrix.

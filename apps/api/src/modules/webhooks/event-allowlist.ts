@@ -52,36 +52,60 @@
  * causes this to be "corrected" back into a contradiction later.
  */
 
-export const REVIEW_TRIGGERING_ACTIONS = ["opened", "reopened", "synchronize", "ready_for_review"] as const;
+export const REVIEW_TRIGGERING_ACTIONS = [
+  "opened",
+  "reopened",
+  "synchronize",
+  "ready_for_review",
+] as const;
 export type ReviewTriggeringAction = (typeof REVIEW_TRIGGERING_ACTIONS)[number];
 
 /** `pull_request.closed`/`converted_to_draft` — the PR's stored state moves, but no
  * review is (re-)triggered. A merged/closed PR does not need reviewing, and a PR pushed
  * back into draft is exactly the state {@link REVIEW_TRIGGERING_ACTIONS} excludes drafts
  * for in the first place. */
-export const PULL_REQUEST_STATE_SYNC_ACTIONS = ["closed", "converted_to_draft"] as const;
-export type PullRequestStateSyncAction = (typeof PULL_REQUEST_STATE_SYNC_ACTIONS)[number];
+export const PULL_REQUEST_STATE_SYNC_ACTIONS = [
+  "closed",
+  "converted_to_draft",
+] as const;
+export type PullRequestStateSyncAction =
+  (typeof PULL_REQUEST_STATE_SYNC_ACTIONS)[number];
 
 /** `pull_request.edited` — title/body/base branch changed. Stored metadata is updated so
  * it stays current, but this is deliberately **never** a re-review trigger: an edit to
  * the PR description is not a code change, and re-reviewing on every edit would burn
  * review budget on events that never touched a line of code. */
 export const PULL_REQUEST_METADATA_ONLY_ACTIONS = ["edited"] as const;
-export type PullRequestMetadataOnlyAction = (typeof PULL_REQUEST_METADATA_ONLY_ACTIONS)[number];
+export type PullRequestMetadataOnlyAction =
+  (typeof PULL_REQUEST_METADATA_ONLY_ACTIONS)[number];
 
 /** `installation.*` — App installed, uninstalled, suspended, or unsuspended. Handled by
  * the installation-sync path Prompt 4 builds; carries no PR/review implications itself. */
-export const INSTALLATION_SYNC_ACTIONS = ["created", "deleted", "suspend", "unsuspend"] as const;
+export const INSTALLATION_SYNC_ACTIONS = [
+  "created",
+  "deleted",
+  "suspend",
+  "unsuspend",
+] as const;
 export type InstallationSyncAction = (typeof INSTALLATION_SYNC_ACTIONS)[number];
 
 /** `installation_repositories.*` — repositories added to or removed from an existing
  * installation's access, without the installation itself changing. */
-export const INSTALLATION_REPOSITORIES_SYNC_ACTIONS = ["added", "removed"] as const;
-export type InstallationRepositoriesSyncAction = (typeof INSTALLATION_REPOSITORIES_SYNC_ACTIONS)[number];
+export const INSTALLATION_REPOSITORIES_SYNC_ACTIONS = [
+  "added",
+  "removed",
+] as const;
+export type InstallationRepositoriesSyncAction =
+  (typeof INSTALLATION_REPOSITORIES_SYNC_ACTIONS)[number];
 
 /** `repository.*` — the connected repository itself was renamed, deleted, archived, or
  * unarchived on GitHub's side. */
-export const REPOSITORY_SYNC_ACTIONS = ["renamed", "deleted", "archived", "unarchived"] as const;
+export const REPOSITORY_SYNC_ACTIONS = [
+  "renamed",
+  "deleted",
+  "archived",
+  "unarchived",
+] as const;
 export type RepositorySyncAction = (typeof REPOSITORY_SYNC_ACTIONS)[number];
 
 /**
@@ -123,13 +147,20 @@ const ALLOWED_EVENT_TYPES = new Set<string>(Object.keys(WEBHOOK_EVENT_MATRIX));
  * (`issue_comment`, `check_run`, ...) and outright garbage — the router treats both
  * identically: see this file's header comment for the 200/no-row/warn-log reconciliation.
  */
-export function isAllowedEvent(eventType: string): eventType is AllowedEventType {
+export function isAllowedEvent(
+  eventType: string,
+): eventType is AllowedEventType {
   return ALLOWED_EVENT_TYPES.has(eventType);
 }
 
 /** Narrows a `pull_request` webhook's `action` field to the subset that should dispatch
  * a review. `undefined` (an action-less delivery, or a caller that hasn't read one yet)
  * never narrows — there is no action to be a review trigger. */
-export function isReviewTriggeringAction(action: string | undefined): action is ReviewTriggeringAction {
-  return typeof action === "string" && (REVIEW_TRIGGERING_ACTIONS as readonly string[]).includes(action);
+export function isReviewTriggeringAction(
+  action: string | undefined,
+): action is ReviewTriggeringAction {
+  return (
+    typeof action === "string" &&
+    (REVIEW_TRIGGERING_ACTIONS as readonly string[]).includes(action)
+  );
 }

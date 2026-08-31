@@ -1,5 +1,8 @@
 import { createLogger } from "@repo/observability";
-import { PULL_REQUEST_REVIEW_REQUESTED, type PullRequestReviewRequestedData } from "@repo/shared";
+import {
+  PULL_REQUEST_REVIEW_REQUESTED,
+  type PullRequestReviewRequestedData,
+} from "@repo/shared";
 import * as webhookEventRepository from "../../webhooks/webhook-event.repository.js";
 import type { PendingWebhookEvent } from "../../webhooks/webhook-event.repository.js";
 import { inngest } from "../client.js";
@@ -65,7 +68,11 @@ const SWEEP_BATCH_LIMIT = 50;
 export interface SweepSend {
   rowId: string;
   deliveryId: string;
-  events: { name: typeof PULL_REQUEST_REVIEW_REQUESTED; data: PullRequestReviewRequestedData; id: string }[];
+  events: {
+    name: typeof PULL_REQUEST_REVIEW_REQUESTED;
+    data: PullRequestReviewRequestedData;
+    id: string;
+  }[];
 }
 
 export interface SweepSkip {
@@ -88,12 +95,18 @@ export interface SweepPlan {
  * mean this value was never a real `PullRequestReviewRequestedData[]` to begin with (a
  * hand-edited row, or the null/crash case this function exists to catch).
  */
-function isReplayableDispatchPayload(value: unknown): value is PullRequestReviewRequestedData[] {
+function isReplayableDispatchPayload(
+  value: unknown,
+): value is PullRequestReviewRequestedData[] {
   if (!Array.isArray(value) || value.length === 0) return false;
   return value.every((item) => {
     if (typeof item !== "object" || item === null) return false;
     const row = item as Record<string, unknown>;
-    return typeof row.prKey === "string" && typeof row.repositoryId === "string" && typeof row.projectId === "string";
+    return (
+      typeof row.prKey === "string" &&
+      typeof row.repositoryId === "string" &&
+      typeof row.projectId === "string"
+    );
   });
 }
 
@@ -103,7 +116,9 @@ function isReplayableDispatchPayload(value: unknown): value is PullRequestReview
  * re-send (`sends`) and rows whose `dispatchPayload` cannot be trusted (`skips`), per
  * this file's own header comment.
  */
-export function buildSweepSends(rows: readonly PendingWebhookEvent[]): SweepPlan {
+export function buildSweepSends(
+  rows: readonly PendingWebhookEvent[],
+): SweepPlan {
   const sends: SweepSend[] = [];
   const skips: SweepSkip[] = [];
 
@@ -123,7 +138,11 @@ export function buildSweepSends(rows: readonly PendingWebhookEvent[]): SweepPlan
       deliveryId: row.deliveryId,
       // `id: data.prKey` mirrors emit.ts's own idempotency key exactly — this is a
       // *replay* of the original dispatch, not a fresh one, so it must dedup against it.
-      events: row.dispatchPayload.map((data) => ({ name: PULL_REQUEST_REVIEW_REQUESTED, data, id: data.prKey })),
+      events: row.dispatchPayload.map((data) => ({
+        name: PULL_REQUEST_REVIEW_REQUESTED,
+        data,
+        id: data.prKey,
+      })),
     });
   }
 
@@ -142,7 +161,10 @@ export const webhookSweeper = inngest.createFunction(
     const logger = createLogger("webhooks.webhook-sweeper");
 
     const rows = await step.run("find-pending-older-than-threshold", () =>
-      webhookEventRepository.findPendingOlderThan(PENDING_THRESHOLD_MS, SWEEP_BATCH_LIMIT),
+      webhookEventRepository.findPendingOlderThan(
+        PENDING_THRESHOLD_MS,
+        SWEEP_BATCH_LIMIT,
+      ),
     );
 
     if (rows.length === 0) {
@@ -168,7 +190,10 @@ export const webhookSweeper = inngest.createFunction(
         await webhookEventRepository.markDispatched(send.rowId);
       }
       for (const skip of skips) {
-        await webhookEventRepository.markFailed(skip.rowId, { code: skip.code, message: skip.message });
+        await webhookEventRepository.markFailed(skip.rowId, {
+          code: skip.code,
+          message: skip.message,
+        });
       }
     });
 
@@ -178,6 +203,10 @@ export const webhookSweeper = inngest.createFunction(
       failed: skips.length,
     });
 
-    return { found: rows.length, dispatched: sends.length, failed: skips.length };
+    return {
+      found: rows.length,
+      dispatched: sends.length,
+      failed: skips.length,
+    };
   },
 );

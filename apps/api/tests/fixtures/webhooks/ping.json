@@ -5,7 +5,13 @@
     "type": "App",
     "id": 123456,
     "active": true,
-    "events": ["pull_request", "installation", "installation_repositories", "repository", "push"]
+    "events": [
+      "pull_request",
+      "installation",
+      "installation_repositories",
+      "repository",
+      "push"
+    ]
   },
   "repository": {
     "id": 1296269,

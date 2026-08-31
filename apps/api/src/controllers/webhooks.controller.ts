@@ -5,7 +5,10 @@ import { emitPullRequestReviewRequested } from "../inngest/emit.js";
 import { UnauthenticatedError, ValidationError } from "../lib/errors.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { isAllowedEvent } from "../modules/webhooks/event-allowlist.js";
-import { WEBHOOK_RATE_LIMIT_PER_INSTALLATION, WEBHOOK_RATE_LIMIT_WINDOW_SECONDS } from "../modules/webhooks/webhook-rate-limit.js";
+import {
+  WEBHOOK_RATE_LIMIT_PER_INSTALLATION,
+  WEBHOOK_RATE_LIMIT_WINDOW_SECONDS,
+} from "../modules/webhooks/webhook-rate-limit.js";
 import { verifyWebhookSignature } from "../modules/webhooks/webhook-verification.js";
 import { extractInstallationId } from "../modules/webhooks/webhook.schema.js";
 import * as webhookService from "../modules/webhooks/webhook.service.js";
@@ -27,7 +30,10 @@ const logger = createLogger("api.webhooks");
  * The four steps this route actually takes: **verify signature → allow-list check →
  * rate limit → delegate to the service.**
  */
-export async function receiveGithubWebhook(req: Request, res: Response): Promise<void> {
+export async function receiveGithubWebhook(
+  req: Request,
+  res: Response,
+): Promise<void> {
   // requestContext (app.ts, mounted first) has already established this request's
   // traceId before any route runs. Generating a second one here would break
   // correlation between this request's log lines and the worker's own, once the trace
@@ -39,7 +45,9 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
   // `undefined`. Treated as an empty body rather than special-cased: it will simply fail
   // signature verification below, which is the correct outcome for a request that was
   // never a real GitHub delivery in the first place.
-  const rawBody: Buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+  const rawBody: Buffer = Buffer.isBuffer(req.body)
+    ? req.body
+    : Buffer.alloc(0);
 
   const deliveryId = req.header("x-github-delivery");
   const eventType = req.header("x-github-event");
@@ -51,10 +59,16 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
       hasDeliveryId: Boolean(deliveryId),
       hasEventType: Boolean(eventType),
     });
-    throw new ValidationError("Missing x-github-delivery or x-github-event header");
+    throw new ValidationError(
+      "Missing x-github-delivery or x-github-event header",
+    );
   }
 
-  const verification = verifyWebhookSignature(rawBody, signatureHeader, env.GITHUB_APP_WEBHOOK_SECRET);
+  const verification = verifyWebhookSignature(
+    rawBody,
+    signatureHeader,
+    env.GITHUB_APP_WEBHOOK_SECRET,
+  );
   if (!verification.ok) {
     // §4 Security / §20: a dedicated, queryable outcome value — a spike here is the
     // signal for a rotated or leaked secret, and it must be distinguishable from every
@@ -72,7 +86,11 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
     // event-allowlist.ts's own header comment reconciles this: "rejected" means no row,
     // no dispatch — not a non-200 status, which would only teach GitHub to retry a
     // delivery this server has no intention of ever handling differently.
-    logger.warn("webhook ignored: event type not allow-listed", { outcome: "UNKNOWN_EVENT", deliveryId, eventType });
+    logger.warn("webhook ignored: event type not allow-listed", {
+      outcome: "UNKNOWN_EVENT",
+      deliveryId,
+      eventType,
+    });
     res.status(200).json({ received: true });
     return;
   }
@@ -92,11 +110,14 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
   } catch {
     // Malformed body after a *valid* signature: the sender proved it holds the secret,
     // so this is an authentic-but-broken delivery, not tampering — 400, not 401.
-    logger.warn("webhook rejected: body is not valid JSON after a valid signature", {
-      outcome: "INVALID_JSON",
-      deliveryId,
-      eventType,
-    });
+    logger.warn(
+      "webhook rejected: body is not valid JSON after a valid signature",
+      {
+        outcome: "INVALID_JSON",
+        deliveryId,
+        eventType,
+      },
+    );
     throw new ValidationError("Webhook payload is not valid JSON");
   }
 
@@ -110,7 +131,11 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
   // sync deliveries is exactly the flood this guard exists to bound.
   const installationId = extractInstallationId(payload);
   const rateLimitKey = `webhook:installation:${installationId?.toString() ?? "unknown"}`;
-  const rate = await checkRateLimit(rateLimitKey, WEBHOOK_RATE_LIMIT_PER_INSTALLATION, WEBHOOK_RATE_LIMIT_WINDOW_SECONDS);
+  const rate = await checkRateLimit(
+    rateLimitKey,
+    WEBHOOK_RATE_LIMIT_PER_INSTALLATION,
+    WEBHOOK_RATE_LIMIT_WINDOW_SECONDS,
+  );
 
   if (!rate.allowed) {
     // 200, not 429: a 429 to GitHub triggers redelivery, which is precisely the flood
@@ -127,14 +152,22 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
     return;
   }
 
-  if (eventType === "installation" || eventType === "installation_repositories" || eventType === "repository") {
+  if (
+    eventType === "installation" ||
+    eventType === "installation_repositories" ||
+    eventType === "repository"
+  ) {
     // Prompt 4's sync orchestration — a separate path from ingestDelivery below, which
     // only ever handles pull_request/push. installation-sync.ts's own header comment has
     // the full event/action table this delegates to.
     //
     // ingestSyncDelivery logs its own outcome (IGNORED/DUPLICATE/FAILED) at the level
     // appropriate to that outcome — nothing further to log here.
-    await webhookService.ingestSyncDelivery({ deliveryId, eventType, rawPayload: payload });
+    await webhookService.ingestSyncDelivery({
+      deliveryId,
+      eventType,
+      rawPayload: payload,
+    });
     res.status(200).json({ received: true });
     return;
   }
@@ -158,7 +191,13 @@ export async function receiveGithubWebhook(req: Request, res: Response): Promise
 
   // ingestDelivery logs its own outcome (DISPATCHED/DUPLICATE/IGNORED/PENDING/FAILED) at
   // the level appropriate to that outcome — nothing further to log here.
-  await webhookService.ingestDelivery({ deliveryId, eventType, rawPayload: payload, traceId, dispatcher });
+  await webhookService.ingestDelivery({
+    deliveryId,
+    eventType,
+    rawPayload: payload,
+    traceId,
+    dispatcher,
+  });
 
   // Always 200, for every outcome the service can return. A 5xx would make GitHub retry
   // a delivery that either failed for a reason no retry fixes (a malformed payload) or

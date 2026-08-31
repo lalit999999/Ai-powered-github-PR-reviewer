@@ -351,7 +351,9 @@ export interface WebhookDeliveryDto {
   createdAt: string;
 }
 
-export function toWebhookDeliveryDto(record: WebhookDeliveryRecord): WebhookDeliveryDto {
+export function toWebhookDeliveryDto(
+  record: WebhookDeliveryRecord,
+): WebhookDeliveryDto {
   return {
     id: record.id,
     deliveryId: record.deliveryId,

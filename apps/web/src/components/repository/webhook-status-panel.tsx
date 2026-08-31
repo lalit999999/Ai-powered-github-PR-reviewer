@@ -4,7 +4,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { API_URL } from "@/lib/api-url";
 import type { WebhookDelivery } from "@/lib/api";
 
@@ -47,7 +51,10 @@ import type { WebhookDelivery } from "@/lib/api";
  * when it's clicked — worse than no button at all.
  */
 
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const STATUS_VARIANTS: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   DISPATCHED: "default",
   IGNORED: "secondary",
   PENDING: "outline",
@@ -55,7 +62,9 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 };
 
 function formatRelativeTime(iso: string): string {
-  const deltaSeconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  const deltaSeconds = Math.round(
+    (Date.now() - new Date(iso).getTime()) / 1000,
+  );
   if (deltaSeconds < 60) return "just now";
   const deltaMinutes = Math.round(deltaSeconds / 60);
   if (deltaMinutes < 60) return `${deltaMinutes}m ago`;
@@ -65,11 +74,16 @@ function formatRelativeTime(iso: string): string {
   return `${deltaDays}d ago`;
 }
 
-async function fetchRecentDeliveries(repositoryId: string): Promise<WebhookDelivery[]> {
-  const res = await fetch(`${API_URL}/api/repositories/${encodeURIComponent(repositoryId)}/webhook-test`, {
-    method: "POST",
-    credentials: "include",
-  });
+async function fetchRecentDeliveries(
+  repositoryId: string,
+): Promise<WebhookDelivery[]> {
+  const res = await fetch(
+    `${API_URL}/api/repositories/${encodeURIComponent(repositoryId)}/webhook-test`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
   if (!res.ok) {
     throw new Error(`Could not load webhook deliveries (${res.status})`);
   }
@@ -99,7 +113,12 @@ export function WebhookStatusPanel({ repositoryId }: { repositoryId: string }) {
               ? `Last delivery ${formatRelativeTime(data[0]!.createdAt)}`
               : "Recent GitHub webhook deliveries for this repository"}
           </p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
             {isFetching ? "Checking…" : "Check for recent deliveries"}
           </Button>
         </div>
@@ -114,23 +133,33 @@ export function WebhookStatusPanel({ repositoryId }: { repositoryId: string }) {
 
         {data && data.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            No deliveries yet. If you just connected this repository, confirm the GitHub App&rsquo;s
-            webhook URL points at this deployment and that something has happened on it since
-            (a push, an opened pull request).
+            No deliveries yet. If you just connected this repository, confirm
+            the GitHub App&rsquo;s webhook URL points at this deployment and
+            that something has happened on it since (a push, an opened pull
+            request).
           </p>
         )}
 
         {data && data.length > 0 && (
           <ul className="flex flex-col gap-1">
             {data.map((delivery) => (
-              <li key={delivery.id} className="flex items-center justify-between gap-2 text-xs">
+              <li
+                key={delivery.id}
+                className="flex items-center justify-between gap-2 text-xs"
+              >
                 <span className="truncate">
                   {delivery.eventType}
                   {delivery.action ? `.${delivery.action}` : ""}
                 </span>
                 <span className="flex items-center gap-2">
-                  <Badge variant={STATUS_VARIANTS[delivery.status] ?? "outline"}>{delivery.status}</Badge>
-                  <span className="text-muted-foreground">{formatRelativeTime(delivery.createdAt)}</span>
+                  <Badge
+                    variant={STATUS_VARIANTS[delivery.status] ?? "outline"}
+                  >
+                    {delivery.status}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    {formatRelativeTime(delivery.createdAt)}
+                  </span>
                 </span>
               </li>
             ))}

@@ -64,7 +64,10 @@ export function isPayloadTooLarge(rawBody: Buffer): boolean {
  */
 export type SignatureVerificationResult =
   | { ok: true }
-  | { ok: false; reason: "MISSING_SIGNATURE" | "MALFORMED_SIGNATURE" | "MISMATCH" };
+  | {
+      ok: false;
+      reason: "MISSING_SIGNATURE" | "MALFORMED_SIGNATURE" | "MISMATCH";
+    };
 
 const SIGNATURE_PREFIX = "sha256=";
 
@@ -103,7 +106,9 @@ export function verifyWebhookSignature(
     return { ok: false, reason: "MALFORMED_SIGNATURE" };
   }
 
-  const expectedHeader = SIGNATURE_PREFIX + createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expectedHeader =
+    SIGNATURE_PREFIX +
+    createHmac("sha256", secret).update(rawBody).digest("hex");
   const expected = Buffer.from(expectedHeader, "utf8");
   const actual = Buffer.from(signatureHeader, "utf8");
 
@@ -114,5 +119,7 @@ export function verifyWebhookSignature(
     return { ok: false, reason: "MALFORMED_SIGNATURE" };
   }
 
-  return timingSafeEqual(expected, actual) ? { ok: true } : { ok: false, reason: "MISMATCH" };
+  return timingSafeEqual(expected, actual)
+    ? { ok: true }
+    : { ok: false, reason: "MISMATCH" };
 }

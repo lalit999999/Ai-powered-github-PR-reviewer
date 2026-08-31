@@ -28,18 +28,18 @@ fixtures' stated approach.
 
 ## What each file is for
 
-| File | Event | Action | Used by |
-|---|---|---|---|
-| `pull-request-opened.json` | `pull_request` | `opened` | dispatch path, fan-out, latency test |
-| `pull-request-synchronize.json` | `pull_request` | `synchronize` | dispatch path (same PR, new head SHA) |
-| `pull-request-edited.json` | `pull_request` | `edited` | metadata-only persistence, no dispatch |
-| `pull-request-ready-for-review.json` | `pull_request` | `ready_for_review` | draft-exception dispatch |
-| `pull-request-draft-opened.json` | `pull_request` | `opened`, `draft: true` | per-tenant draft gate |
-| `pull-request-closed.json` | `pull_request` | `closed` | state-sync persistence, no dispatch |
-| `installation-deleted.json` | `installation` | `deleted` | installation sync (Prompt 4) |
-| `installation-repositories-removed.json` | `installation_repositories` | `removed` | installation sync (Prompt 4) |
-| `repository-renamed.json` | `repository` | `renamed` | repository sync (Prompt 4) |
-| `ping.json` | `ping` | — | acknowledgment path |
+| File                                     | Event                       | Action                  | Used by                                |
+| ---------------------------------------- | --------------------------- | ----------------------- | -------------------------------------- |
+| `pull-request-opened.json`               | `pull_request`              | `opened`                | dispatch path, fan-out, latency test   |
+| `pull-request-synchronize.json`          | `pull_request`              | `synchronize`           | dispatch path (same PR, new head SHA)  |
+| `pull-request-edited.json`               | `pull_request`              | `edited`                | metadata-only persistence, no dispatch |
+| `pull-request-ready-for-review.json`     | `pull_request`              | `ready_for_review`      | draft-exception dispatch               |
+| `pull-request-draft-opened.json`         | `pull_request`              | `opened`, `draft: true` | per-tenant draft gate                  |
+| `pull-request-closed.json`               | `pull_request`              | `closed`                | state-sync persistence, no dispatch    |
+| `installation-deleted.json`              | `installation`              | `deleted`               | installation sync (Prompt 4)           |
+| `installation-repositories-removed.json` | `installation_repositories` | `removed`               | installation sync (Prompt 4)           |
+| `repository-renamed.json`                | `repository`                | `renamed`               | repository sync (Prompt 4)             |
+| `ping.json`                              | `ping`                      | —                       | acknowledgment path                    |
 
 ## Format
 

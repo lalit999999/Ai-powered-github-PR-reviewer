@@ -147,7 +147,7 @@ account:
    Page-load sync is no longer standing in for a missing webhook receiver (Phase 06
    built one); it is the **attribution** path — the one place that knows which signed-in
    user just proved they can see this installation. Ongoing installation/repository
-   *staleness* (suspended, uninstalled, renamed, archived) is now kept current by
+   _staleness_ (suspended, uninstalled, renamed, archived) is now kept current by
    webhooks on their own — see `docs/webhooks.md`.
 2. Click **Connect repository**. Search the installation's repositories, or switch to
    **Paste URL** and give it `https://github.com/{owner}/{repo}` directly.

@@ -12,6 +12,13 @@
     "suspended_at": null,
     "suspended_by": null
   },
-  "repositories": [{ "id": 1296269, "name": "hello-world", "full_name": "octocat/hello-world", "private": false }],
+  "repositories": [
+    {
+      "id": 1296269,
+      "name": "hello-world",
+      "full_name": "octocat/hello-world",
+      "private": false
+    }
+  ],
   "sender": { "login": "octocat", "id": 1, "type": "User" }
 }

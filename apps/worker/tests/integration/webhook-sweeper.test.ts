@@ -1,6 +1,14 @@
 import { InngestTestEngine } from "@inngest/test";
 import { prisma } from "@repo/db";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { resetDatabase } from "./db-helpers.js";
 
 /**
@@ -43,7 +51,12 @@ beforeEach(async () => {
   await resetDatabase();
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(JSON.stringify({ ids: ["evt_test"], status: 200 }), { status: 200 })),
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ids: ["evt_test"], status: 200 }), {
+          status: 200,
+        }),
+    ),
   );
 });
 
@@ -70,14 +83,17 @@ async function seedWebhookEventRow(overrides: {
       eventType: "pull_request",
       action: "opened",
       status: overrides.status ?? "PENDING",
-      dispatchPayload: (overrides.dispatchPayload === undefined ? [SAMPLE_EVENT_DATA] : overrides.dispatchPayload) as object | undefined,
+      dispatchPayload: (overrides.dispatchPayload === undefined
+        ? [SAMPLE_EVENT_DATA]
+        : overrides.dispatchPayload) as object | undefined,
       createdAt: new Date(Date.now() - overrides.ageMs),
     },
   });
 }
 
 async function runSweeper() {
-  const { webhookSweeper } = await import("../../src/inngest/functions/webhook-sweeper.js");
+  const { webhookSweeper } =
+    await import("../../src/inngest/functions/webhook-sweeper.js");
   // `webhookSweeper` is cron-triggered, not event-triggered — `events` is omitted
   // (optional on `InngestTestEngine`'s own options type) rather than passed as `[]`,
   // which the installed `@inngest/test@1.0.0`'s types reject: `events` is typed as a
@@ -90,59 +106,88 @@ async function runSweeper() {
 
 describe("webhook-sweeper — the real InngestFunction, against real Postgres", () => {
   it("re-dispatches a PENDING row older than the threshold and marks it DISPATCHED", async () => {
-    const row = await seedWebhookEventRow({ deliveryId: "old-pending-1", ageMs: PENDING_THRESHOLD_MS + 5_000 });
+    const row = await seedWebhookEventRow({
+      deliveryId: "old-pending-1",
+      ageMs: PENDING_THRESHOLD_MS + 5_000,
+    });
 
     const { result, error } = await runSweeper();
 
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ found: 1, dispatched: 1, failed: 0 });
 
-    const updated = await prisma.webhookEvent.findUniqueOrThrow({ where: { id: row.id } });
+    const updated = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { id: row.id },
+    });
     expect(updated.status).toBe("DISPATCHED");
     expect(updated.dispatchedAt).not.toBeNull();
   });
 
   it("does NOT touch a PENDING row younger than the threshold — the race guard against double-sending a request still in flight", async () => {
-    const row = await seedWebhookEventRow({ deliveryId: "young-pending-1", ageMs: 5_000 });
+    const row = await seedWebhookEventRow({
+      deliveryId: "young-pending-1",
+      ageMs: 5_000,
+    });
 
     const { result, error } = await runSweeper();
 
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ found: 0, dispatched: 0, failed: 0 });
 
-    const untouched = await prisma.webhookEvent.findUniqueOrThrow({ where: { id: row.id } });
+    const untouched = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { id: row.id },
+    });
     expect(untouched.status).toBe("PENDING");
     expect(untouched.dispatchedAt).toBeNull();
   });
 
   it("marks a row with a null dispatchPayload FAILED rather than retrying it forever", async () => {
-    const row = await seedWebhookEventRow({ deliveryId: "null-payload-1", ageMs: PENDING_THRESHOLD_MS + 5_000, dispatchPayload: null });
+    const row = await seedWebhookEventRow({
+      deliveryId: "null-payload-1",
+      ageMs: PENDING_THRESHOLD_MS + 5_000,
+      dispatchPayload: null,
+    });
 
     const { result, error } = await runSweeper();
 
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ found: 1, dispatched: 0, failed: 1 });
 
-    const updated = await prisma.webhookEvent.findUniqueOrThrow({ where: { id: row.id } });
+    const updated = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { id: row.id },
+    });
     expect(updated.status).toBe("FAILED");
-    expect(updated.error).toMatchObject({ code: "UNSWEEPABLE_DISPATCH_PAYLOAD" });
+    expect(updated.error).toMatchObject({
+      code: "UNSWEEPABLE_DISPATCH_PAYLOAD",
+    });
   });
 
   it("never re-sends an already-DISPATCHED row", async () => {
-    const row = await seedWebhookEventRow({ deliveryId: "already-dispatched-1", ageMs: PENDING_THRESHOLD_MS + 5_000, status: "DISPATCHED" });
+    const row = await seedWebhookEventRow({
+      deliveryId: "already-dispatched-1",
+      ageMs: PENDING_THRESHOLD_MS + 5_000,
+      status: "DISPATCHED",
+    });
 
     const { result, error } = await runSweeper();
 
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ found: 0, dispatched: 0, failed: 0 });
 
-    const untouched = await prisma.webhookEvent.findUniqueOrThrow({ where: { id: row.id } });
+    const untouched = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { id: row.id },
+    });
     expect(untouched.status).toBe("DISPATCHED");
   });
 
   it("respects the batch limit when more rows are pending than the limit", async () => {
     const rows = await Promise.all(
-      Array.from({ length: 60 }, (_, i) => seedWebhookEventRow({ deliveryId: `batch-${i.toString()}`, ageMs: PENDING_THRESHOLD_MS + 5_000 })),
+      Array.from({ length: 60 }, (_, i) =>
+        seedWebhookEventRow({
+          deliveryId: `batch-${i.toString()}`,
+          ageMs: PENDING_THRESHOLD_MS + 5_000,
+        }),
+      ),
     );
 
     const { result, error } = await runSweeper();
@@ -150,9 +195,16 @@ describe("webhook-sweeper — the real InngestFunction, against real Postgres", 
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ found: 50, dispatched: 50, failed: 0 });
 
-    const statuses = await prisma.webhookEvent.findMany({ where: { id: { in: rows.map((r) => r.id) } }, select: { status: true } });
-    const dispatchedCount = statuses.filter((s) => s.status === "DISPATCHED").length;
-    const stillPendingCount = statuses.filter((s) => s.status === "PENDING").length;
+    const statuses = await prisma.webhookEvent.findMany({
+      where: { id: { in: rows.map((r) => r.id) } },
+      select: { status: true },
+    });
+    const dispatchedCount = statuses.filter(
+      (s) => s.status === "DISPATCHED",
+    ).length;
+    const stillPendingCount = statuses.filter(
+      (s) => s.status === "PENDING",
+    ).length;
     expect(dispatchedCount).toBe(50);
     expect(stillPendingCount).toBe(10);
   });

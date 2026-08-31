@@ -77,6 +77,10 @@ describe("architectural boundary lint rules", () => {
   it("Rule D fails: the webhooks module may not import the GitHub client", async () => {
     const result = await lintFixture("rule-d-violation.ts");
     expect(result?.errorCount).toBeGreaterThan(0);
-    expect(result?.messages.some((m) => m.ruleId === "no-restricted-imports" && /Rule D/.test(m.message))).toBe(true);
+    expect(
+      result?.messages.some(
+        (m) => m.ruleId === "no-restricted-imports" && /Rule D/.test(m.message),
+      ),
+    ).toBe(true);
   });
 });

@@ -1,6 +1,10 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { isPayloadTooLarge, MAX_WEBHOOK_PAYLOAD_BYTES, verifyWebhookSignature } from "./webhook-verification.js";
+import {
+  isPayloadTooLarge,
+  MAX_WEBHOOK_PAYLOAD_BYTES,
+  verifyWebhookSignature,
+} from "./webhook-verification.js";
 
 const SECRET = "test-webhook-secret";
 
@@ -41,7 +45,10 @@ describe("verifyWebhookSignature", () => {
   it("rejects a tampered body (one byte changed) as a mismatch", () => {
     const body = Buffer.from(REALISTIC_BODY, "utf8");
     const signature = sign(body);
-    const tamperedBody = Buffer.from(REALISTIC_BODY.replace("opened", "closed"), "utf8");
+    const tamperedBody = Buffer.from(
+      REALISTIC_BODY.replace("opened", "closed"),
+      "utf8",
+    );
 
     const result = verifyWebhookSignature(tamperedBody, signature, SECRET);
     expect(result).toEqual({ ok: false, reason: "MISMATCH" });
@@ -106,7 +113,10 @@ describe("verifyWebhookSignature", () => {
     const body = Buffer.from(REALISTIC_BODY, "utf8");
     const signature = sign(body);
 
-    const reEncoded = Buffer.from(JSON.stringify(JSON.parse(body.toString())), "utf8");
+    const reEncoded = Buffer.from(
+      JSON.stringify(JSON.parse(body.toString())),
+      "utf8",
+    );
 
     const result = verifyWebhookSignature(reEncoded, signature, SECRET);
     expect(result).toEqual({ ok: false, reason: "MISMATCH" });
@@ -115,11 +125,15 @@ describe("verifyWebhookSignature", () => {
 
 describe("isPayloadTooLarge", () => {
   it("is false for a body at or under the cap", () => {
-    expect(isPayloadTooLarge(Buffer.alloc(MAX_WEBHOOK_PAYLOAD_BYTES))).toBe(false);
+    expect(isPayloadTooLarge(Buffer.alloc(MAX_WEBHOOK_PAYLOAD_BYTES))).toBe(
+      false,
+    );
     expect(isPayloadTooLarge(Buffer.alloc(10))).toBe(false);
   });
 
   it("is true for a body over the cap", () => {
-    expect(isPayloadTooLarge(Buffer.alloc(MAX_WEBHOOK_PAYLOAD_BYTES + 1))).toBe(true);
+    expect(isPayloadTooLarge(Buffer.alloc(MAX_WEBHOOK_PAYLOAD_BYTES + 1))).toBe(
+      true,
+    );
   });
 });

@@ -149,12 +149,16 @@ export async function getKnowledge(req: Request, res: Response): Promise<void> {
  * the more honest verb, but the spec is explicit and a second route for one read is not
  * worth the divergence).
  */
-export async function getRecentWebhookDeliveries(req: Request, res: Response): Promise<void> {
+export async function getRecentWebhookDeliveries(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const session = await requireSession(req);
   const { repositoryId } = parseOrThrow(repositoryIdParamSchema, req.params);
 
   const tenant = await requireTenantAccess(session, { repositoryId });
-  const recentDeliveries = await repositoryService.listRecentWebhookDeliveries(tenant);
+  const recentDeliveries =
+    await repositoryService.listRecentWebhookDeliveries(tenant);
 
   res.status(200).json({ recentDeliveries });
 }

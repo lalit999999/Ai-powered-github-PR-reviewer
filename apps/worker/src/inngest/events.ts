@@ -74,6 +74,9 @@ export const repositoryIndexed = eventType(REPOSITORY_INDEXED, {
  * declarations: the event appearing in the Inngest Dev Server UI with the correct
  * payload, because nothing reads it yet.
  */
-export const pullRequestReviewRequested = eventType(PULL_REQUEST_REVIEW_REQUESTED, {
-  schema: staticSchema<PullRequestReviewRequestedData>(),
-});
+export const pullRequestReviewRequested = eventType(
+  PULL_REQUEST_REVIEW_REQUESTED,
+  {
+    schema: staticSchema<PullRequestReviewRequestedData>(),
+  },
+);

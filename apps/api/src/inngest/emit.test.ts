@@ -123,18 +123,28 @@ describe("emitPullRequestReviewRequested (phase-06 §8)", () => {
     const result = await emitPullRequestReviewRequested([event]);
 
     expect(result).toEqual({ ok: true });
-    expect(send).toHaveBeenCalledWith([{ name: "pull-request/review.requested", data: event, id: event.prKey }]);
+    expect(send).toHaveBeenCalledWith([
+      { name: "pull-request/review.requested", data: event, id: event.prKey },
+    ]);
   });
 
   it("returns { ok: false } and does not throw when send() rejects", async () => {
-    send.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:8288"));
+    send.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 127.0.0.1:8288"),
+    );
 
     const result = await emitPullRequestReviewRequested([event]);
 
-    expect(result).toEqual({ ok: false, error: "connect ECONNREFUSED 127.0.0.1:8288" });
+    expect(result).toEqual({
+      ok: false,
+      error: "connect ECONNREFUSED 127.0.0.1:8288",
+    });
     expect(logSpies.error).toHaveBeenCalledWith(
       "failed to emit pull-request/review.requested",
-      expect.objectContaining({ event: "pull-request/review.requested", prKeys: [event.prKey] })
+      expect.objectContaining({
+        event: "pull-request/review.requested",
+        prKeys: [event.prKey],
+      }),
     );
   });
 
@@ -148,7 +158,10 @@ describe("emitPullRequestReviewRequested (phase-06 §8)", () => {
       await vi.advanceTimersByTimeAsync(300);
       const result = await resultPromise;
 
-      expect(result).toEqual({ ok: false, error: "emit timed out after 300ms" });
+      expect(result).toEqual({
+        ok: false,
+        error: "emit timed out after 300ms",
+      });
     } finally {
       vi.useRealTimers();
     }

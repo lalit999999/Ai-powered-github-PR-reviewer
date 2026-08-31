@@ -47,4 +47,8 @@ export {
   PULL_REQUEST_STATES,
   WEBHOOK_EVENT_STATUSES,
 } from "./webhooks.js";
-export type { ProjectReviewSettings, PullRequestState, WebhookEventStatus } from "./webhooks.js";
+export type {
+  ProjectReviewSettings,
+  PullRequestState,
+  WebhookEventStatus,
+} from "./webhooks.js";

@@ -353,7 +353,9 @@ export interface WebhookTenantTarget {
  * per-tenant round trip inside this latency-sensitive path would be wasted work for
  * data already sitting on the row this query already joined to.
  */
-export async function findConnectedByGithubRepoId(githubRepoId: bigint): Promise<WebhookTenantTarget[]> {
+export async function findConnectedByGithubRepoId(
+  githubRepoId: bigint,
+): Promise<WebhookTenantTarget[]> {
   const rows = await prisma.repository.findMany({
     where: {
       githubRepoId,
@@ -389,7 +391,9 @@ export async function findConnectedByGithubRepoId(githubRepoId: bigint): Promise
  * ACTIVE` guard exactly: a `DISCONNECTED` repository the user already disconnected must
  * never be resurrected into `ACCESS_LOST` by a background webhook.
  */
-export async function markAccessLostByInstallation(installationId: bigint): Promise<number> {
+export async function markAccessLostByInstallation(
+  installationId: bigint,
+): Promise<number> {
   const result = await prisma.repository.updateMany({
     where: { installationId, connectionStatus: ACTIVE },
     data: { connectionStatus: ACCESS_LOST },
@@ -407,7 +411,9 @@ export async function markAccessLostByInstallation(installationId: bigint): Prom
  * installation came back; the user's explicit disconnect has to survive an installation
  * lifecycle event it had nothing to do with.
  */
-export async function restoreActiveByInstallation(installationId: bigint): Promise<number> {
+export async function restoreActiveByInstallation(
+  installationId: bigint,
+): Promise<number> {
   const result = await prisma.repository.updateMany({
     where: { installationId, connectionStatus: ACCESS_LOST },
     data: { connectionStatus: ACTIVE },
@@ -423,7 +429,9 @@ export async function restoreActiveByInstallation(installationId: bigint): Promi
  * exceptions (see the header comment); **only `ACTIVE` rows transition**, for the same
  * reason `markAccessLostByInstallation` restricts itself.
  */
-export async function markAccessLostByGithubRepoId(githubRepoId: bigint): Promise<number> {
+export async function markAccessLostByGithubRepoId(
+  githubRepoId: bigint,
+): Promise<number> {
   const result = await prisma.repository.updateMany({
     where: { githubRepoId, connectionStatus: ACTIVE },
     data: { connectionStatus: ACCESS_LOST },
@@ -449,7 +457,12 @@ export async function renameByGithubRepoId(
 ): Promise<number> {
   const result = await prisma.repository.updateMany({
     where: { githubRepoId },
-    data: { owner: next.owner, name: next.name, fullName: next.fullName, htmlUrl: next.htmlUrl },
+    data: {
+      owner: next.owner,
+      name: next.name,
+      fullName: next.fullName,
+      htmlUrl: next.htmlUrl,
+    },
   });
   return result.count;
 }
@@ -464,7 +477,9 @@ export async function renameByGithubRepoId(
  * disconnected must never be resurrected into `ACTIVE` just because GitHub's own copy
  * came back out of the archive.
  */
-export async function restoreActiveByGithubRepoId(githubRepoId: bigint): Promise<number> {
+export async function restoreActiveByGithubRepoId(
+  githubRepoId: bigint,
+): Promise<number> {
   const result = await prisma.repository.updateMany({
     where: { githubRepoId, connectionStatus: ACCESS_LOST },
     data: { connectionStatus: ACTIVE },

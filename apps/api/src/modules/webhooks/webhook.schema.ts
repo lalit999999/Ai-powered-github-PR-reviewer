@@ -91,7 +91,9 @@ export const installationEventSchema = z
     installation: z
       .object({
         id: githubBigIntId(),
-        account: z.object({ login: z.string(), type: z.string() }).passthrough(),
+        account: z
+          .object({ login: z.string(), type: z.string() })
+          .passthrough(),
         // GitHub sends this on every `installation.*` action, not only `suspend`/
         // `unsuspend` — carried here so `installation.created`'s update-only sync
         // (Prompt 4 §2) can refresh it along with accountLogin/accountType, rather than
@@ -113,7 +115,9 @@ export const installationRepositoriesEventSchema = z
   })
   .passthrough();
 
-export type ParsedInstallationRepositoriesEvent = z.infer<typeof installationRepositoriesEventSchema>;
+export type ParsedInstallationRepositoriesEvent = z.infer<
+  typeof installationRepositoriesEventSchema
+>;
 
 export const repositoryEventSchema = z
   .object({
@@ -143,7 +147,9 @@ export const pingEventSchema = z
 // ---------------------------------------------------------------------------
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 export function extractInstallationId(rawPayload: unknown): bigint | null {

@@ -38,7 +38,12 @@ vi.mock("../repositories/installation.repository.js", () => ({
   setInstallationSuspendedAt: vi.fn(),
 }));
 
-const logSpies = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const logSpies = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
 vi.mock("@repo/observability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/observability")>();
   return { ...actual, createLogger: () => logSpies };
@@ -46,7 +51,8 @@ vi.mock("@repo/observability", async (importOriginal) => {
 
 const webhookEventRepository = await import("./webhook-event.repository.js");
 const pullRequestRepository = await import("./pull-request.repository.js");
-const repositoryRepository = await import("../repositories/repository.repository.js");
+const repositoryRepository =
+  await import("../repositories/repository.repository.js");
 const { InternalError } = await import("../../lib/errors.js");
 const { ingestDelivery } = await import("./webhook.service.js");
 
@@ -54,9 +60,13 @@ const mockedInsertPending = vi.mocked(webhookEventRepository.insertPending);
 const mockedMarkDispatched = vi.mocked(webhookEventRepository.markDispatched);
 const mockedMarkIgnored = vi.mocked(webhookEventRepository.markIgnored);
 const mockedMarkFailed = vi.mocked(webhookEventRepository.markFailed);
-const mockedSavePendingDispatchPayload = vi.mocked(webhookEventRepository.savePendingDispatchPayload);
+const mockedSavePendingDispatchPayload = vi.mocked(
+  webhookEventRepository.savePendingDispatchPayload,
+);
 const mockedUpsertMinimal = vi.mocked(pullRequestRepository.upsertMinimal);
-const mockedFindConnected = vi.mocked(repositoryRepository.findConnectedByGithubRepoId);
+const mockedFindConnected = vi.mocked(
+  repositoryRepository.findConnectedByGithubRepoId,
+);
 
 const TENANT: WebhookTenantTarget = {
   repositoryId: "repo-1",
@@ -91,7 +101,9 @@ function rawPullRequestPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function stubDispatcher(impl?: (events: readonly PullRequestReviewRequestedData[]) => Promise<void>) {
+function stubDispatcher(
+  impl?: (events: readonly PullRequestReviewRequestedData[]) => Promise<void>,
+) {
   return { send: vi.fn(impl ?? (() => Promise.resolve())) };
 }
 
@@ -117,13 +129,22 @@ describe("ingestDelivery", () => {
     expect(outcome).toEqual({ status: "DISPATCHED", eventCount: 1 });
     expect(dispatcher.send).toHaveBeenCalledTimes(1);
     expect(dispatcher.send.mock.calls[0]?.[0]).toHaveLength(1);
-    expect(mockedSavePendingDispatchPayload).toHaveBeenCalledWith("event-1", expect.any(Array));
-    expect(mockedMarkDispatched).toHaveBeenCalledWith("event-1", expect.any(Array));
+    expect(mockedSavePendingDispatchPayload).toHaveBeenCalledWith(
+      "event-1",
+      expect.any(Array),
+    );
+    expect(mockedMarkDispatched).toHaveBeenCalledWith(
+      "event-1",
+      expect.any(Array),
+    );
     expect(mockedUpsertMinimal).toHaveBeenCalledTimes(1);
   });
 
   it("duplicate delivery: returns DUPLICATE and never calls the fan-out query", async () => {
-    mockedInsertPending.mockResolvedValue({ ok: false, reason: "DUPLICATE_DELIVERY" });
+    mockedInsertPending.mockResolvedValue({
+      ok: false,
+      reason: "DUPLICATE_DELIVERY",
+    });
     const dispatcher = stubDispatcher();
 
     const outcome = await ingestDelivery({
@@ -141,7 +162,9 @@ describe("ingestDelivery", () => {
   });
 
   it("dispatcher throws: returns PENDING, never marks DISPATCHED or FAILED", async () => {
-    const dispatcher = stubDispatcher(() => Promise.reject(new Error("inngest unavailable")));
+    const dispatcher = stubDispatcher(() =>
+      Promise.reject(new Error("inngest unavailable")),
+    );
 
     const outcome = await ingestDelivery({
       deliveryId: "delivery-1",
@@ -167,10 +190,16 @@ describe("ingestDelivery", () => {
       dispatcher,
     });
 
-    expect(outcome).toEqual({ status: "IGNORED", reason: "EDITED_METADATA_ONLY" });
+    expect(outcome).toEqual({
+      status: "IGNORED",
+      reason: "EDITED_METADATA_ONLY",
+    });
     expect(dispatcher.send).not.toHaveBeenCalled();
     expect(mockedUpsertMinimal).toHaveBeenCalledTimes(1);
-    expect(mockedMarkIgnored).toHaveBeenCalledWith("event-1", "EDITED_METADATA_ONLY");
+    expect(mockedMarkIgnored).toHaveBeenCalledWith(
+      "event-1",
+      "EDITED_METADATA_ONLY",
+    );
   });
 
   it("malformed payload: returns FAILED, and a row is still inserted for audit", async () => {
@@ -186,7 +215,10 @@ describe("ingestDelivery", () => {
 
     expect(outcome).toEqual({ status: "FAILED", code: "MALFORMED_PAYLOAD" });
     expect(mockedInsertPending).toHaveBeenCalledTimes(1);
-    expect(mockedMarkFailed).toHaveBeenCalledWith("event-1", expect.objectContaining({ code: "MALFORMED_PAYLOAD" }));
+    expect(mockedMarkFailed).toHaveBeenCalledWith(
+      "event-1",
+      expect.objectContaining({ code: "MALFORMED_PAYLOAD" }),
+    );
     expect(mockedFindConnected).not.toHaveBeenCalled();
     expect(dispatcher.send).not.toHaveBeenCalled();
   });
@@ -203,7 +235,10 @@ describe("ingestDelivery", () => {
       dispatcher,
     });
 
-    expect(outcome).toEqual({ status: "IGNORED", reason: "NO_CONNECTED_REPOSITORY" });
+    expect(outcome).toEqual({
+      status: "IGNORED",
+      reason: "NO_CONNECTED_REPOSITORY",
+    });
     expect(mockedUpsertMinimal).not.toHaveBeenCalled();
   });
 
@@ -234,8 +269,14 @@ describe("ingestDelivery", () => {
       dispatcher,
     });
 
-    expect(outcome).toEqual({ status: "IGNORED", reason: "PUSH_NOT_HANDLED_IN_MVP" });
-    expect(mockedMarkIgnored).toHaveBeenCalledWith("event-1", "PUSH_NOT_HANDLED_IN_MVP");
+    expect(outcome).toEqual({
+      status: "IGNORED",
+      reason: "PUSH_NOT_HANDLED_IN_MVP",
+    });
+    expect(mockedMarkIgnored).toHaveBeenCalledWith(
+      "event-1",
+      "PUSH_NOT_HANDLED_IN_MVP",
+    );
   });
 
   it("an unhandled event type is a programming error, not a client condition", async () => {

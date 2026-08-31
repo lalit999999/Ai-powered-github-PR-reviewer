@@ -143,7 +143,9 @@ describe("toInstallationDto", () => {
 });
 
 describe("toWebhookDeliveryDto", () => {
-  function deliveryRow(overrides: Partial<Parameters<typeof toWebhookDeliveryDto>[0]> = {}) {
+  function deliveryRow(
+    overrides: Partial<Parameters<typeof toWebhookDeliveryDto>[0]> = {},
+  ) {
     return {
       id: "event-1",
       deliveryId: "01234567-89ab-cdef-0123-456789abcdef",
@@ -162,17 +164,24 @@ describe("toWebhookDeliveryDto", () => {
     expect(dto.createdAt).toBe("2026-01-01T00:00:00.000Z");
     expect(dto.dispatchedAt).toBe("2026-01-01T00:00:05.000Z");
 
-    expect(toWebhookDeliveryDto(deliveryRow({ dispatchedAt: null })).dispatchedAt).toBeNull();
+    expect(
+      toWebhookDeliveryDto(deliveryRow({ dispatchedAt: null })).dispatchedAt,
+    ).toBeNull();
   });
 
   it("survives JSON.stringify", () => {
     const json = JSON.stringify(toWebhookDeliveryDto(deliveryRow()));
     expect(() => JSON.parse(json)).not.toThrow();
-    expect(JSON.parse(json)).toMatchObject({ status: "DISPATCHED", eventType: "pull_request" });
+    expect(JSON.parse(json)).toMatchObject({
+      status: "DISPATCHED",
+      eventType: "pull_request",
+    });
   });
 
   it("carries no bigint on any field", () => {
-    for (const [key, value] of Object.entries(toWebhookDeliveryDto(deliveryRow()))) {
+    for (const [key, value] of Object.entries(
+      toWebhookDeliveryDto(deliveryRow()),
+    )) {
       expect(typeof value, `field ${key}`).not.toBe("bigint");
     }
   });

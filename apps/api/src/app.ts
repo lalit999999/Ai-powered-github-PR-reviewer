@@ -25,9 +25,20 @@ const app = express();
  * at that same path or later, so this intercepts the one error this specific mount can
  * produce and translates it before it ever reaches the app-wide handler.
  */
-function translateOversizedWebhookBody(err: unknown, _req: Request, _res: Response, next: NextFunction): void {
-  if (typeof err === "object" && err !== null && (err as { type?: unknown }).type === "entity.too.large") {
-    next(new ValidationError("Webhook payload exceeds the maximum allowed size"));
+function translateOversizedWebhookBody(
+  err: unknown,
+  _req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { type?: unknown }).type === "entity.too.large"
+  ) {
+    next(
+      new ValidationError("Webhook payload exceeds the maximum allowed size"),
+    );
     return;
   }
   next(err);
@@ -74,7 +85,10 @@ app.use(
 // the two can never drift into disagreeing about the cap. Exceeding it throws Express's
 // own PayloadTooLargeError, translated to a 400 by translateOversizedWebhookBody
 // immediately below rather than left to surface as a bare 413.
-app.use(WEBHOOK_GITHUB_PATH, express.raw({ type: "*/*", limit: MAX_WEBHOOK_PAYLOAD_BYTES }));
+app.use(
+  WEBHOOK_GITHUB_PATH,
+  express.raw({ type: "*/*", limit: MAX_WEBHOOK_PAYLOAD_BYTES }),
+);
 app.use(WEBHOOK_GITHUB_PATH, translateOversizedWebhookBody);
 
 app.use(express.json());

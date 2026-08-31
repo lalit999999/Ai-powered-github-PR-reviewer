@@ -26,7 +26,13 @@ const SAMPLE_EVENT_DATA = {
   prKey: "repo-1:7:abc123",
 };
 
-function pendingRow(overrides: { id?: string; deliveryId?: string; dispatchPayload?: unknown } = {}) {
+function pendingRow(
+  overrides: {
+    id?: string;
+    deliveryId?: string;
+    dispatchPayload?: unknown;
+  } = {},
+) {
   return {
     id: "event-1",
     deliveryId: "delivery-1",
@@ -53,7 +59,11 @@ describe("buildSweepSends", () => {
 
     expect(plan.sends).toHaveLength(3);
     expect(plan.skips).toHaveLength(0);
-    expect(plan.sends.map((send) => send.rowId)).toEqual(["event-1", "event-2", "event-3"]);
+    expect(plan.sends.map((send) => send.rowId)).toEqual([
+      "event-1",
+      "event-2",
+      "event-3",
+    ]);
   });
 
   it("produces the exact event name and payload shape from @repo/shared, keyed by prKey", () => {
@@ -74,11 +84,16 @@ describe("buildSweepSends", () => {
 
     expect(plan.sends).toHaveLength(0);
     expect(plan.skips).toHaveLength(1);
-    expect(plan.skips[0]).toMatchObject({ rowId: "event-null", code: "UNSWEEPABLE_DISPATCH_PAYLOAD" });
+    expect(plan.skips[0]).toMatchObject({
+      rowId: "event-null",
+      code: "UNSWEEPABLE_DISPATCH_PAYLOAD",
+    });
   });
 
   it("a row with a malformed (non-array) dispatchPayload also becomes a skip", () => {
-    const rows = [pendingRow({ id: "event-bad", dispatchPayload: { not: "an array" } })];
+    const rows = [
+      pendingRow({ id: "event-bad", dispatchPayload: { not: "an array" } }),
+    ];
 
     const plan = buildSweepSends(rows);
 
@@ -88,7 +103,10 @@ describe("buildSweepSends", () => {
   });
 
   it("splits a mixed batch correctly", () => {
-    const rows = [pendingRow({ id: "event-ok" }), pendingRow({ id: "event-null", dispatchPayload: null })];
+    const rows = [
+      pendingRow({ id: "event-ok" }),
+      pendingRow({ id: "event-null", dispatchPayload: null }),
+    ];
 
     const plan = buildSweepSends(rows);
 

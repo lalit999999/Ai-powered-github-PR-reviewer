@@ -1,5 +1,13 @@
 import { prisma } from "@repo/db";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { resetDatabase } from "./db-helpers.js";
 import {
   loadWebhookFixture,
@@ -43,14 +51,17 @@ import {
  */
 
 vi.mock("../../src/inngest/emit.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/inngest/emit.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/inngest/emit.js")>();
   return { ...actual, emitPullRequestReviewRequested: vi.fn() };
 });
 
-const { emitPullRequestReviewRequested } = await import("../../src/inngest/emit.js");
+const { emitPullRequestReviewRequested } =
+  await import("../../src/inngest/emit.js");
 const { default: app } = await import("../../src/app.js");
 
-const WEBHOOK_SECRET = process.env.GITHUB_APP_WEBHOOK_SECRET ?? "local-dev-webhook-secret";
+const WEBHOOK_SECRET =
+  process.env.GITHUB_APP_WEBHOOK_SECRET ?? "local-dev-webhook-secret";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -66,8 +77,14 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function countRows(): Promise<{ webhookEvents: number; pullRequests: number }> {
-  const [webhookEvents, pullRequests] = await Promise.all([prisma.webhookEvent.count(), prisma.pullRequest.count()]);
+async function countRows(): Promise<{
+  webhookEvents: number;
+  pullRequests: number;
+}> {
+  const [webhookEvents, pullRequests] = await Promise.all([
+    prisma.webhookEvent.count(),
+    prisma.pullRequest.count(),
+  ]);
   return { webhookEvents, pullRequests };
 }
 
@@ -78,19 +95,31 @@ async function countRows(): Promise<{ webhookEvents: number; pullRequests: numbe
 describe("POST /api/webhooks/github — signature verification", () => {
   it("valid signature, valid payload, connected repository: 200, DISPATCHED row, PullRequest row, emitter called once", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ received: true });
 
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("DISPATCHED");
     expect(event.eventType).toBe("pull_request");
 
-    const pr = await prisma.pullRequest.findUniqueOrThrow({ where: { repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 } } });
+    const pr = await prisma.pullRequest.findUniqueOrThrow({
+      where: {
+        repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 },
+      },
+    });
     expect(pr.headSha).toBe("6dcb09b5b57875f334f61aebed695e2e4193db5");
     expect(pr.isDraft).toBe(false);
 
@@ -99,7 +128,9 @@ describe("POST /api/webhooks/github — signature verification", () => {
 
   it("tampered body (valid signature for the ORIGINAL body): 401, nothing persisted", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const signatureForOriginal = signWebhookBody(text, WEBHOOK_SECRET);
     const tamperedText = text.replace('"opened"', '"reopened"');
     expect(tamperedText).not.toBe(text); // sanity: the tamper actually changed the bytes
@@ -119,13 +150,20 @@ describe("POST /api/webhooks/github — signature verification", () => {
 
   it("tampered signature (one hex character changed): 401, nothing persisted", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const validSignature = signWebhookBody(text, WEBHOOK_SECRET);
     const lastChar = validSignature.at(-1);
     const flipped = lastChar === "a" ? "b" : "a";
     const tamperedSignature = validSignature.slice(0, -1) + flipped;
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId(), signature: tamperedSignature });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+      signature: tamperedSignature,
+    });
 
     expect(res.status).toBe(401);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
@@ -133,9 +171,16 @@ describe("POST /api/webhooks/github — signature verification", () => {
 
   it("missing x-hub-signature-256 header: 401, nothing persisted", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId(), signature: null });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+      signature: null,
+    });
 
     expect(res.status).toBe(401);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
@@ -143,10 +188,20 @@ describe("POST /api/webhooks/github — signature verification", () => {
 
   it("signature computed with the wrong secret: 401, nothing persisted", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
-    const wrongSecretSignature = signWebhookBody(text, "definitely-not-the-real-secret");
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
+    const wrongSecretSignature = signWebhookBody(
+      text,
+      "definitely-not-the-real-secret",
+    );
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId(), signature: wrongSecretSignature });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+      signature: wrongSecretSignature,
+    });
 
     expect(res.status).toBe(401);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
@@ -167,7 +222,7 @@ describe("POST /api/webhooks/github — signature verification", () => {
       "{",
       '  "action":   "opened",',
       '  "number": 42,',
-      "  \"pull_request\":   {\"id\":1911415577,   \"number\":42,\"state\":\"open\",\"draft\":false,",
+      '  "pull_request":   {"id":1911415577,   "number":42,"state":"open","draft":false,',
       '    "head":{"sha":"6dcb09b5b57875f334f61aebed695e2e4193db5"},',
       '    "base":{"sha":"6dcb09b5b57875f334f61aebed695e2e4193db4"}},',
       `  "repository": {"id":${tenant.githubRepoId.toString()},"full_name":"${tenant.fullName}","name":"hello-world","owner":{"login":"octocat"},"html_url":"https://github.com/${tenant.fullName}"},`,
@@ -180,10 +235,16 @@ describe("POST /api/webhooks/github — signature verification", () => {
     // regular formatting that happens to look unusual.
     expect(weirdBody).not.toBe(JSON.stringify(JSON.parse(weirdBody)));
 
-    const res = await postWebhook(app, { body: weirdBody, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: weirdBody,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
-    const event = await prisma.webhookEvent.findFirstOrThrow({ where: { installationId: BigInt(installationId) } });
+    const event = await prisma.webhookEvent.findFirstOrThrow({
+      where: { installationId: BigInt(installationId) },
+    });
     expect(event.status).toBe("DISPATCHED");
   });
 });
@@ -198,7 +259,10 @@ describe("POST /api/webhooks/github — delivery headers", () => {
 
   it("missing x-github-event: 400", async () => {
     const { text } = loadWebhookFixture("pull-request-opened.json");
-    const res = await postWebhook(app, { body: text, deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      deliveryId: newDeliveryId(),
+    });
     expect(res.status).toBe(400);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
   });
@@ -207,7 +271,11 @@ describe("POST /api/webhooks/github — delivery headers", () => {
 describe("POST /api/webhooks/github — unknown and inert event types", () => {
   it("unknown event type (issue_comment), correctly signed: 200, nothing persisted, emitter not called", async () => {
     const { text } = loadWebhookFixture("pull-request-opened.json");
-    const res = await postWebhook(app, { body: text, event: "issue_comment", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "issue_comment",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
@@ -216,7 +284,11 @@ describe("POST /api/webhooks/github — unknown and inert event types", () => {
 
   it("ping: 200, emitter not called, nothing persisted", async () => {
     const { text } = loadWebhookFixture("ping.json");
-    const res = await postWebhook(app, { body: text, event: "ping", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "ping",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
@@ -234,7 +306,11 @@ describe("POST /api/webhooks/github — payload size cap", () => {
     expect(Buffer.byteLength(text, "utf8")).toBeGreaterThan(5 * 1024 * 1024);
 
     const startedAt = Date.now();
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
     const elapsedMs = Date.now() - startedAt;
 
     expect(res.status).toBe(400);
@@ -248,7 +324,11 @@ describe("POST /api/webhooks/github — malformed payloads after a valid signatu
     const { text } = loadWebhookFixture("pull-request-opened.json");
     const truncated = text.slice(0, -5); // breaks JSON syntax, still signable as-is
 
-    const res = await postWebhook(app, { body: truncated, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: truncated,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(400);
     expect(await countRows()).toEqual({ webhookEvents: 0, pullRequests: 0 });
@@ -266,10 +346,16 @@ describe("POST /api/webhooks/github — malformed payloads after a valid signatu
     const text = JSON.stringify(payload);
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200); // never a 5xx that would make GitHub retry
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("FAILED");
     expect(event.error).toMatchObject({ code: "MALFORMED_PAYLOAD" });
     expect(await prisma.pullRequest.count()).toBe(0);
@@ -284,11 +370,21 @@ describe("POST /api/webhooks/github — malformed payloads after a valid signatu
 describe("POST /api/webhooks/github — duplicate delivery", () => {
   it("the same delivery id, sent twice sequentially: both 200, exactly one row each, emitter called once", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
-    const first = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
-    const second = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const first = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
+    const second = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
@@ -298,7 +394,9 @@ describe("POST /api/webhooks/github — duplicate delivery", () => {
 
   it("the same delivery id, sent as two GENUINELY CONCURRENT requests: both 200, exactly one row each — proving the unique constraint, not a racy pre-check, is what holds", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
     const [first, second] = await Promise.all([
@@ -316,18 +414,27 @@ describe("POST /api/webhooks/github — duplicate delivery", () => {
 describe("POST /api/webhooks/github — fan-out (the same GitHub repository, two projects)", () => {
   it("one delivery produces two independent PullRequest rows, one WebhookEvent row, and two events with different projectId/repositoryId/prKey", async () => {
     const tenantA = await seedWebhookTenant();
-    const tenantB = await seedSecondProjectForSameRepo(tenantA.userId, tenantA.githubRepoId);
+    const tenantB = await seedSecondProjectForSameRepo(
+      tenantA.userId,
+      tenantA.githubRepoId,
+    );
     const { text } = loadWebhookFixture("pull-request-opened.json");
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200);
     expect(await prisma.webhookEvent.count()).toBe(1);
 
     const prs = await prisma.pullRequest.findMany({ where: { number: 42 } });
     expect(prs).toHaveLength(2);
-    expect(new Set(prs.map((pr) => pr.repositoryId))).toEqual(new Set([tenantA.repositoryId, tenantB.repositoryId]));
+    expect(new Set(prs.map((pr) => pr.repositoryId))).toEqual(
+      new Set([tenantA.repositoryId, tenantB.repositoryId]),
+    );
 
     expect(emitPullRequestReviewRequested).toHaveBeenCalledTimes(1);
     const [events] = vi.mocked(emitPullRequestReviewRequested).mock.calls[0]!;
@@ -335,8 +442,12 @@ describe("POST /api/webhooks/github — fan-out (the same GitHub repository, two
     const projectIds = events.map((e) => e.projectId);
     const repositoryIds = events.map((e) => e.repositoryId);
     const prKeys = events.map((e) => e.prKey);
-    expect(new Set(projectIds)).toEqual(new Set([tenantA.projectId, tenantB.projectId]));
-    expect(new Set(repositoryIds)).toEqual(new Set([tenantA.repositoryId, tenantB.repositoryId]));
+    expect(new Set(projectIds)).toEqual(
+      new Set([tenantA.projectId, tenantB.projectId]),
+    );
+    expect(new Set(repositoryIds)).toEqual(
+      new Set([tenantA.repositoryId, tenantB.repositoryId]),
+    );
     // The named failure point (event-router.ts's own header comment): if these two
     // shared a key, Inngest's own event-id dedup would silently collapse the fan-out in
     // production while every assertion above still passed.
@@ -347,16 +458,28 @@ describe("POST /api/webhooks/github — fan-out (the same GitHub repository, two
 describe("POST /api/webhooks/github — pull_request.edited", () => {
   it("updates the stored PullRequest row but never dispatches a review", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-edited.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-edited.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200);
-    const pr = await prisma.pullRequest.findUniqueOrThrow({ where: { repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 } } });
+    const pr = await prisma.pullRequest.findUniqueOrThrow({
+      where: {
+        repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 },
+      },
+    });
     expect(pr.headSha).toBe("6dcb09b5b57875f334f61aebed695e2e4193db5");
 
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("IGNORED");
     expect(event.error).toMatchObject({ reason: "EDITED_METADATA_ONLY" });
     expect(emitPullRequestReviewRequested).not.toHaveBeenCalled();
@@ -366,21 +489,39 @@ describe("POST /api/webhooks/github — pull_request.edited", () => {
 describe("POST /api/webhooks/github — draft pull requests", () => {
   it("a draft PR, default project settings: PullRequest row upserted, emitter not called", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-draft-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-draft-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
-    const pr = await prisma.pullRequest.findUniqueOrThrow({ where: { repositoryId_number: { repositoryId: tenant.repositoryId, number: 44 } } });
+    const pr = await prisma.pullRequest.findUniqueOrThrow({
+      where: {
+        repositoryId_number: { repositoryId: tenant.repositoryId, number: 44 },
+      },
+    });
     expect(pr.isDraft).toBe(true);
     expect(emitPullRequestReviewRequested).not.toHaveBeenCalled();
   });
 
   it("a draft PR, project settings reviewDraftPullRequests: true: emitter IS called", async () => {
-    const tenant = await seedWebhookTenant(undefined, { projectSettings: { reviewDraftPullRequests: true } });
-    const { text } = loadWebhookFixture("pull-request-draft-opened.json", { installationId: Number(tenant.installationId) });
+    const tenant = await seedWebhookTenant(undefined, {
+      projectSettings: { reviewDraftPullRequests: true },
+    });
+    const { text } = loadWebhookFixture("pull-request-draft-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
     expect(emitPullRequestReviewRequested).toHaveBeenCalledTimes(1);
@@ -388,15 +529,25 @@ describe("POST /api/webhooks/github — draft pull requests", () => {
 
   it("mixed tenants on a draft PR — one project opted in, one not: exactly one event, two PullRequest rows", async () => {
     const optedOut = await seedWebhookTenant();
-    const optedIn = await seedSecondProjectForSameRepo(optedOut.userId, optedOut.githubRepoId, { projectSettings: { reviewDraftPullRequests: true } });
+    const optedIn = await seedSecondProjectForSameRepo(
+      optedOut.userId,
+      optedOut.githubRepoId,
+      { projectSettings: { reviewDraftPullRequests: true } },
+    );
     const { text } = loadWebhookFixture("pull-request-draft-opened.json");
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
     const prs = await prisma.pullRequest.findMany({ where: { number: 44 } });
     expect(prs).toHaveLength(2);
-    expect(new Set(prs.map((pr) => pr.repositoryId))).toEqual(new Set([optedOut.repositoryId, optedIn.repositoryId]));
+    expect(new Set(prs.map((pr) => pr.repositoryId))).toEqual(
+      new Set([optedOut.repositoryId, optedIn.repositoryId]),
+    );
 
     expect(emitPullRequestReviewRequested).toHaveBeenCalledTimes(1);
     const [events] = vi.mocked(emitPullRequestReviewRequested).mock.calls[0]!;
@@ -408,9 +559,15 @@ describe("POST /api/webhooks/github — draft pull requests", () => {
 describe("POST /api/webhooks/github — ready_for_review", () => {
   it("dispatches a review", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-ready-for-review.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-ready-for-review.json", {
+      installationId: Number(tenant.installationId),
+    });
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
     expect(emitPullRequestReviewRequested).toHaveBeenCalledTimes(1);
@@ -420,12 +577,22 @@ describe("POST /api/webhooks/github — ready_for_review", () => {
 describe("POST /api/webhooks/github — closed", () => {
   it("updates PullRequest.state and does not dispatch a review", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-closed.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-closed.json", {
+      installationId: Number(tenant.installationId),
+    });
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId: newDeliveryId(),
+    });
 
     expect(res.status).toBe(200);
-    const pr = await prisma.pullRequest.findUniqueOrThrow({ where: { repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 } } });
+    const pr = await prisma.pullRequest.findUniqueOrThrow({
+      where: {
+        repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 },
+      },
+    });
     expect(pr.state).toBe("closed");
     expect(emitPullRequestReviewRequested).not.toHaveBeenCalled();
   });
@@ -436,16 +603,23 @@ describe("POST /api/webhooks/github — routing exclusions", () => {
     const { payload } = loadWebhookFixture("pull-request-opened.json", {
       mutate: (p) => {
         (p.repository as Record<string, unknown>).id = 424_242_424_242;
-        (p.repository as Record<string, unknown>).full_name = "octocat/never-connected";
+        (p.repository as Record<string, unknown>).full_name =
+          "octocat/never-connected";
       },
     });
     const text = JSON.stringify(payload);
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200);
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("IGNORED");
     expect(event.error).toMatchObject({ reason: "NO_CONNECTED_REPOSITORY" });
     expect(await prisma.pullRequest.count()).toBe(0);
@@ -454,14 +628,25 @@ describe("POST /api/webhooks/github — routing exclusions", () => {
 
   it("a webhook for a repository under a soft-deleted project: not dispatched", async () => {
     const tenant = await seedWebhookTenant();
-    await prisma.project.update({ where: { id: tenant.projectId }, data: { deletedAt: new Date() } });
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    await prisma.project.update({
+      where: { id: tenant.projectId },
+      data: { deletedAt: new Date() },
+    });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200);
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("IGNORED");
     expect(event.error).toMatchObject({ reason: "NO_CONNECTED_REPOSITORY" });
     expect(emitPullRequestReviewRequested).not.toHaveBeenCalled();
@@ -469,14 +654,25 @@ describe("POST /api/webhooks/github — routing exclusions", () => {
 
   it("a webhook for a DISCONNECTED repository: not dispatched", async () => {
     const tenant = await seedWebhookTenant();
-    await prisma.repository.update({ where: { id: tenant.repositoryId }, data: { connectionStatus: "DISCONNECTED" } });
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    await prisma.repository.update({
+      where: { id: tenant.repositoryId },
+      data: { connectionStatus: "DISCONNECTED" },
+    });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     expect(res.status).toBe(200);
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("IGNORED");
     expect(event.error).toMatchObject({ reason: "NO_CONNECTED_REPOSITORY" });
     expect(emitPullRequestReviewRequested).not.toHaveBeenCalled();

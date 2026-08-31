@@ -11,6 +11,9 @@ import { withRoute } from "../lib/http.js";
  */
 const router = Router();
 
-router.post("/github", withRoute(receiveGithubWebhook, { component: "api.webhooks" }));
+router.post(
+  "/github",
+  withRoute(receiveGithubWebhook, { component: "api.webhooks" }),
+);
 
 export default router;

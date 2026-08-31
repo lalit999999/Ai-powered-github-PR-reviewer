@@ -4,26 +4,26 @@ What `POST /api/webhooks/github` accepts, what it does with each event/action pa
 `WebhookEvent` audit ledger's state machine, and where to make each kind of change. This
 is the human-readable counterpart to
 `apps/api/src/modules/webhooks/event-allowlist.ts` — that file is the one place in the
-*code* the allow-list lives; this is the one place in the *docs*.
+_code_ the allow-list lives; this is the one place in the _docs_.
 
 ## The event/action matrix
 
-| `X-GitHub-Event` | Action | Handling | Where |
-|---|---|---|---|
-| `pull_request` | `opened`, `reopened`, `synchronize`, `ready_for_review` | Dispatches `pull-request/review.requested` to Inngest | `event-router.ts` |
-| `pull_request` | `closed`, `converted_to_draft` | Updates stored `PullRequest` state, no dispatch | `event-router.ts` |
-| `pull_request` | `edited` | Updates stored metadata only, never a re-review | `event-router.ts` |
-| `installation` | `created` | Updates an existing `GithubInstallation` row; **ignores** if none exists | `installation-sync.ts` |
-| `installation` | `deleted` | Marks every repository under the installation `ACCESS_LOST`; the `GithubInstallation` row itself is kept | `installation-sync.ts` |
-| `installation` | `suspend` | Sets `suspendedAt`; marks repositories `ACCESS_LOST` | `installation-sync.ts` |
-| `installation` | `unsuspend` | Clears `suspendedAt`; restores `ACCESS_LOST` repositories to `ACTIVE` | `installation-sync.ts` |
-| `installation_repositories` | `added` | No-op for connection status — see below | `installation-sync.ts` |
-| `installation_repositories` | `removed` | Marks the named repositories `ACCESS_LOST`, keyed by `githubRepoId` | `installation-sync.ts` |
-| `repository` | `renamed` | Updates `owner`/`name`/`fullName`/`htmlUrl` on every connected project's row | `installation-sync.ts` |
-| `repository` | `deleted`, `archived` | Marks every connected project's row `ACCESS_LOST` | `installation-sync.ts` |
-| `repository` | `unarchived` | Restores `ACCESS_LOST` rows to `ACTIVE` | `installation-sync.ts` |
-| `push` | — (all actions) | Allow-listed, no handler — see below | `event-allowlist.ts` |
-| `ping` | — | Acknowledged, no `WebhookEvent` row written | `webhooks.controller.ts` |
+| `X-GitHub-Event`            | Action                                                  | Handling                                                                                                 | Where                    |
+| --------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `pull_request`              | `opened`, `reopened`, `synchronize`, `ready_for_review` | Dispatches `pull-request/review.requested` to Inngest                                                    | `event-router.ts`        |
+| `pull_request`              | `closed`, `converted_to_draft`                          | Updates stored `PullRequest` state, no dispatch                                                          | `event-router.ts`        |
+| `pull_request`              | `edited`                                                | Updates stored metadata only, never a re-review                                                          | `event-router.ts`        |
+| `installation`              | `created`                                               | Updates an existing `GithubInstallation` row; **ignores** if none exists                                 | `installation-sync.ts`   |
+| `installation`              | `deleted`                                               | Marks every repository under the installation `ACCESS_LOST`; the `GithubInstallation` row itself is kept | `installation-sync.ts`   |
+| `installation`              | `suspend`                                               | Sets `suspendedAt`; marks repositories `ACCESS_LOST`                                                     | `installation-sync.ts`   |
+| `installation`              | `unsuspend`                                             | Clears `suspendedAt`; restores `ACCESS_LOST` repositories to `ACTIVE`                                    | `installation-sync.ts`   |
+| `installation_repositories` | `added`                                                 | No-op for connection status — see below                                                                  | `installation-sync.ts`   |
+| `installation_repositories` | `removed`                                               | Marks the named repositories `ACCESS_LOST`, keyed by `githubRepoId`                                      | `installation-sync.ts`   |
+| `repository`                | `renamed`                                               | Updates `owner`/`name`/`fullName`/`htmlUrl` on every connected project's row                             | `installation-sync.ts`   |
+| `repository`                | `deleted`, `archived`                                   | Marks every connected project's row `ACCESS_LOST`                                                        | `installation-sync.ts`   |
+| `repository`                | `unarchived`                                            | Restores `ACCESS_LOST` rows to `ACTIVE`                                                                  | `installation-sync.ts`   |
+| `push`                      | — (all actions)                                         | Allow-listed, no handler — see below                                                                     | `event-allowlist.ts`     |
+| `ping`                      | —                                                       | Acknowledged, no `WebhookEvent` row written                                                              | `webhooks.controller.ts` |
 
 Anything not in this table is an **unknown event**: the response is still `200` (so
 GitHub does not retry a delivery this server will never handle differently), a `warn` log
@@ -45,7 +45,7 @@ delivery still gets a `WebhookEvent` row, marked `IGNORED` with reason
 ### Why `installation_repositories.added` is a no-op
 
 Connecting a repository to a project is an explicit user action through
-`POST /api/projects/:id/repositories`. The GitHub App merely gaining *visibility* into a
+`POST /api/projects/:id/repositories`. The GitHub App merely gaining _visibility_ into a
 repository — because someone widened the installation's repository selection — does not
 connect it to anything. Handled as its own branch in `installation-sync.ts` (not falling
 through to a default) specifically so this reads as "deliberately does nothing," not a
@@ -167,7 +167,7 @@ is distinguishable from ordinary noise. A sustained spike means one of:
   export/alert on `outcome: "SIGNATURE_REJECTED"` if this needs to page anyone.
 
 **To rotate**: generate a new secret (`openssl rand -hex 32`), set it in the App's
-webhook settings *and* redeploy `apps/api` with the matching
+webhook settings _and_ redeploy `apps/api` with the matching
 `GITHUB_APP_WEBHOOK_SECRET` in the same maintenance window — GitHub signs every
 delivery with whatever secret is currently configured, so there is no overlap window
 where both old and new secrets are simultaneously valid.

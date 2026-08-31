@@ -77,7 +77,10 @@ export async function checkRateLimit(
 
     if (count > limit) {
       const ttl = await redis.ttl(windowKey);
-      return { allowed: false, retryAfterSeconds: ttl > 0 ? ttl : windowSeconds };
+      return {
+        allowed: false,
+        retryAfterSeconds: ttl > 0 ? ttl : windowSeconds,
+      };
     }
 
     return { allowed: true };

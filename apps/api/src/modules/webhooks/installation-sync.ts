@@ -136,33 +136,43 @@ function parseSuspendedAt(value: string | null | undefined): Date | null {
  * update-only; `deleted`/`suspend`/`unsuspend` all operate on rows page-load sync already
  * created.
  */
-export async function syncInstallationEvent(payload: ParsedInstallationEvent): Promise<InstallationSyncOutcome> {
+export async function syncInstallationEvent(
+  payload: ParsedInstallationEvent,
+): Promise<InstallationSyncOutcome> {
   const installationId = payload.installation.id;
 
   switch (payload.action) {
     case "created": {
-      const result = await installationRepository.updateInstallationMetadataIfExists({
-        installationId,
-        accountLogin: payload.installation.account.login,
-        accountType: payload.installation.account.type,
-        suspendedAt: parseSuspendedAt(payload.installation.suspended_at),
-      });
+      const result =
+        await installationRepository.updateInstallationMetadataIfExists({
+          installationId,
+          accountLogin: payload.installation.account.login,
+          accountType: payload.installation.account.type,
+          suspendedAt: parseSuspendedAt(payload.installation.suspended_at),
+        });
       if (!result.updated) {
         // Not an error — the App can be installed by someone who has never signed into
         // this product, and this webhook carries no userId to attribute a new row to.
         // See this file's header comment.
-        logger.info("installation.created ignored: no existing GithubInstallation row to update", {
-          installationId: installationId.toString(),
-        });
+        logger.info(
+          "installation.created ignored: no existing GithubInstallation row to update",
+          {
+            installationId: installationId.toString(),
+          },
+        );
         return { reason: "INSTALLATION_CREATED_NO_EXISTING_ROW" };
       }
-      logger.info("installation.created refreshed an existing GithubInstallation row", {
-        installationId: installationId.toString(),
-      });
+      logger.info(
+        "installation.created refreshed an existing GithubInstallation row",
+        {
+          installationId: installationId.toString(),
+        },
+      );
       return { reason: "INSTALLATION_CREATED_UPDATED" };
     }
     case "deleted": {
-      const changed = await repositoryRepository.markAccessLostByInstallation(installationId);
+      const changed =
+        await repositoryRepository.markAccessLostByInstallation(installationId);
       logger.info("installation.deleted marked repositories ACCESS_LOST", {
         installationId: installationId.toString(),
         repositoriesAffected: changed,
@@ -170,8 +180,12 @@ export async function syncInstallationEvent(payload: ParsedInstallationEvent): P
       return { reason: "INSTALLATION_DELETED" };
     }
     case "suspend": {
-      await installationRepository.setInstallationSuspendedAt(installationId, new Date());
-      const changed = await repositoryRepository.markAccessLostByInstallation(installationId);
+      await installationRepository.setInstallationSuspendedAt(
+        installationId,
+        new Date(),
+      );
+      const changed =
+        await repositoryRepository.markAccessLostByInstallation(installationId);
       logger.info("installation.suspend marked repositories ACCESS_LOST", {
         installationId: installationId.toString(),
         repositoriesAffected: changed,
@@ -179,8 +193,12 @@ export async function syncInstallationEvent(payload: ParsedInstallationEvent): P
       return { reason: "INSTALLATION_SUSPENDED" };
     }
     case "unsuspend": {
-      await installationRepository.setInstallationSuspendedAt(installationId, null);
-      const changed = await repositoryRepository.restoreActiveByInstallation(installationId);
+      await installationRepository.setInstallationSuspendedAt(
+        installationId,
+        null,
+      );
+      const changed =
+        await repositoryRepository.restoreActiveByInstallation(installationId);
       logger.info("installation.unsuspend restored repositories to ACTIVE", {
         installationId: installationId.toString(),
         repositoriesRestored: changed,
@@ -188,10 +206,13 @@ export async function syncInstallationEvent(payload: ParsedInstallationEvent): P
       return { reason: "INSTALLATION_UNSUSPENDED" };
     }
     default:
-      logger.warn("installation event with an unhandled action reached the sync handler", {
-        installationId: installationId.toString(),
-        action: payload.action,
-      });
+      logger.warn(
+        "installation event with an unhandled action reached the sync handler",
+        {
+          installationId: installationId.toString(),
+          action: payload.action,
+        },
+      );
       return { reason: "UNHANDLED_ACTION" };
   }
 }
@@ -210,29 +231,40 @@ export async function syncInstallationRepositoriesEvent(
       // merely gaining visibility into a repository does not connect it to anything.
       // Handled as its own case (not falling into the default) so this reads as
       // "deliberately does nothing," not a gap nobody noticed.
-      logger.info("installation_repositories.added is a no-op for connection status", {
-        installationId: payload.installation.id.toString(),
-        repositoriesAdded: payload.repositories_added?.length ?? 0,
-      });
+      logger.info(
+        "installation_repositories.added is a no-op for connection status",
+        {
+          installationId: payload.installation.id.toString(),
+          repositoriesAdded: payload.repositories_added?.length ?? 0,
+        },
+      );
       return { reason: "INSTALLATION_REPOSITORIES_ADDED" };
     case "removed": {
       const githubRepoIds = payload.repositories_removed ?? [];
       let affected = 0;
       for (const repo of githubRepoIds) {
-        affected += await repositoryRepository.markAccessLostByGithubRepoId(repo.id);
+        affected += await repositoryRepository.markAccessLostByGithubRepoId(
+          repo.id,
+        );
       }
-      logger.info("installation_repositories.removed marked repositories ACCESS_LOST", {
-        installationId: payload.installation.id.toString(),
-        repositoriesNamed: githubRepoIds.length,
-        repositoriesAffected: affected,
-      });
+      logger.info(
+        "installation_repositories.removed marked repositories ACCESS_LOST",
+        {
+          installationId: payload.installation.id.toString(),
+          repositoriesNamed: githubRepoIds.length,
+          repositoriesAffected: affected,
+        },
+      );
       return { reason: "INSTALLATION_REPOSITORIES_REMOVED" };
     }
     default:
-      logger.warn("installation_repositories event with an unhandled action reached the sync handler", {
-        installationId: payload.installation.id.toString(),
-        action: payload.action,
-      });
+      logger.warn(
+        "installation_repositories event with an unhandled action reached the sync handler",
+        {
+          installationId: payload.installation.id.toString(),
+          action: payload.action,
+        },
+      );
       return { reason: "UNHANDLED_ACTION" };
   }
 }
@@ -243,17 +275,22 @@ export async function syncInstallationRepositoriesEvent(
  * `githubRepoId`-wide, applying to every project connected to this GitHub repository at
  * once — GitHub's own copy of a repository is one thing shared by all of them.
  */
-export async function syncRepositoryEvent(payload: ParsedRepositoryEvent): Promise<InstallationSyncOutcome> {
+export async function syncRepositoryEvent(
+  payload: ParsedRepositoryEvent,
+): Promise<InstallationSyncOutcome> {
   const githubRepoId = payload.repository.id;
 
   switch (payload.action) {
     case "renamed": {
-      const changed = await repositoryRepository.renameByGithubRepoId(githubRepoId, {
-        owner: payload.repository.owner.login,
-        name: payload.repository.name,
-        fullName: payload.repository.full_name,
-        htmlUrl: payload.repository.html_url,
-      });
+      const changed = await repositoryRepository.renameByGithubRepoId(
+        githubRepoId,
+        {
+          owner: payload.repository.owner.login,
+          name: payload.repository.name,
+          fullName: payload.repository.full_name,
+          htmlUrl: payload.repository.html_url,
+        },
+      );
       logger.info("repository.renamed updated every connected project's copy", {
         githubRepoId: githubRepoId.toString(),
         fullName: payload.repository.full_name,
@@ -265,15 +302,25 @@ export async function syncRepositoryEvent(payload: ParsedRepositoryEvent): Promi
     case "archived": {
       // No dedicated ARCHIVED connection status exists this phase — see this file's
       // header comment on why ACCESS_LOST is the honest-enough stand-in for both.
-      const changed = await repositoryRepository.markAccessLostByGithubRepoId(githubRepoId);
-      logger.info(`repository.${payload.action} marked repositories ACCESS_LOST`, {
-        githubRepoId: githubRepoId.toString(),
-        repositoriesAffected: changed,
-      });
-      return { reason: payload.action === "deleted" ? "REPOSITORY_DELETED" : "REPOSITORY_ARCHIVED" };
+      const changed =
+        await repositoryRepository.markAccessLostByGithubRepoId(githubRepoId);
+      logger.info(
+        `repository.${payload.action} marked repositories ACCESS_LOST`,
+        {
+          githubRepoId: githubRepoId.toString(),
+          repositoriesAffected: changed,
+        },
+      );
+      return {
+        reason:
+          payload.action === "deleted"
+            ? "REPOSITORY_DELETED"
+            : "REPOSITORY_ARCHIVED",
+      };
     }
     case "unarchived": {
-      const changed = await repositoryRepository.restoreActiveByGithubRepoId(githubRepoId);
+      const changed =
+        await repositoryRepository.restoreActiveByGithubRepoId(githubRepoId);
       logger.info("repository.unarchived restored repositories to ACTIVE", {
         githubRepoId: githubRepoId.toString(),
         repositoriesRestored: changed,
@@ -281,10 +328,13 @@ export async function syncRepositoryEvent(payload: ParsedRepositoryEvent): Promi
       return { reason: "REPOSITORY_UNARCHIVED" };
     }
     default:
-      logger.warn("repository event with an unhandled action reached the sync handler", {
-        githubRepoId: githubRepoId.toString(),
-        action: payload.action,
-      });
+      logger.warn(
+        "repository event with an unhandled action reached the sync handler",
+        {
+          githubRepoId: githubRepoId.toString(),
+          action: payload.action,
+        },
+      );
       return { reason: "UNHANDLED_ACTION" };
   }
 }

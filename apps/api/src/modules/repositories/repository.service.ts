@@ -803,9 +803,14 @@ const RECENT_WEBHOOK_DELIVERIES_LIMIT = 15;
  * it to leak. This function does not re-derive that proof; it trusts the tenant context
  * it was handed, exactly as every other function in this file does.
  */
-export async function listRecentWebhookDeliveries(tenant: TenantContext): Promise<WebhookDeliveryDto[]> {
+export async function listRecentWebhookDeliveries(
+  tenant: TenantContext,
+): Promise<WebhookDeliveryDto[]> {
   const repositoryId = requireRepositoryId(tenant);
-  const repository = await repositoryRepository.findByIdForProject(tenant.projectId, repositoryId);
+  const repository = await repositoryRepository.findByIdForProject(
+    tenant.projectId,
+    repositoryId,
+  );
 
   if (!repository) {
     throw new NotFoundError("Project not found");

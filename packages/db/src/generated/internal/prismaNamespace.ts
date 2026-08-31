@@ -425,7 +425,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "project" | "githubInstallation" | "repository" | "repositoryFile" | "codeSymbol" | "codeDependency" | "indexJob" | "account" | "session" | "verificationToken"
+    modelProps: "user" | "project" | "githubInstallation" | "repository" | "repositoryFile" | "codeSymbol" | "codeDependency" | "indexJob" | "webhookEvent" | "pullRequest" | "account" | "session" | "verificationToken"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {

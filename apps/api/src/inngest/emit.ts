@@ -199,7 +199,11 @@ const EMIT_TIMEOUT_MS = 300;
 export async function emitPullRequestReviewRequested(
   events: readonly PullRequestReviewRequestedData[],
 ): Promise<EmitResult> {
-  const payloads = events.map((data) => ({ name: PULL_REQUEST_REVIEW_REQUESTED, data, id: data.prKey }));
+  const payloads = events.map((data) => ({
+    name: PULL_REQUEST_REVIEW_REQUESTED,
+    data,
+    id: data.prKey,
+  }));
 
   try {
     await withTimeout(inngest.send(payloads), EMIT_TIMEOUT_MS);
@@ -222,7 +226,10 @@ export async function emitPullRequestReviewRequested(
  * dangling timer behind. */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`emit timed out after ${ms}ms`)), ms);
+    const timer = setTimeout(
+      () => reject(new Error(`emit timed out after ${ms}ms`)),
+      ms,
+    );
     promise.then(
       (value) => {
         clearTimeout(timer);

@@ -44,7 +44,8 @@ export interface WebhookEventRecord {
   createdAt: Date;
 }
 
-export type InsertWebhookEventResult = { ok: true; id: string } | { ok: false; reason: "DUPLICATE_DELIVERY" };
+export type InsertWebhookEventResult =
+  { ok: true; id: string } | { ok: false; reason: "DUPLICATE_DELIVERY" };
 
 /** Prisma signals a unique-constraint violation with `code: "P2002"`. Duck-typed rather
  * than `instanceof PrismaClientKnownRequestError` so the check works across Prisma's
@@ -54,7 +55,12 @@ export type InsertWebhookEventResult = { ok: true; id: string } | { ok: false; r
  * "prisma-errors.ts" would be a fourth file all three import for six lines, which is a
  * worse trade than three identical six-line functions. Consistent, not sloppy. */
 function isUniqueConstraintViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "P2002";
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2002"
+  );
 }
 
 /**
@@ -103,10 +109,17 @@ export async function insertPending(input: {
  * to leave the row in a fully consistent state, even though the service always calls
  * both in sequence today.
  */
-export async function markDispatched(id: string, dispatchPayload: unknown): Promise<void> {
+export async function markDispatched(
+  id: string,
+  dispatchPayload: unknown,
+): Promise<void> {
   await prisma.webhookEvent.update({
     where: { id },
-    data: { status: DISPATCHED, dispatchedAt: new Date(), dispatchPayload: dispatchPayload as object },
+    data: {
+      status: DISPATCHED,
+      dispatchedAt: new Date(),
+      dispatchPayload: dispatchPayload as object,
+    },
   });
 }
 
@@ -130,7 +143,10 @@ export async function markIgnored(id: string, reason: string): Promise<void> {
 /** `PENDING → FAILED`. Reserved for a malformed-but-authentically-signed payload — a
  * condition that will never succeed on retry, per §11's state table. Never used for a
  * dispatch failure; see `webhook.service.ts`'s own comment on why that stays `PENDING`. */
-export async function markFailed(id: string, error: { code: string; message: string }): Promise<void> {
+export async function markFailed(
+  id: string,
+  error: { code: string; message: string },
+): Promise<void> {
   await prisma.webhookEvent.update({
     where: { id },
     data: { status: FAILED, error },
@@ -146,7 +162,10 @@ export async function markFailed(id: string, error: { code: string; message: str
  * time the sweeper runs (a repository connected or disconnected in between). See the
  * schema's own `WebhookEvent.dispatchPayload` comment for the fuller argument.
  */
-export async function savePendingDispatchPayload(id: string, dispatchPayload: unknown): Promise<void> {
+export async function savePendingDispatchPayload(
+  id: string,
+  dispatchPayload: unknown,
+): Promise<void> {
   await prisma.webhookEvent.update({
     where: { id },
     data: { dispatchPayload: dispatchPayload as object },
@@ -169,7 +188,10 @@ export async function savePendingDispatchPayload(id: string, dispatchPayload: un
  * `repository.repository.ts`'s `findOwnershipById` documents for itself. This function
  * answers "what happened for this GitHub repository", not "what may this caller see".
  */
-export async function listRecentByRepositoryFullName(fullName: string, limit: number): Promise<WebhookEventRecord[]> {
+export async function listRecentByRepositoryFullName(
+  fullName: string,
+  limit: number,
+): Promise<WebhookEventRecord[]> {
   return prisma.webhookEvent.findMany({
     where: { repositoryFullName: fullName },
     select: WEBHOOK_EVENT_SELECT,
@@ -195,10 +217,19 @@ export interface PendingDispatchRecord {
  * for `Repository`/`IndexJob`. `@@index([status, createdAt])` exists on this table
  * specifically for this query.
  */
-export async function findPendingOlderThan(ms: number, limit: number): Promise<PendingDispatchRecord[]> {
+export async function findPendingOlderThan(
+  ms: number,
+  limit: number,
+): Promise<PendingDispatchRecord[]> {
   return prisma.webhookEvent.findMany({
     where: { status: PENDING, createdAt: { lt: new Date(Date.now() - ms) } },
-    select: { id: true, deliveryId: true, eventType: true, dispatchPayload: true, createdAt: true },
+    select: {
+      id: true,
+      deliveryId: true,
+      eventType: true,
+      dispatchPayload: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: "asc" },
     take: limit,
   });

@@ -39,9 +39,16 @@ export interface UpsertPullRequestInput {
  * No GitHub API call happens here or anywhere in this phase — every field comes
  * straight out of the webhook payload the caller already has in hand.
  */
-export async function upsertMinimal(input: UpsertPullRequestInput): Promise<{ id: string }> {
+export async function upsertMinimal(
+  input: UpsertPullRequestInput,
+): Promise<{ id: string }> {
   return prisma.pullRequest.upsert({
-    where: { repositoryId_number: { repositoryId: input.repositoryId, number: input.number } },
+    where: {
+      repositoryId_number: {
+        repositoryId: input.repositoryId,
+        number: input.number,
+      },
+    },
     create: {
       repositoryId: input.repositoryId,
       number: input.number,

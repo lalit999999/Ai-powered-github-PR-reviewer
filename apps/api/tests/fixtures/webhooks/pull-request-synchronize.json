@@ -36,6 +36,9 @@
     "html_url": "https://github.com/octocat/hello-world",
     "default_branch": "main"
   },
-  "installation": { "id": 60123456, "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNjAxMjM0NTY=" },
+  "installation": {
+    "id": 60123456,
+    "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNjAxMjM0NTY="
+  },
   "sender": { "login": "octocat", "id": 1, "type": "User" }
 }

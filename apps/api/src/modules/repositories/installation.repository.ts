@@ -75,7 +75,8 @@ export interface UpdateInstallationMetadataInput {
   suspendedAt: Date | null;
 }
 
-export type UpdateInstallationMetadataResult = { updated: true } | { updated: false; reason: "NOT_FOUND" };
+export type UpdateInstallationMetadataResult =
+  { updated: true } | { updated: false; reason: "NOT_FOUND" };
 
 /**
  * Phase 06's `installation.created` sync (webhooks/installation-sync.ts) — **update
@@ -102,7 +103,9 @@ export async function updateInstallationMetadataIfExists(
       suspendedAt: input.suspendedAt,
     },
   });
-  return result.count === 1 ? { updated: true } : { updated: false, reason: "NOT_FOUND" };
+  return result.count === 1
+    ? { updated: true }
+    : { updated: false, reason: "NOT_FOUND" };
 }
 
 /**
@@ -115,7 +118,10 @@ export async function updateInstallationMetadataIfExists(
  * distinct "log at info and ignore" branch to report — 0 rows changed is simply logged
  * by the caller alongside every other outcome.
  */
-export async function setInstallationSuspendedAt(installationId: bigint, suspendedAt: Date | null): Promise<number> {
+export async function setInstallationSuspendedAt(
+  installationId: bigint,
+  suspendedAt: Date | null,
+): Promise<number> {
   const result = await prisma.githubInstallation.updateMany({
     where: { installationId },
     data: { suspendedAt },

@@ -2,9 +2,22 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { prisma } from "@repo/db";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { resetDatabase } from "./db-helpers.js";
-import { loadWebhookFixture, newDeliveryId, postWebhook, seedWebhookTenant } from "./webhook-helpers.js";
+import {
+  loadWebhookFixture,
+  newDeliveryId,
+  postWebhook,
+  seedWebhookTenant,
+} from "./webhook-helpers.js";
 
 /**
  * Sub-task 5.4 — §14 External Service Verification: "Confirm zero outbound GitHub API
@@ -24,7 +37,10 @@ import { loadWebhookFixture, newDeliveryId, postWebhook, seedWebhookTenant } fro
  *   bypasses `@repo/github` entirely.
  */
 
-const WEBHOOKS_MODULE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../src/modules/webhooks");
+const WEBHOOKS_MODULE_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../src/modules/webhooks",
+);
 
 function listFilesRecursive(dir: string): string[] {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -33,7 +49,10 @@ function listFilesRecursive(dir: string): string[] {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...listFilesRecursive(full));
-    } else if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))) {
+    } else if (
+      entry.isFile() &&
+      (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
+    ) {
       files.push(full);
     }
   }
@@ -51,8 +70,15 @@ describe("the webhooks module makes zero outbound GitHub API calls — static", 
     for (const file of files) {
       const content = readFileSync(file, "utf8");
       for (const line of content.split("\n")) {
-        if (/from\s+["']@repo\/github/.test(line) || /require\(["']@repo\/github/.test(line) || /packages\/github\/src/.test(line)) {
-          offenders.push({ file: path.relative(WEBHOOKS_MODULE_DIR, file), line: line.trim() });
+        if (
+          /from\s+["']@repo\/github/.test(line) ||
+          /require\(["']@repo\/github/.test(line) ||
+          /packages\/github\/src/.test(line)
+        ) {
+          offenders.push({
+            file: path.relative(WEBHOOKS_MODULE_DIR, file),
+            line: line.trim(),
+          });
         }
       }
     }
@@ -66,11 +92,13 @@ describe("the webhooks module makes zero outbound GitHub API calls — static", 
 // ---------------------------------------------------------------------------
 
 vi.mock("../../src/inngest/emit.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/inngest/emit.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/inngest/emit.js")>();
   return { ...actual, emitPullRequestReviewRequested: vi.fn() };
 });
 
-const { emitPullRequestReviewRequested } = await import("../../src/inngest/emit.js");
+const { emitPullRequestReviewRequested } =
+  await import("../../src/inngest/emit.js");
 const { default: app } = await import("../../src/app.js");
 
 beforeEach(async () => {
@@ -90,21 +118,37 @@ afterAll(async () => {
 describe("the webhooks module makes zero outbound GitHub API calls — runtime", () => {
   it("a full pull_request delivery never calls fetch against any github.com host", async () => {
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const originalFetch = globalThis.fetch;
-    const fetchSpy = vi.fn((...args: Parameters<typeof fetch>) => originalFetch(...args));
+    const fetchSpy = vi.fn((...args: Parameters<typeof fetch>) =>
+      originalFetch(...args),
+    );
     vi.stubGlobal("fetch", fetchSpy);
 
     try {
-      const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId: newDeliveryId() });
+      const res = await postWebhook(app, {
+        body: text,
+        event: "pull_request",
+        deliveryId: newDeliveryId(),
+      });
       expect(res.status).toBe(200);
     } finally {
       vi.unstubAllGlobals();
     }
 
     const githubCalls = fetchSpy.mock.calls.filter(([input]) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
-      return /(^|\.)github\.com$/.test(new URL(url).hostname) || url.includes("githubusercontent.com");
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : (input as Request).url;
+      return (
+        /(^|\.)github\.com$/.test(new URL(url).hostname) ||
+        url.includes("githubusercontent.com")
+      );
     });
     expect(githubCalls).toEqual([]);
   });

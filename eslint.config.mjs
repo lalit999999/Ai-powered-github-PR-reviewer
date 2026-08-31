@@ -46,7 +46,10 @@ const RULE_C_FILES = [
   "apps/api/tests/fixtures/lint/rule-c-violation.ts",
 ];
 
-const RULE_D_FILES = ["apps/api/src/modules/webhooks/**/*.ts", "apps/api/tests/fixtures/lint/rule-d-violation.ts"];
+const RULE_D_FILES = [
+  "apps/api/src/modules/webhooks/**/*.ts",
+  "apps/api/tests/fixtures/lint/rule-d-violation.ts",
+];
 
 export default tseslint.config(
   {
@@ -215,7 +218,15 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["@repo/ai", "@repo/ai/*", "@repo/github", "@repo/github/*", "@repo/embedings", "@repo/embedings/*", "**/packages/github/src/**"],
+              group: [
+                "@repo/ai",
+                "@repo/ai/*",
+                "@repo/github",
+                "@repo/github/*",
+                "@repo/embedings",
+                "@repo/embedings/*",
+                "**/packages/github/src/**",
+              ],
               message:
                 "The webhooks module (apps/api/src/modules/webhooks/**) may not import the ai/github/embedings packages, or reach into packages/github's internals — this endpoint makes zero outbound calls, the thin-handler principle (Rule D, phase-06 §22).",
             },

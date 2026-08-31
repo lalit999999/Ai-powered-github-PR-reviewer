@@ -1,7 +1,20 @@
 import { prisma } from "@repo/db";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { resetDatabase } from "./db-helpers.js";
-import { loadWebhookFixture, newDeliveryId, postWebhook, seedWebhookTenant } from "./webhook-helpers.js";
+import {
+  loadWebhookFixture,
+  newDeliveryId,
+  postWebhook,
+  seedWebhookTenant,
+} from "./webhook-helpers.js";
 
 /**
  * Sub-task 5.5, Half A — §14 Failure Verification: "Simulate an Inngest send failure and
@@ -23,11 +36,13 @@ import { loadWebhookFixture, newDeliveryId, postWebhook, seedWebhookTenant } fro
  */
 
 vi.mock("../../src/inngest/emit.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/inngest/emit.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/inngest/emit.js")>();
   return { ...actual, emitPullRequestReviewRequested: vi.fn() };
 });
 
-const { emitPullRequestReviewRequested } = await import("../../src/inngest/emit.js");
+const { emitPullRequestReviewRequested } =
+  await import("../../src/inngest/emit.js");
 const { default: app } = await import("../../src/app.js");
 
 beforeEach(async () => {
@@ -45,19 +60,30 @@ afterAll(async () => {
 
 describe("POST /api/webhooks/github — a failed Inngest send", () => {
   it("still returns 200 to GitHub, leaves the row PENDING (not FAILED, not DISPATCHED) with dispatchPayload already populated, and still persists the PullRequest row", async () => {
-    vi.mocked(emitPullRequestReviewRequested).mockResolvedValue({ ok: false, error: "simulated Inngest outage" });
+    vi.mocked(emitPullRequestReviewRequested).mockResolvedValue({
+      ok: false,
+      error: "simulated Inngest outage",
+    });
 
     const tenant = await seedWebhookTenant();
-    const { text } = loadWebhookFixture("pull-request-opened.json", { installationId: Number(tenant.installationId) });
+    const { text } = loadWebhookFixture("pull-request-opened.json", {
+      installationId: Number(tenant.installationId),
+    });
     const deliveryId = newDeliveryId();
 
-    const res = await postWebhook(app, { body: text, event: "pull_request", deliveryId });
+    const res = await postWebhook(app, {
+      body: text,
+      event: "pull_request",
+      deliveryId,
+    });
 
     // GitHub must not be told to retry a delivery that is already durably queued for the
     // sweeper — a 5xx here would cause exactly the retry storm §12/§14.1 rules out.
     expect(res.status).toBe(200);
 
-    const event = await prisma.webhookEvent.findUniqueOrThrow({ where: { deliveryId } });
+    const event = await prisma.webhookEvent.findUniqueOrThrow({
+      where: { deliveryId },
+    });
     expect(event.status).toBe("PENDING");
     expect(event.dispatchedAt).toBeNull();
     // The ordering assertion that actually matters (this file's header comment, and
@@ -75,7 +101,11 @@ describe("POST /api/webhooks/github — a failed Inngest send", () => {
       prKey: `${tenant.repositoryId}:42:6dcb09b5b57875f334f61aebed695e2e4193db5`,
     });
 
-    const pr = await prisma.pullRequest.findUniqueOrThrow({ where: { repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 } } });
+    const pr = await prisma.pullRequest.findUniqueOrThrow({
+      where: {
+        repositoryId_number: { repositoryId: tenant.repositoryId, number: 42 },
+      },
+    });
     expect(pr.headSha).toBe("6dcb09b5b57875f334f61aebed695e2e4193db5");
   });
 });

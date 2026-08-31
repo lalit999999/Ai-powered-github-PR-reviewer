@@ -8,7 +8,10 @@ import request from "supertest";
 import type { Test } from "supertest";
 import { WEBHOOK_GITHUB_PATH } from "../../src/modules/webhooks/webhook.routes-path.js";
 
-const FIXTURES_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../fixtures/webhooks");
+const FIXTURES_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../fixtures/webhooks",
+);
 
 /**
  * Shared setup for the webhook ingestion integration suite (`webhooks.test.ts` and its
@@ -86,10 +89,16 @@ export interface PostWebhookOptions {
  * once confirmed; this comment records what it showed.
  */
 export function postWebhook(app: Express, opts: PostWebhookOptions): Test {
-  const secret = process.env.GITHUB_APP_WEBHOOK_SECRET ?? "local-dev-webhook-secret";
-  const signature = opts.signature === undefined ? signWebhookBody(opts.body, secret) : opts.signature;
+  const secret =
+    process.env.GITHUB_APP_WEBHOOK_SECRET ?? "local-dev-webhook-secret";
+  const signature =
+    opts.signature === undefined
+      ? signWebhookBody(opts.body, secret)
+      : opts.signature;
 
-  const req = request(app).post(WEBHOOK_GITHUB_PATH).set("Content-Type", opts.contentType ?? "application/json");
+  const req = request(app)
+    .post(WEBHOOK_GITHUB_PATH)
+    .set("Content-Type", opts.contentType ?? "application/json");
 
   if (opts.event !== undefined) {
     req.set("x-github-event", opts.event);
@@ -136,7 +145,10 @@ let fixtureInstallationSeq = 60_200_000;
  */
 export function loadWebhookFixture(
   name: string,
-  opts: { installationId?: number; mutate?: (payload: Record<string, unknown>) => void } = {},
+  opts: {
+    installationId?: number;
+    mutate?: (payload: Record<string, unknown>) => void;
+  } = {},
 ): { payload: Record<string, unknown>; text: string } {
   const raw = readFileSync(path.join(FIXTURES_DIR, name), "utf8");
   const payload = JSON.parse(raw) as Record<string, unknown>;
@@ -182,7 +194,12 @@ export interface SeededWebhookTenant {
  */
 export async function seedWebhookTenant(
   userId?: string,
-  opts: { githubRepoId?: bigint; fullName?: string; installationId?: bigint; projectSettings?: unknown } = {},
+  opts: {
+    githubRepoId?: bigint;
+    fullName?: string;
+    installationId?: bigint;
+    projectSettings?: unknown;
+  } = {},
 ): Promise<SeededWebhookTenant> {
   seq += 1;
 
@@ -190,7 +207,11 @@ export async function seedWebhookTenant(
     userId ??
     (
       await prisma.user.create({
-        data: { githubUserId: BigInt(3_000_000 + seq), githubLogin: `webhook-fixture-user-${seq}`, email: `webhook-fixture-${seq}@example.com` },
+        data: {
+          githubUserId: BigInt(3_000_000 + seq),
+          githubLogin: `webhook-fixture-user-${seq}`,
+          email: `webhook-fixture-${seq}@example.com`,
+        },
       })
     ).id;
 
@@ -206,7 +227,12 @@ export async function seedWebhookTenant(
   const installationId = opts.installationId ?? BigInt(60_123_456);
   await prisma.githubInstallation.upsert({
     where: { installationId },
-    create: { installationId, accountLogin: "octocat", accountType: "User", userId: resolvedUserId },
+    create: {
+      installationId,
+      accountLogin: "octocat",
+      accountType: "User",
+      userId: resolvedUserId,
+    },
     update: {},
   });
 
@@ -249,7 +275,11 @@ export async function seedWebhookTenant(
 export async function seedSecondProjectForSameRepo(
   userId: string,
   githubRepoId: bigint,
-  opts: { fullName?: string; installationId?: bigint; projectSettings?: unknown } = {},
+  opts: {
+    fullName?: string;
+    installationId?: bigint;
+    projectSettings?: unknown;
+  } = {},
 ): Promise<{ projectId: string; repositoryId: string }> {
   seq += 1;
 
@@ -265,7 +295,12 @@ export async function seedSecondProjectForSameRepo(
   const installationId = opts.installationId ?? BigInt(60_123_456);
   await prisma.githubInstallation.upsert({
     where: { installationId },
-    create: { installationId, accountLogin: "octocat", accountType: "User", userId },
+    create: {
+      installationId,
+      accountLogin: "octocat",
+      accountType: "User",
+      userId,
+    },
     update: {},
   });
 

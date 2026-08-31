@@ -5,7 +5,9 @@ import type { WebhookTenantTarget } from "../repositories/repository.repository.
 
 const TRACE_ID = "trace-abc";
 
-function tenant(overrides: Partial<WebhookTenantTarget> = {}): WebhookTenantTarget {
+function tenant(
+  overrides: Partial<WebhookTenantTarget> = {},
+): WebhookTenantTarget {
   return {
     repositoryId: "repo-1",
     projectId: "project-1",
@@ -17,7 +19,9 @@ function tenant(overrides: Partial<WebhookTenantTarget> = {}): WebhookTenantTarg
   };
 }
 
-function payload(overrides: Partial<ParsedPullRequestEvent> = {}): ParsedPullRequestEvent {
+function payload(
+  overrides: Partial<ParsedPullRequestEvent> = {},
+): ParsedPullRequestEvent {
   return {
     action: "opened",
     number: 42,
@@ -43,22 +47,42 @@ function payload(overrides: Partial<ParsedPullRequestEvent> = {}): ParsedPullReq
 
 describe("routePullRequestEvent", () => {
   it("dispatches on each triggering action", () => {
-    for (const action of ["opened", "reopened", "synchronize", "ready_for_review"] as const) {
-      const decision = routePullRequestEvent({ payload: payload({ action }), tenants: [tenant()], traceId: TRACE_ID });
+    for (const action of [
+      "opened",
+      "reopened",
+      "synchronize",
+      "ready_for_review",
+    ] as const) {
+      const decision = routePullRequestEvent({
+        payload: payload({ action }),
+        tenants: [tenant()],
+        traceId: TRACE_ID,
+      });
       expect(decision.kind).toBe("DISPATCH");
     }
   });
 
   it("edited -> PERSIST_ONLY / EDITED_METADATA_ONLY", () => {
-    const decision = routePullRequestEvent({ payload: payload({ action: "edited" }), tenants: [tenant()], traceId: TRACE_ID });
-    expect(decision).toMatchObject({ kind: "PERSIST_ONLY", reason: "EDITED_METADATA_ONLY" });
+    const decision = routePullRequestEvent({
+      payload: payload({ action: "edited" }),
+      tenants: [tenant()],
+      traceId: TRACE_ID,
+    });
+    expect(decision).toMatchObject({
+      kind: "PERSIST_ONLY",
+      reason: "EDITED_METADATA_ONLY",
+    });
     if (decision.kind === "PERSIST_ONLY") {
       expect(decision.pullRequestUpserts).toHaveLength(1);
     }
   });
 
   it("closed -> PERSIST_ONLY", () => {
-    const decision = routePullRequestEvent({ payload: payload({ action: "closed" }), tenants: [tenant()], traceId: TRACE_ID });
+    const decision = routePullRequestEvent({
+      payload: payload({ action: "closed" }),
+      tenants: [tenant()],
+      traceId: TRACE_ID,
+    });
     expect(decision.kind).toBe("PERSIST_ONLY");
   });
 
@@ -73,11 +97,17 @@ describe("routePullRequestEvent", () => {
 
   it("draft PR + default settings -> PERSIST_ONLY / DRAFT_SKIPPED", () => {
     const decision = routePullRequestEvent({
-      payload: payload({ action: "opened", pull_request: { ...payload().pull_request, draft: true } }),
+      payload: payload({
+        action: "opened",
+        pull_request: { ...payload().pull_request, draft: true },
+      }),
       tenants: [tenant({ projectSettings: {} })],
       traceId: TRACE_ID,
     });
-    expect(decision).toMatchObject({ kind: "PERSIST_ONLY", reason: "DRAFT_SKIPPED" });
+    expect(decision).toMatchObject({
+      kind: "PERSIST_ONLY",
+      reason: "DRAFT_SKIPPED",
+    });
     if (decision.kind === "PERSIST_ONLY") {
       expect(decision.pullRequestUpserts).toHaveLength(1);
     }
@@ -85,7 +115,10 @@ describe("routePullRequestEvent", () => {
 
   it("draft PR + reviewDraftPullRequests:true -> DISPATCH", () => {
     const decision = routePullRequestEvent({
-      payload: payload({ action: "opened", pull_request: { ...payload().pull_request, draft: true } }),
+      payload: payload({
+        action: "opened",
+        pull_request: { ...payload().pull_request, draft: true },
+      }),
       tenants: [tenant({ projectSettings: { reviewDraftPullRequests: true } })],
       traceId: TRACE_ID,
     });
@@ -96,7 +129,10 @@ describe("routePullRequestEvent", () => {
   });
 
   it("mixed tenants: one opted in, one not, on a draft PR -> exactly one event, two upserts", () => {
-    const draftPayload = payload({ action: "opened", pull_request: { ...payload().pull_request, draft: true } });
+    const draftPayload = payload({
+      action: "opened",
+      pull_request: { ...payload().pull_request, draft: true },
+    });
     const tenantOptedIn = tenant({
       repositoryId: "repo-a",
       projectId: "project-a",
@@ -145,14 +181,26 @@ describe("routePullRequestEvent", () => {
   });
 
   it("zero tenants -> IGNORE / NO_CONNECTED_REPOSITORY", () => {
-    const decision = routePullRequestEvent({ payload: payload(), tenants: [], traceId: TRACE_ID });
-    expect(decision).toEqual({ kind: "IGNORE", reason: "NO_CONNECTED_REPOSITORY" });
+    const decision = routePullRequestEvent({
+      payload: payload(),
+      tenants: [],
+      traceId: TRACE_ID,
+    });
+    expect(decision).toEqual({
+      kind: "IGNORE",
+      reason: "NO_CONNECTED_REPOSITORY",
+    });
   });
 
   it("ready_for_review dispatches even when the payload still says draft: false", () => {
     const decision = routePullRequestEvent({
-      payload: payload({ action: "ready_for_review", pull_request: { ...payload().pull_request, draft: false } }),
-      tenants: [tenant({ projectSettings: { reviewDraftPullRequests: false } })],
+      payload: payload({
+        action: "ready_for_review",
+        pull_request: { ...payload().pull_request, draft: false },
+      }),
+      tenants: [
+        tenant({ projectSettings: { reviewDraftPullRequests: false } }),
+      ],
       traceId: TRACE_ID,
     });
     expect(decision.kind).toBe("DISPATCH");
