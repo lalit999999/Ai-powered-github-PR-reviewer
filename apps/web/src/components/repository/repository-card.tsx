@@ -9,11 +9,8 @@ import {
 } from "@/components/ui/card";
 import { DisconnectRepositoryButton } from "@/components/repository/disconnect-repository-button";
 import { IndexStatusPoller } from "@/components/repository/index-status-poller";
-<<<<<<< HEAD
 import { KnowledgePanel } from "@/components/repository/knowledge-panel";
-=======
 import { WebhookStatusPanel } from "@/components/repository/webhook-status-panel";
->>>>>>> main
 import type { IndexStatus, Repository } from "@/lib/api";
 
 /**
@@ -77,7 +74,6 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
           <DisconnectRepositoryButton repositoryId={repository.id} />
         </CardAction>
       </CardHeader>
-<<<<<<< HEAD
       <CardContent className="flex flex-col gap-4">
         <IndexStatusPoller
           repositoryId={repository.id}
@@ -87,11 +83,7 @@ export function RepositoryCard({ repository }: { repository: Repository }) {
           repositoryId={repository.id}
           indexStatus={repository.indexStatus}
         />
-=======
-      <CardContent>
-        <IndexStatusPoller repositoryId={repository.id} initialStatus={toInitialStatus(repository)} />
         <WebhookStatusPanel repositoryId={repository.id} />
->>>>>>> main
       </CardContent>
     </Card>
   );

@@ -33,21 +33,17 @@ vi.mock("./installation.repository.js", () => ({
   findInstallationForUser: vi.fn(),
   findGithubAccessToken: vi.fn(),
 }));
-<<<<<<< HEAD
 vi.mock("./index-job.repository.js", () => ({
   findLatestForRepository: vi.fn(),
 }));
 vi.mock("./knowledge.repository.js", () => ({
   getKnowledgeAggregates: vi.fn(),
 }));
-=======
-vi.mock("./index-job.repository.js", () => ({ findLatestForRepository: vi.fn() }));
 // Prompt 4 sub-task 4.3's listRecentWebhookDeliveries is the only function in this file
 // that touches the webhooks module's own repository — stubbed here purely so the module
 // graph resolves without a real @repo/db import; its own behavior is covered by this
 // file's "listRecentWebhookDeliveries" describe block below.
 vi.mock("../webhooks/webhook-event.repository.js", () => ({ listRecentByRepositoryFullName: vi.fn() }));
->>>>>>> main
 vi.mock("../../lib/rate-limit.js", () => ({ checkRateLimit: vi.fn() }));
 vi.mock("@repo/github", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@repo/github")>()),
@@ -78,11 +74,8 @@ vi.mock("@repo/observability", async (importOriginal) => {
 const repositoryRepository = await import("./repository.repository.js");
 const installationRepository = await import("./installation.repository.js");
 const indexJobRepository = await import("./index-job.repository.js");
-<<<<<<< HEAD
 const knowledgeRepository = await import("./knowledge.repository.js");
-=======
 const webhookEventRepository = await import("../webhooks/webhook-event.repository.js");
->>>>>>> main
 const { checkRateLimit } = await import("../../lib/rate-limit.js");
 const { installationGithub, repositoryGithub } = await import("@repo/github");
 const { emitRepositoryIndexRequested } = await import("../../inngest/emit.js");

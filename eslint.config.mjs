@@ -206,8 +206,6 @@ export default tseslint.config(
       ],
     },
   },
-<<<<<<< HEAD
-=======
   {
     // Rule D
     files: RULE_D_FILES,
@@ -225,6 +223,5 @@ export default tseslint.config(
         },
       ],
     },
-  }
->>>>>>> main
+  },
 );

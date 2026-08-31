@@ -246,7 +246,6 @@ export async function getIndexStatus(
 }
 
 /**
-<<<<<<< HEAD
  * `GET /api/repositories/:id/knowledge` response body (phase-04 §7), mirroring
  * `RepositoryKnowledgeDto` (apps/api) field-for-field. Only the *type* lives here —
  * `knowledge-panel.tsx` does its own `credentials: "include"` client-side fetch, the same
@@ -274,7 +273,9 @@ export interface RepositoryKnowledge {
   edgeCountByKind: Record<string, number>;
   parseStateCounts: Record<string, number>;
   topUnresolvedSpecifiers: TopUnresolvedSpecifier[];
-=======
+}
+
+/**
  * A `WebhookEvent` row as `POST /api/repositories/:id/webhook-test` returns it
  * (phase-06 §7) — despite the route's name, this reads recorded deliveries; nothing is
  * sent. Mirrors `WebhookDeliveryDto` (apps/api). No bigint fields: unlike `Repository`/
@@ -298,5 +299,4 @@ export interface WebhookDelivery {
   dispatchedAt: string | null;
   error: unknown;
   createdAt: string;
->>>>>>> main
 }

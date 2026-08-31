@@ -1,9 +1,6 @@
 export {
   PROJECT_DELETED,
-<<<<<<< HEAD
-=======
   PULL_REQUEST_REVIEW_REQUESTED,
->>>>>>> main
   REPOSITORY_INDEXED,
   REPOSITORY_INDEX_REQUESTED,
 } from "./events.js";

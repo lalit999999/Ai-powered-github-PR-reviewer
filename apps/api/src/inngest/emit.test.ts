@@ -16,12 +16,11 @@ vi.mock("@repo/observability", async (importOriginal) => {
   return { ...actual, createLogger: () => logSpies };
 });
 
-<<<<<<< HEAD
-const { emitProjectDeleted, emitRepositoryIndexRequested } =
-  await import("./emit.js");
-=======
-const { emitProjectDeleted, emitRepositoryIndexRequested, emitPullRequestReviewRequested } = await import("./emit.js");
->>>>>>> main
+const {
+  emitProjectDeleted,
+  emitRepositoryIndexRequested,
+  emitPullRequestReviewRequested,
+} = await import("./emit.js");
 
 beforeEach(() => {
   vi.clearAllMocks();

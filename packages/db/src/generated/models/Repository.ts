@@ -387,12 +387,8 @@ export type RepositoryWhereInput = {
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
   files?: Prisma.RepositoryFileListRelationFilter
   indexJobs?: Prisma.IndexJobListRelationFilter
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolListRelationFilter
   dependencies?: Prisma.CodeDependencyListRelationFilter
-=======
-  pullRequests?: Prisma.PullRequestListRelationFilter
->>>>>>> main
 }
 
 export type RepositoryOrderByWithRelationInput = {
@@ -423,12 +419,8 @@ export type RepositoryOrderByWithRelationInput = {
   project?: Prisma.ProjectOrderByWithRelationInput
   files?: Prisma.RepositoryFileOrderByRelationAggregateInput
   indexJobs?: Prisma.IndexJobOrderByRelationAggregateInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolOrderByRelationAggregateInput
   dependencies?: Prisma.CodeDependencyOrderByRelationAggregateInput
-=======
-  pullRequests?: Prisma.PullRequestOrderByRelationAggregateInput
->>>>>>> main
 }
 
 export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
@@ -463,12 +455,8 @@ export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
   files?: Prisma.RepositoryFileListRelationFilter
   indexJobs?: Prisma.IndexJobListRelationFilter
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolListRelationFilter
   dependencies?: Prisma.CodeDependencyListRelationFilter
-=======
-  pullRequests?: Prisma.PullRequestListRelationFilter
->>>>>>> main
 }, "id" | "projectId_githubRepoId">
 
 export type RepositoryOrderByWithAggregationInput = {
@@ -560,12 +548,8 @@ export type RepositoryCreateInput = {
   project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
   files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
   indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedCreateInput = {
@@ -595,12 +579,8 @@ export type RepositoryUncheckedCreateInput = {
   updatedAt?: Date | string
   files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
   indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyUncheckedCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryUpdateInput = {
@@ -630,12 +610,8 @@ export type RepositoryUpdateInput = {
   project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
   files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
   indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedUpdateInput = {
@@ -665,12 +641,8 @@ export type RepositoryUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
   indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUncheckedUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryCreateManyInput = {
@@ -1040,12 +1012,8 @@ export type RepositoryCreateWithoutProjectInput = {
   updatedAt?: Date | string
   files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
   indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedCreateWithoutProjectInput = {
@@ -1074,12 +1042,8 @@ export type RepositoryUncheckedCreateWithoutProjectInput = {
   updatedAt?: Date | string
   files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
   indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyUncheckedCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryCreateOrConnectWithoutProjectInput = {
@@ -1164,12 +1128,8 @@ export type RepositoryCreateWithoutFilesInput = {
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
   indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedCreateWithoutFilesInput = {
@@ -1198,12 +1158,8 @@ export type RepositoryUncheckedCreateWithoutFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyUncheckedCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryCreateOrConnectWithoutFilesInput = {
@@ -1248,12 +1204,8 @@ export type RepositoryUpdateWithoutFilesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
   indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedUpdateWithoutFilesInput = {
@@ -1282,7 +1234,6 @@ export type RepositoryUncheckedUpdateWithoutFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUncheckedUpdateManyWithoutRepositoryNestedInput
 }
@@ -1557,9 +1508,6 @@ export type RepositoryUncheckedUpdateWithoutDependenciesInput = {
   files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
   indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
   symbols?: Prisma.CodeSymbolUncheckedUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryCreateWithoutIndexJobsInput = {
@@ -1588,12 +1536,8 @@ export type RepositoryCreateWithoutIndexJobsInput = {
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
   files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedCreateWithoutIndexJobsInput = {
@@ -1622,12 +1566,8 @@ export type RepositoryUncheckedCreateWithoutIndexJobsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedCreateNestedManyWithoutRepositoryInput
   dependencies?: Prisma.CodeDependencyUncheckedCreateNestedManyWithoutRepositoryInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedCreateNestedManyWithoutRepositoryInput
->>>>>>> main
 }
 
 export type RepositoryCreateOrConnectWithoutIndexJobsInput = {
@@ -1672,12 +1612,8 @@ export type RepositoryUpdateWithoutIndexJobsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
   files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedUpdateWithoutIndexJobsInput = {
@@ -1706,144 +1642,8 @@ export type RepositoryUncheckedUpdateWithoutIndexJobsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUncheckedUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedUpdateManyWithoutRepositoryNestedInput
-}
-
-export type RepositoryCreateWithoutPullRequestsInput = {
-  id?: string
-  installationId: bigint | number
-  githubRepoId: bigint | number
-  owner: string
-  name: string
-  fullName: string
-  defaultBranch: string
-  isPrivate?: boolean
-  htmlUrl: string
-  sizeBytes?: number | null
-  webhookId?: bigint | number | null
-  connectionStatus?: string
-  indexStatus?: $Enums.IndexStatus
-  indexedCommitSha?: string | null
-  indexVersion?: number
-  indexedFileCount?: number
-  skippedFileCount?: number
-  reviewProfile?: string | null
-  lastIndexedAt?: Date | string | null
-  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  project: Prisma.ProjectCreateNestedOneWithoutRepositoriesInput
-  files?: Prisma.RepositoryFileCreateNestedManyWithoutRepositoryInput
-  indexJobs?: Prisma.IndexJobCreateNestedManyWithoutRepositoryInput
-}
-
-export type RepositoryUncheckedCreateWithoutPullRequestsInput = {
-  id?: string
-  projectId: string
-  installationId: bigint | number
-  githubRepoId: bigint | number
-  owner: string
-  name: string
-  fullName: string
-  defaultBranch: string
-  isPrivate?: boolean
-  htmlUrl: string
-  sizeBytes?: number | null
-  webhookId?: bigint | number | null
-  connectionStatus?: string
-  indexStatus?: $Enums.IndexStatus
-  indexedCommitSha?: string | null
-  indexVersion?: number
-  indexedFileCount?: number
-  skippedFileCount?: number
-  reviewProfile?: string | null
-  lastIndexedAt?: Date | string | null
-  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  files?: Prisma.RepositoryFileUncheckedCreateNestedManyWithoutRepositoryInput
-  indexJobs?: Prisma.IndexJobUncheckedCreateNestedManyWithoutRepositoryInput
-}
-
-export type RepositoryCreateOrConnectWithoutPullRequestsInput = {
-  where: Prisma.RepositoryWhereUniqueInput
-  create: Prisma.XOR<Prisma.RepositoryCreateWithoutPullRequestsInput, Prisma.RepositoryUncheckedCreateWithoutPullRequestsInput>
-}
-
-export type RepositoryUpsertWithoutPullRequestsInput = {
-  update: Prisma.XOR<Prisma.RepositoryUpdateWithoutPullRequestsInput, Prisma.RepositoryUncheckedUpdateWithoutPullRequestsInput>
-  create: Prisma.XOR<Prisma.RepositoryCreateWithoutPullRequestsInput, Prisma.RepositoryUncheckedCreateWithoutPullRequestsInput>
-  where?: Prisma.RepositoryWhereInput
-}
-
-export type RepositoryUpdateToOneWithWhereWithoutPullRequestsInput = {
-  where?: Prisma.RepositoryWhereInput
-  data: Prisma.XOR<Prisma.RepositoryUpdateWithoutPullRequestsInput, Prisma.RepositoryUncheckedUpdateWithoutPullRequestsInput>
-}
-
-export type RepositoryUpdateWithoutPullRequestsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  installationId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  githubRepoId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  owner?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  fullName?: Prisma.StringFieldUpdateOperationsInput | string
-  defaultBranch?: Prisma.StringFieldUpdateOperationsInput | string
-  isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  htmlUrl?: Prisma.StringFieldUpdateOperationsInput | string
-  sizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  webhookId?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  connectionStatus?: Prisma.StringFieldUpdateOperationsInput | string
-  indexStatus?: Prisma.EnumIndexStatusFieldUpdateOperationsInput | $Enums.IndexStatus
-  indexedCommitSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  indexVersion?: Prisma.IntFieldUpdateOperationsInput | number
-  indexedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
-  skippedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
-  reviewProfile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  lastIndexedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  project?: Prisma.ProjectUpdateOneRequiredWithoutRepositoriesNestedInput
-  files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
-  indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
-}
-
-export type RepositoryUncheckedUpdateWithoutPullRequestsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  projectId?: Prisma.StringFieldUpdateOperationsInput | string
-  installationId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  githubRepoId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  owner?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  fullName?: Prisma.StringFieldUpdateOperationsInput | string
-  defaultBranch?: Prisma.StringFieldUpdateOperationsInput | string
-  isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  htmlUrl?: Prisma.StringFieldUpdateOperationsInput | string
-  sizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  webhookId?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  connectionStatus?: Prisma.StringFieldUpdateOperationsInput | string
-  indexStatus?: Prisma.EnumIndexStatusFieldUpdateOperationsInput | $Enums.IndexStatus
-  indexedCommitSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  indexVersion?: Prisma.IntFieldUpdateOperationsInput | number
-  indexedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
-  skippedFileCount?: Prisma.IntFieldUpdateOperationsInput | number
-  reviewProfile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  lastIndexedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  indexError?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
-  indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryCreateManyProjectInput = {
@@ -1898,12 +1698,8 @@ export type RepositoryUpdateWithoutProjectInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   files?: Prisma.RepositoryFileUpdateManyWithoutRepositoryNestedInput
   indexJobs?: Prisma.IndexJobUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedUpdateWithoutProjectInput = {
@@ -1932,12 +1728,8 @@ export type RepositoryUncheckedUpdateWithoutProjectInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   files?: Prisma.RepositoryFileUncheckedUpdateManyWithoutRepositoryNestedInput
   indexJobs?: Prisma.IndexJobUncheckedUpdateManyWithoutRepositoryNestedInput
-<<<<<<< HEAD
   symbols?: Prisma.CodeSymbolUncheckedUpdateManyWithoutRepositoryNestedInput
   dependencies?: Prisma.CodeDependencyUncheckedUpdateManyWithoutRepositoryNestedInput
-=======
-  pullRequests?: Prisma.PullRequestUncheckedUpdateManyWithoutRepositoryNestedInput
->>>>>>> main
 }
 
 export type RepositoryUncheckedUpdateManyWithoutProjectInput = {
@@ -1974,23 +1766,15 @@ export type RepositoryUncheckedUpdateManyWithoutProjectInput = {
 export type RepositoryCountOutputType = {
   files: number
   indexJobs: number
-<<<<<<< HEAD
   symbols: number
   dependencies: number
-=======
-  pullRequests: number
->>>>>>> main
 }
 
 export type RepositoryCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   files?: boolean | RepositoryCountOutputTypeCountFilesArgs
   indexJobs?: boolean | RepositoryCountOutputTypeCountIndexJobsArgs
-<<<<<<< HEAD
   symbols?: boolean | RepositoryCountOutputTypeCountSymbolsArgs
   dependencies?: boolean | RepositoryCountOutputTypeCountDependenciesArgs
-=======
-  pullRequests?: boolean | RepositoryCountOutputTypeCountPullRequestsArgs
->>>>>>> main
 }
 
 /**
@@ -2020,7 +1804,6 @@ export type RepositoryCountOutputTypeCountIndexJobsArgs<ExtArgs extends runtime.
 /**
  * RepositoryCountOutputType without action
  */
-<<<<<<< HEAD
 export type RepositoryCountOutputTypeCountSymbolsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.CodeSymbolWhereInput
 }
@@ -2030,10 +1813,6 @@ export type RepositoryCountOutputTypeCountSymbolsArgs<ExtArgs extends runtime.Ty
  */
 export type RepositoryCountOutputTypeCountDependenciesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.CodeDependencyWhereInput
-=======
-export type RepositoryCountOutputTypeCountPullRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.PullRequestWhereInput
->>>>>>> main
 }
 
 
@@ -2065,12 +1844,8 @@ export type RepositorySelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   files?: boolean | Prisma.Repository$filesArgs<ExtArgs>
   indexJobs?: boolean | Prisma.Repository$indexJobsArgs<ExtArgs>
-<<<<<<< HEAD
   symbols?: boolean | Prisma.Repository$symbolsArgs<ExtArgs>
   dependencies?: boolean | Prisma.Repository$dependenciesArgs<ExtArgs>
-=======
-  pullRequests?: boolean | Prisma.Repository$pullRequestsArgs<ExtArgs>
->>>>>>> main
   _count?: boolean | Prisma.RepositoryCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["repository"]>
 
@@ -2162,12 +1937,8 @@ export type RepositoryInclude<ExtArgs extends runtime.Types.Extensions.InternalA
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   files?: boolean | Prisma.Repository$filesArgs<ExtArgs>
   indexJobs?: boolean | Prisma.Repository$indexJobsArgs<ExtArgs>
-<<<<<<< HEAD
   symbols?: boolean | Prisma.Repository$symbolsArgs<ExtArgs>
   dependencies?: boolean | Prisma.Repository$dependenciesArgs<ExtArgs>
-=======
-  pullRequests?: boolean | Prisma.Repository$pullRequestsArgs<ExtArgs>
->>>>>>> main
   _count?: boolean | Prisma.RepositoryCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RepositoryIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2183,12 +1954,8 @@ export type $RepositoryPayload<ExtArgs extends runtime.Types.Extensions.Internal
     project: Prisma.$ProjectPayload<ExtArgs>
     files: Prisma.$RepositoryFilePayload<ExtArgs>[]
     indexJobs: Prisma.$IndexJobPayload<ExtArgs>[]
-<<<<<<< HEAD
     symbols: Prisma.$CodeSymbolPayload<ExtArgs>[]
     dependencies: Prisma.$CodeDependencyPayload<ExtArgs>[]
-=======
-    pullRequests: Prisma.$PullRequestPayload<ExtArgs>[]
->>>>>>> main
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2612,12 +2379,8 @@ export interface Prisma__RepositoryClient<T, Null = never, ExtArgs extends runti
   project<T extends Prisma.ProjectDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProjectDefaultArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   files<T extends Prisma.Repository$filesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$filesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepositoryFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   indexJobs<T extends Prisma.Repository$indexJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$indexJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IndexJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-<<<<<<< HEAD
   symbols<T extends Prisma.Repository$symbolsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$symbolsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CodeSymbolPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   dependencies<T extends Prisma.Repository$dependenciesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$dependenciesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CodeDependencyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-=======
-  pullRequests<T extends Prisma.Repository$pullRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$pullRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PullRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
->>>>>>> main
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3120,7 +2883,6 @@ export type Repository$indexJobsArgs<ExtArgs extends runtime.Types.Extensions.In
 }
 
 /**
-<<<<<<< HEAD
  * Repository.symbols
  */
 export type Repository$symbolsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3166,29 +2928,6 @@ export type Repository$dependenciesArgs<ExtArgs extends runtime.Types.Extensions
   take?: number
   skip?: number
   distinct?: Prisma.CodeDependencyScalarFieldEnum | Prisma.CodeDependencyScalarFieldEnum[]
-=======
- * Repository.pullRequests
- */
-export type Repository$pullRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the PullRequest
-   */
-  select?: Prisma.PullRequestSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the PullRequest
-   */
-  omit?: Prisma.PullRequestOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.PullRequestInclude<ExtArgs> | null
-  where?: Prisma.PullRequestWhereInput
-  orderBy?: Prisma.PullRequestOrderByWithRelationInput | Prisma.PullRequestOrderByWithRelationInput[]
-  cursor?: Prisma.PullRequestWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.PullRequestScalarFieldEnum | Prisma.PullRequestScalarFieldEnum[]
->>>>>>> main
 }
 
 /**
