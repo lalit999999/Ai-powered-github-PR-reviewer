@@ -70,15 +70,17 @@ describe("prisma migration pipeline + field-complete models (phase-01 §6/§14)"
     ).rejects.toThrow();
   });
 
-  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository, phase-03's indexing tables, phase-04's knowledge-graph tables, and phase-06's webhook-ingestion tables", async () => {
+  it("creates every phase-01 table, including the Auth.js adapter tables, plus phase-02's Repository, phase-03's indexing tables, phase-04's knowledge-graph tables, phase-05's vector-search tables, and phase-06's webhook-ingestion tables", async () => {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name <> '_prisma_migrations';`,
     );
     expect(tables.map((t) => t.table_name).sort()).toEqual([
       "Account",
+      "CodeChunk",
       "CodeDependency",
       "CodeSymbol",
+      "EmbeddingCache",
       "GithubInstallation",
       "IndexJob",
       "Project",
