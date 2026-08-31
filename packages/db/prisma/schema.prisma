@@ -15,7 +15,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -137,9 +136,15 @@ model Repository {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  files   RepositoryFile[]
-  indexJobs IndexJob[]
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files        RepositoryFile[]
+  indexJobs    IndexJob[]
+  // Phase 04 — the relational layer (plan.md §9's Repository Knowledge Model). Not in
+  // Phase 02's own §6 block; added when CodeSymbol/CodeDependency were.
+  symbols      CodeSymbol[]
+  dependencies CodeDependency[]
+  // Phase 06 — the minimal PullRequest row a webhook can populate with no GitHub call.
+  pullRequests PullRequest[]
 
   @@unique([projectId, githubRepoId])
   @@index([githubRepoId])
