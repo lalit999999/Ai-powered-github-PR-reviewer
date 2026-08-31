@@ -58,6 +58,8 @@ export const ModelName = {
   RepositoryFile: 'RepositoryFile',
   CodeSymbol: 'CodeSymbol',
   CodeDependency: 'CodeDependency',
+  CodeChunk: 'CodeChunk',
+  EmbeddingCache: 'EmbeddingCache',
   IndexJob: 'IndexJob',
   WebhookEvent: 'WebhookEvent',
   PullRequest: 'PullRequest',
@@ -217,6 +219,40 @@ export const CodeDependencyScalarFieldEnum = {
 } as const
 
 export type CodeDependencyScalarFieldEnum = (typeof CodeDependencyScalarFieldEnum)[keyof typeof CodeDependencyScalarFieldEnum]
+
+
+export const CodeChunkScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  fileId: 'fileId',
+  symbolId: 'symbolId',
+  commitSha: 'commitSha',
+  filePath: 'filePath',
+  packageName: 'packageName',
+  language: 'language',
+  chunkKind: 'chunkKind',
+  startLine: 'startLine',
+  endLine: 'endLine',
+  content: 'content',
+  contentHash: 'contentHash',
+  symbols: 'symbols',
+  imports: 'imports',
+  tokenCount: 'tokenCount',
+  embeddingModel: 'embeddingModel',
+  createdAt: 'createdAt'
+} as const
+
+export type CodeChunkScalarFieldEnum = (typeof CodeChunkScalarFieldEnum)[keyof typeof CodeChunkScalarFieldEnum]
+
+
+export const EmbeddingCacheScalarFieldEnum = {
+  contentHash: 'contentHash',
+  model: 'model',
+  hits: 'hits',
+  lastUsedAt: 'lastUsedAt'
+} as const
+
+export type EmbeddingCacheScalarFieldEnum = (typeof EmbeddingCacheScalarFieldEnum)[keyof typeof EmbeddingCacheScalarFieldEnum]
 
 
 export const IndexJobScalarFieldEnum = {

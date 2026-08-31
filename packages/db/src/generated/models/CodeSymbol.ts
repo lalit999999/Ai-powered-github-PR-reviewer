@@ -298,6 +298,7 @@ export type CodeSymbolWhereInput = {
   commitSha?: Prisma.StringFilter<"CodeSymbol"> | string
   repository?: Prisma.XOR<Prisma.RepositoryScalarRelationFilter, Prisma.RepositoryWhereInput>
   file?: Prisma.XOR<Prisma.RepositoryFileScalarRelationFilter, Prisma.RepositoryFileWhereInput>
+  chunks?: Prisma.CodeChunkListRelationFilter
 }
 
 export type CodeSymbolOrderByWithRelationInput = {
@@ -317,6 +318,7 @@ export type CodeSymbolOrderByWithRelationInput = {
   commitSha?: Prisma.SortOrder
   repository?: Prisma.RepositoryOrderByWithRelationInput
   file?: Prisma.RepositoryFileOrderByWithRelationInput
+  chunks?: Prisma.CodeChunkOrderByRelationAggregateInput
 }
 
 export type CodeSymbolWhereUniqueInput = Prisma.AtLeast<{
@@ -340,6 +342,7 @@ export type CodeSymbolWhereUniqueInput = Prisma.AtLeast<{
   commitSha?: Prisma.StringFilter<"CodeSymbol"> | string
   repository?: Prisma.XOR<Prisma.RepositoryScalarRelationFilter, Prisma.RepositoryWhereInput>
   file?: Prisma.XOR<Prisma.RepositoryFileScalarRelationFilter, Prisma.RepositoryFileWhereInput>
+  chunks?: Prisma.CodeChunkListRelationFilter
 }, "id" | "repositoryId_fileId_name_kind_startLine">
 
 export type CodeSymbolOrderByWithAggregationInput = {
@@ -399,6 +402,7 @@ export type CodeSymbolCreateInput = {
   commitSha: string
   repository: Prisma.RepositoryCreateNestedOneWithoutSymbolsInput
   file: Prisma.RepositoryFileCreateNestedOneWithoutSymbolsInput
+  chunks?: Prisma.CodeChunkCreateNestedManyWithoutSymbolInput
 }
 
 export type CodeSymbolUncheckedCreateInput = {
@@ -416,6 +420,7 @@ export type CodeSymbolUncheckedCreateInput = {
   parentSymbolId?: string | null
   complexity?: number
   commitSha: string
+  chunks?: Prisma.CodeChunkUncheckedCreateNestedManyWithoutSymbolInput
 }
 
 export type CodeSymbolUpdateInput = {
@@ -433,6 +438,7 @@ export type CodeSymbolUpdateInput = {
   commitSha?: Prisma.StringFieldUpdateOperationsInput | string
   repository?: Prisma.RepositoryUpdateOneRequiredWithoutSymbolsNestedInput
   file?: Prisma.RepositoryFileUpdateOneRequiredWithoutSymbolsNestedInput
+  chunks?: Prisma.CodeChunkUpdateManyWithoutSymbolNestedInput
 }
 
 export type CodeSymbolUncheckedUpdateInput = {
@@ -450,6 +456,7 @@ export type CodeSymbolUncheckedUpdateInput = {
   parentSymbolId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   complexity?: Prisma.IntFieldUpdateOperationsInput | number
   commitSha?: Prisma.StringFieldUpdateOperationsInput | string
+  chunks?: Prisma.CodeChunkUncheckedUpdateManyWithoutSymbolNestedInput
 }
 
 export type CodeSymbolCreateManyInput = {
@@ -582,6 +589,11 @@ export type CodeSymbolSumOrderByAggregateInput = {
   complexity?: Prisma.SortOrder
 }
 
+export type CodeSymbolNullableScalarRelationFilter = {
+  is?: Prisma.CodeSymbolWhereInput | null
+  isNot?: Prisma.CodeSymbolWhereInput | null
+}
+
 export type CodeSymbolCreateNestedManyWithoutRepositoryInput = {
   create?: Prisma.XOR<Prisma.CodeSymbolCreateWithoutRepositoryInput, Prisma.CodeSymbolUncheckedCreateWithoutRepositoryInput> | Prisma.CodeSymbolCreateWithoutRepositoryInput[] | Prisma.CodeSymbolUncheckedCreateWithoutRepositoryInput[]
   connectOrCreate?: Prisma.CodeSymbolCreateOrConnectWithoutRepositoryInput | Prisma.CodeSymbolCreateOrConnectWithoutRepositoryInput[]
@@ -666,6 +678,22 @@ export type CodeSymbolUncheckedUpdateManyWithoutFileNestedInput = {
   deleteMany?: Prisma.CodeSymbolScalarWhereInput | Prisma.CodeSymbolScalarWhereInput[]
 }
 
+export type CodeSymbolCreateNestedOneWithoutChunksInput = {
+  create?: Prisma.XOR<Prisma.CodeSymbolCreateWithoutChunksInput, Prisma.CodeSymbolUncheckedCreateWithoutChunksInput>
+  connectOrCreate?: Prisma.CodeSymbolCreateOrConnectWithoutChunksInput
+  connect?: Prisma.CodeSymbolWhereUniqueInput
+}
+
+export type CodeSymbolUpdateOneWithoutChunksNestedInput = {
+  create?: Prisma.XOR<Prisma.CodeSymbolCreateWithoutChunksInput, Prisma.CodeSymbolUncheckedCreateWithoutChunksInput>
+  connectOrCreate?: Prisma.CodeSymbolCreateOrConnectWithoutChunksInput
+  upsert?: Prisma.CodeSymbolUpsertWithoutChunksInput
+  disconnect?: Prisma.CodeSymbolWhereInput | boolean
+  delete?: Prisma.CodeSymbolWhereInput | boolean
+  connect?: Prisma.CodeSymbolWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CodeSymbolUpdateToOneWithWhereWithoutChunksInput, Prisma.CodeSymbolUpdateWithoutChunksInput>, Prisma.CodeSymbolUncheckedUpdateWithoutChunksInput>
+}
+
 export type CodeSymbolCreateWithoutRepositoryInput = {
   id?: string
   name: string
@@ -680,6 +708,7 @@ export type CodeSymbolCreateWithoutRepositoryInput = {
   complexity?: number
   commitSha: string
   file: Prisma.RepositoryFileCreateNestedOneWithoutSymbolsInput
+  chunks?: Prisma.CodeChunkCreateNestedManyWithoutSymbolInput
 }
 
 export type CodeSymbolUncheckedCreateWithoutRepositoryInput = {
@@ -696,6 +725,7 @@ export type CodeSymbolUncheckedCreateWithoutRepositoryInput = {
   parentSymbolId?: string | null
   complexity?: number
   commitSha: string
+  chunks?: Prisma.CodeChunkUncheckedCreateNestedManyWithoutSymbolInput
 }
 
 export type CodeSymbolCreateOrConnectWithoutRepositoryInput = {
@@ -758,6 +788,7 @@ export type CodeSymbolCreateWithoutFileInput = {
   complexity?: number
   commitSha: string
   repository: Prisma.RepositoryCreateNestedOneWithoutSymbolsInput
+  chunks?: Prisma.CodeChunkCreateNestedManyWithoutSymbolInput
 }
 
 export type CodeSymbolUncheckedCreateWithoutFileInput = {
@@ -774,6 +805,7 @@ export type CodeSymbolUncheckedCreateWithoutFileInput = {
   parentSymbolId?: string | null
   complexity?: number
   commitSha: string
+  chunks?: Prisma.CodeChunkUncheckedCreateNestedManyWithoutSymbolInput
 }
 
 export type CodeSymbolCreateOrConnectWithoutFileInput = {
@@ -800,6 +832,90 @@ export type CodeSymbolUpdateWithWhereUniqueWithoutFileInput = {
 export type CodeSymbolUpdateManyWithWhereWithoutFileInput = {
   where: Prisma.CodeSymbolScalarWhereInput
   data: Prisma.XOR<Prisma.CodeSymbolUpdateManyMutationInput, Prisma.CodeSymbolUncheckedUpdateManyWithoutFileInput>
+}
+
+export type CodeSymbolCreateWithoutChunksInput = {
+  id?: string
+  name: string
+  kind: string
+  startLine: number
+  endLine: number
+  isExported?: boolean
+  isDefault?: boolean
+  signature?: string | null
+  docComment?: string | null
+  parentSymbolId?: string | null
+  complexity?: number
+  commitSha: string
+  repository: Prisma.RepositoryCreateNestedOneWithoutSymbolsInput
+  file: Prisma.RepositoryFileCreateNestedOneWithoutSymbolsInput
+}
+
+export type CodeSymbolUncheckedCreateWithoutChunksInput = {
+  id?: string
+  repositoryId: string
+  fileId: string
+  name: string
+  kind: string
+  startLine: number
+  endLine: number
+  isExported?: boolean
+  isDefault?: boolean
+  signature?: string | null
+  docComment?: string | null
+  parentSymbolId?: string | null
+  complexity?: number
+  commitSha: string
+}
+
+export type CodeSymbolCreateOrConnectWithoutChunksInput = {
+  where: Prisma.CodeSymbolWhereUniqueInput
+  create: Prisma.XOR<Prisma.CodeSymbolCreateWithoutChunksInput, Prisma.CodeSymbolUncheckedCreateWithoutChunksInput>
+}
+
+export type CodeSymbolUpsertWithoutChunksInput = {
+  update: Prisma.XOR<Prisma.CodeSymbolUpdateWithoutChunksInput, Prisma.CodeSymbolUncheckedUpdateWithoutChunksInput>
+  create: Prisma.XOR<Prisma.CodeSymbolCreateWithoutChunksInput, Prisma.CodeSymbolUncheckedCreateWithoutChunksInput>
+  where?: Prisma.CodeSymbolWhereInput
+}
+
+export type CodeSymbolUpdateToOneWithWhereWithoutChunksInput = {
+  where?: Prisma.CodeSymbolWhereInput
+  data: Prisma.XOR<Prisma.CodeSymbolUpdateWithoutChunksInput, Prisma.CodeSymbolUncheckedUpdateWithoutChunksInput>
+}
+
+export type CodeSymbolUpdateWithoutChunksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
+  startLine?: Prisma.IntFieldUpdateOperationsInput | number
+  endLine?: Prisma.IntFieldUpdateOperationsInput | number
+  isExported?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  docComment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentSymbolId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  complexity?: Prisma.IntFieldUpdateOperationsInput | number
+  commitSha?: Prisma.StringFieldUpdateOperationsInput | string
+  repository?: Prisma.RepositoryUpdateOneRequiredWithoutSymbolsNestedInput
+  file?: Prisma.RepositoryFileUpdateOneRequiredWithoutSymbolsNestedInput
+}
+
+export type CodeSymbolUncheckedUpdateWithoutChunksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  fileId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
+  startLine?: Prisma.IntFieldUpdateOperationsInput | number
+  endLine?: Prisma.IntFieldUpdateOperationsInput | number
+  isExported?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  docComment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  parentSymbolId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  complexity?: Prisma.IntFieldUpdateOperationsInput | number
+  commitSha?: Prisma.StringFieldUpdateOperationsInput | string
 }
 
 export type CodeSymbolCreateManyRepositoryInput = {
@@ -832,6 +948,7 @@ export type CodeSymbolUpdateWithoutRepositoryInput = {
   complexity?: Prisma.IntFieldUpdateOperationsInput | number
   commitSha?: Prisma.StringFieldUpdateOperationsInput | string
   file?: Prisma.RepositoryFileUpdateOneRequiredWithoutSymbolsNestedInput
+  chunks?: Prisma.CodeChunkUpdateManyWithoutSymbolNestedInput
 }
 
 export type CodeSymbolUncheckedUpdateWithoutRepositoryInput = {
@@ -848,6 +965,7 @@ export type CodeSymbolUncheckedUpdateWithoutRepositoryInput = {
   parentSymbolId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   complexity?: Prisma.IntFieldUpdateOperationsInput | number
   commitSha?: Prisma.StringFieldUpdateOperationsInput | string
+  chunks?: Prisma.CodeChunkUncheckedUpdateManyWithoutSymbolNestedInput
 }
 
 export type CodeSymbolUncheckedUpdateManyWithoutRepositoryInput = {
@@ -896,6 +1014,7 @@ export type CodeSymbolUpdateWithoutFileInput = {
   complexity?: Prisma.IntFieldUpdateOperationsInput | number
   commitSha?: Prisma.StringFieldUpdateOperationsInput | string
   repository?: Prisma.RepositoryUpdateOneRequiredWithoutSymbolsNestedInput
+  chunks?: Prisma.CodeChunkUpdateManyWithoutSymbolNestedInput
 }
 
 export type CodeSymbolUncheckedUpdateWithoutFileInput = {
@@ -912,6 +1031,7 @@ export type CodeSymbolUncheckedUpdateWithoutFileInput = {
   parentSymbolId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   complexity?: Prisma.IntFieldUpdateOperationsInput | number
   commitSha?: Prisma.StringFieldUpdateOperationsInput | string
+  chunks?: Prisma.CodeChunkUncheckedUpdateManyWithoutSymbolNestedInput
 }
 
 export type CodeSymbolUncheckedUpdateManyWithoutFileInput = {
@@ -931,6 +1051,35 @@ export type CodeSymbolUncheckedUpdateManyWithoutFileInput = {
 }
 
 
+/**
+ * Count Type CodeSymbolCountOutputType
+ */
+
+export type CodeSymbolCountOutputType = {
+  chunks: number
+}
+
+export type CodeSymbolCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  chunks?: boolean | CodeSymbolCountOutputTypeCountChunksArgs
+}
+
+/**
+ * CodeSymbolCountOutputType without action
+ */
+export type CodeSymbolCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CodeSymbolCountOutputType
+   */
+  select?: Prisma.CodeSymbolCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * CodeSymbolCountOutputType without action
+ */
+export type CodeSymbolCountOutputTypeCountChunksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CodeChunkWhereInput
+}
+
 
 export type CodeSymbolSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -949,6 +1098,8 @@ export type CodeSymbolSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   commitSha?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
   file?: boolean | Prisma.RepositoryFileDefaultArgs<ExtArgs>
+  chunks?: boolean | Prisma.CodeSymbol$chunksArgs<ExtArgs>
+  _count?: boolean | Prisma.CodeSymbolCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["codeSymbol"]>
 
 export type CodeSymbolSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1010,6 +1161,8 @@ export type CodeSymbolOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs
 export type CodeSymbolInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
   file?: boolean | Prisma.RepositoryFileDefaultArgs<ExtArgs>
+  chunks?: boolean | Prisma.CodeSymbol$chunksArgs<ExtArgs>
+  _count?: boolean | Prisma.CodeSymbolCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type CodeSymbolIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
@@ -1025,6 +1178,7 @@ export type $CodeSymbolPayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     repository: Prisma.$RepositoryPayload<ExtArgs>
     file: Prisma.$RepositoryFilePayload<ExtArgs>
+    chunks: Prisma.$CodeChunkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1437,6 +1591,7 @@ export interface Prisma__CodeSymbolClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   repository<T extends Prisma.RepositoryDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RepositoryDefaultArgs<ExtArgs>>): Prisma.Prisma__RepositoryClient<runtime.Types.Result.GetResult<Prisma.$RepositoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   file<T extends Prisma.RepositoryFileDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RepositoryFileDefaultArgs<ExtArgs>>): Prisma.Prisma__RepositoryFileClient<runtime.Types.Result.GetResult<Prisma.$RepositoryFilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  chunks<T extends Prisma.CodeSymbol$chunksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CodeSymbol$chunksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CodeChunkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1878,6 +2033,30 @@ export type CodeSymbolDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * Limit how many CodeSymbols to delete.
    */
   limit?: number
+}
+
+/**
+ * CodeSymbol.chunks
+ */
+export type CodeSymbol$chunksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CodeChunk
+   */
+  select?: Prisma.CodeChunkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CodeChunk
+   */
+  omit?: Prisma.CodeChunkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CodeChunkInclude<ExtArgs> | null
+  where?: Prisma.CodeChunkWhereInput
+  orderBy?: Prisma.CodeChunkOrderByWithRelationInput | Prisma.CodeChunkOrderByWithRelationInput[]
+  cursor?: Prisma.CodeChunkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CodeChunkScalarFieldEnum | Prisma.CodeChunkScalarFieldEnum[]
 }
 
 /**

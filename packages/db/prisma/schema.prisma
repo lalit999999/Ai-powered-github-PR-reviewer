@@ -145,6 +145,8 @@ model Repository {
   dependencies CodeDependency[]
   // Phase 06 — the minimal PullRequest row a webhook can populate with no GitHub call.
   pullRequests PullRequest[]
+  // Phase 05 — the semantic layer (plan.md §9's Repository Knowledge Model).
+  chunks       CodeChunk[]
 
   @@unique([projectId, githubRepoId])
   @@index([githubRepoId])
@@ -187,6 +189,9 @@ model RepositoryFile {
   // file re-indexed to a new commit or deleted takes its symbols with it; the
   // graph-builder (Prompt 4) is what re-creates them for the new commit.
   symbols CodeSymbol[]
+  // Phase 05 — every CodeChunk sliced from this file. Cascades for the identical reason
+  // symbols above does: a file re-indexed to a new commit takes its old chunks with it.
+  chunks  CodeChunk[]
 
   @@unique([repositoryId, path])
   @@index([repositoryId, contentHash])
@@ -241,6 +246,11 @@ model CodeSymbol {
 
   repository Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   file       RepositoryFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  // Phase 05 — chunks anchored to this symbol. onDelete: SetNull on CodeChunk.symbol
+  // (not Cascade) is the load-bearing half of this relation: Phase 04's graph builder
+  // deletes and rebuilds every symbol on each re-parse, and a cascade here would
+  // silently destroy embeddings on every re-index rather than just orphaning the anchor.
+  chunks     CodeChunk[]
 
   // Symbol identity — the conflict target for Prompt 4's multi-row upsert (phase-04 §8:
   // "pass 1 writes are upserts on ... symbol identity"). Two symbols cannot share a
@@ -317,6 +327,98 @@ model CodeDependency {
   // gives dependencies the changed code relies on"). None of the three indexes above
   // serve `WHERE repositoryId = ? AND fromSymbolId = ANY(...) AND kind = ?`.
   @@index([repositoryId, fromSymbolId, kind])
+}
+
+// Phase 05 (phase-05-vector-search.md §6). One row per AST-anchored chunk of a source
+// file, plus its embedding — the semantic layer of the repository knowledge model
+// (plan.md §9), complementing Phase 04's relational graph.
+//
+// Four deliberate departures from §6's own Prisma block, each argued in
+// docs/decisions/phase-05-log.md:
+//
+//   · `projectId` is DROPPED. §6 declares it, but with no relation, no index, and no
+//     reader anywhere in the phase. Every sibling indexing table (RepositoryFile,
+//     CodeSymbol, CodeDependency) keys on repositoryId alone, and requireTenantAccess
+//     already resolves a repository up to its project in one query. A denormalized
+//     projectId with no foreign key is a column that can silently disagree with
+//     Repository.projectId and that nothing would notice.
+//
+//   · `embedding` is NULLABLE, not `NOT NULL` as §6 has it. §4 Reliability and §8
+//     Failure behavior both require a repository to reach indexStatus=PARTIAL with
+//     chunksEmbedded < total and be resumable later. A row must therefore be able to
+//     exist with content and without a vector. Making it NOT NULL would force
+//     "embed first, insert second", which in turn would force the resume sweeper to
+//     re-download and re-chunk the whole repository from GitHub, because the extracted
+//     tarball is deleted the moment indexer.service.ts's onExtracted callback returns.
+//
+//   · `embedding` and `tsv` are declared as `Unsupported(...)`, not omitted. Prisma's
+//     schema language cannot express halfvec or a GENERATED ALWAYS AS ... STORED
+//     column, and Phase 04 already learned (see CodeDependency's comment) that DDL
+//     Prisma cannot see is DDL `prisma migrate dev` proposes to DROP. Declaring them as
+//     optional Unsupported fields keeps them visible to the migration engine while
+//     excluding them from the typed client — which is what we want, since every read and
+//     write of both columns goes through raw SQL in packages/db/src/vector/.
+//
+//   · `symbols`/`imports` are denormalized String[] arrays, per §4 Data Requirements, so
+//     a filter on "chunks that mention symbol X" needs no join back to CodeSymbol.
+//
+// ALL vector reads and writes go through $queryRaw/$executeRaw inside the pgvector
+// VectorStore implementation (Prompt 2) — never through Prisma's query builder.
+model CodeChunk {
+  id             String   @id @default(uuid())
+  repositoryId   String
+  fileId         String
+  symbolId       String?
+  commitSha      String
+  filePath       String
+  packageName    String?
+  language       String
+  chunkKind      String // ChunkKind (@repo/shared) — FILE_HEADER | SYMBOL | NEIGHBORHOOD | WINDOW
+  startLine      Int
+  endLine        Int
+  content        String
+  contentHash    String
+  symbols        String[] @default([])
+  imports        String[] @default([])
+  tokenCount     Int
+  embeddingModel String
+  createdAt      DateTime @default(now())
+
+  // Added by the raw-SQL half of this model's migration; see the header comment above.
+  embedding Unsupported("halfvec(1024)")?
+  tsv       Unsupported("tsvector")?
+
+  repository Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  file       RepositoryFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  symbol     CodeSymbol?    @relation(fields: [symbolId], references: [id], onDelete: SetNull)
+
+  // §4 Reliability: re-running the embedding step must be idempotent.
+  @@unique([repositoryId, contentHash, startLine, filePath])
+  @@index([repositoryId, commitSha])
+  @@index([repositoryId, filePath])
+}
+
+// Phase 05 §6. Content-hash → embedding, shared GLOBALLY across repositories rather than
+// scoped per repository (§3): boilerplate and vendored code repeat constantly across
+// codebases, and this is free deduplication worth an expected 15-40% hit rate
+// (plan.md §37.3 item 6).
+//
+// Deliberately holds no content and no repositoryId — only the hash, the model, the
+// vector, and usage counters. A hit is only reachable by a caller who already possesses
+// the exact bytes that produced the hash, so a shared cache is not a cross-tenant read
+// path for source code. See docs/decisions/phase-05-log.md.
+//
+// The 90-day sweep of unused rows (§4 Data Requirements) is a later cost-hardening
+// concern; this phase builds only the table and the read/write path.
+model EmbeddingCache {
+  contentHash String   @id
+  model       String
+  hits        Int      @default(0)
+  lastUsedAt  DateTime @default(now())
+
+  embedding Unsupported("halfvec(1024)")?
+
+  @@index([lastUsedAt])
 }
 
 // Phase 03 §6. One row per indexing run — Postgres mirror of Inngest's execution state,

@@ -53,6 +53,16 @@ export type CodeSymbol = Prisma.CodeSymbolModel
  */
 export type CodeDependency = Prisma.CodeDependencyModel
 /**
+ * Model CodeChunk
+ * 
+ */
+export type CodeChunk = Prisma.CodeChunkModel
+/**
+ * Model EmbeddingCache
+ * 
+ */
+export type EmbeddingCache = Prisma.EmbeddingCacheModel
+/**
  * Model IndexJob
  * 
  */

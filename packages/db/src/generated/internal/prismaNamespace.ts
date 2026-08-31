@@ -404,6 +404,8 @@ export const ModelName = {
   RepositoryFile: 'RepositoryFile',
   CodeSymbol: 'CodeSymbol',
   CodeDependency: 'CodeDependency',
+  CodeChunk: 'CodeChunk',
+  EmbeddingCache: 'EmbeddingCache',
   IndexJob: 'IndexJob',
   WebhookEvent: 'WebhookEvent',
   PullRequest: 'PullRequest',
@@ -425,7 +427,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "project" | "githubInstallation" | "repository" | "repositoryFile" | "codeSymbol" | "codeDependency" | "indexJob" | "webhookEvent" | "pullRequest" | "account" | "session" | "verificationToken"
+    modelProps: "user" | "project" | "githubInstallation" | "repository" | "repositoryFile" | "codeSymbol" | "codeDependency" | "codeChunk" | "embeddingCache" | "indexJob" | "webhookEvent" | "pullRequest" | "account" | "session" | "verificationToken"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -944,6 +946,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CodeDependencyCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CodeDependencyCountAggregateOutputType> | number
+        }
+      }
+    }
+    CodeChunk: {
+      payload: Prisma.$CodeChunkPayload<ExtArgs>
+      fields: Prisma.CodeChunkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CodeChunkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CodeChunkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>
+        }
+        findFirst: {
+          args: Prisma.CodeChunkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CodeChunkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>
+        }
+        findMany: {
+          args: Prisma.CodeChunkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>[]
+        }
+        create: {
+          args: Prisma.CodeChunkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>
+        }
+        createMany: {
+          args: Prisma.CodeChunkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CodeChunkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>[]
+        }
+        delete: {
+          args: Prisma.CodeChunkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>
+        }
+        update: {
+          args: Prisma.CodeChunkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>
+        }
+        deleteMany: {
+          args: Prisma.CodeChunkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CodeChunkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CodeChunkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>[]
+        }
+        upsert: {
+          args: Prisma.CodeChunkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CodeChunkPayload>
+        }
+        aggregate: {
+          args: Prisma.CodeChunkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCodeChunk>
+        }
+        groupBy: {
+          args: Prisma.CodeChunkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CodeChunkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CodeChunkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CodeChunkCountAggregateOutputType> | number
+        }
+      }
+    }
+    EmbeddingCache: {
+      payload: Prisma.$EmbeddingCachePayload<ExtArgs>
+      fields: Prisma.EmbeddingCacheFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EmbeddingCacheFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EmbeddingCacheFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>
+        }
+        findFirst: {
+          args: Prisma.EmbeddingCacheFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EmbeddingCacheFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>
+        }
+        findMany: {
+          args: Prisma.EmbeddingCacheFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>[]
+        }
+        create: {
+          args: Prisma.EmbeddingCacheCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>
+        }
+        createMany: {
+          args: Prisma.EmbeddingCacheCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EmbeddingCacheCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>[]
+        }
+        delete: {
+          args: Prisma.EmbeddingCacheDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>
+        }
+        update: {
+          args: Prisma.EmbeddingCacheUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>
+        }
+        deleteMany: {
+          args: Prisma.EmbeddingCacheDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EmbeddingCacheUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EmbeddingCacheUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>[]
+        }
+        upsert: {
+          args: Prisma.EmbeddingCacheUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmbeddingCachePayload>
+        }
+        aggregate: {
+          args: Prisma.EmbeddingCacheAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEmbeddingCache>
+        }
+        groupBy: {
+          args: Prisma.EmbeddingCacheGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EmbeddingCacheGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EmbeddingCacheCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EmbeddingCacheCountAggregateOutputType> | number
         }
       }
     }
@@ -1567,6 +1717,40 @@ export const CodeDependencyScalarFieldEnum = {
 export type CodeDependencyScalarFieldEnum = (typeof CodeDependencyScalarFieldEnum)[keyof typeof CodeDependencyScalarFieldEnum]
 
 
+export const CodeChunkScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  fileId: 'fileId',
+  symbolId: 'symbolId',
+  commitSha: 'commitSha',
+  filePath: 'filePath',
+  packageName: 'packageName',
+  language: 'language',
+  chunkKind: 'chunkKind',
+  startLine: 'startLine',
+  endLine: 'endLine',
+  content: 'content',
+  contentHash: 'contentHash',
+  symbols: 'symbols',
+  imports: 'imports',
+  tokenCount: 'tokenCount',
+  embeddingModel: 'embeddingModel',
+  createdAt: 'createdAt'
+} as const
+
+export type CodeChunkScalarFieldEnum = (typeof CodeChunkScalarFieldEnum)[keyof typeof CodeChunkScalarFieldEnum]
+
+
+export const EmbeddingCacheScalarFieldEnum = {
+  contentHash: 'contentHash',
+  model: 'model',
+  hits: 'hits',
+  lastUsedAt: 'lastUsedAt'
+} as const
+
+export type EmbeddingCacheScalarFieldEnum = (typeof EmbeddingCacheScalarFieldEnum)[keyof typeof EmbeddingCacheScalarFieldEnum]
+
+
 export const IndexJobScalarFieldEnum = {
   id: 'id',
   repositoryId: 'repositoryId',
@@ -2008,6 +2192,8 @@ export type GlobalOmitConfig = {
   repositoryFile?: Prisma.RepositoryFileOmit
   codeSymbol?: Prisma.CodeSymbolOmit
   codeDependency?: Prisma.CodeDependencyOmit
+  codeChunk?: Prisma.CodeChunkOmit
+  embeddingCache?: Prisma.EmbeddingCacheOmit
   indexJob?: Prisma.IndexJobOmit
   webhookEvent?: Prisma.WebhookEventOmit
   pullRequest?: Prisma.PullRequestOmit
