@@ -1,10 +1,12 @@
 import {
   PROJECT_DELETED,
+  PULL_REQUEST_CLOSED,
   PULL_REQUEST_REVIEW_REQUESTED,
   REPOSITORY_INDEXED,
   REPOSITORY_INDEX_REQUESTED,
   type EventRegistry,
   type ProjectDeletedData,
+  type PullRequestClosedData,
   type PullRequestReviewRequestedData,
   type RepositoryIndexedData,
   type RepositoryIndexRequestedData,
@@ -80,3 +82,15 @@ export const pullRequestReviewRequested = eventType(
     schema: staticSchema<PullRequestReviewRequestedData>(),
   },
 );
+
+/**
+ * Phase 07 sub-task 1.3: `pull-request/closed`, defined with **no function consuming it
+ * yet** — the same forward-declaration pattern this file already uses three times above.
+ * A later Phase 07 prompt attaches `cancelOn: [{ event: pullRequestClosed, if:
+ * "async.data.prRef == event.data.prRef" }]` to the review-processing function, matching
+ * `pull-request/review.requested`'s own doc comment on why `prRef` — not `prKey` — is the
+ * field a cancellation predicate has to key on.
+ */
+export const pullRequestClosed = eventType(PULL_REQUEST_CLOSED, {
+  schema: staticSchema<PullRequestClosedData>(),
+});

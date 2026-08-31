@@ -1,5 +1,6 @@
 export {
   PROJECT_DELETED,
+  PULL_REQUEST_CLOSED,
   PULL_REQUEST_REVIEW_REQUESTED,
   REPOSITORY_INDEXED,
   REPOSITORY_INDEX_REQUESTED,
@@ -8,6 +9,7 @@ export type {
   EventName,
   EventRegistry,
   ProjectDeletedData,
+  PullRequestClosedData,
   PullRequestReviewRequestedData,
   RepositoryIndexedData,
   RepositoryIndexRequestedData,

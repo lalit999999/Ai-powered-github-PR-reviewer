@@ -141,6 +141,22 @@ export type RepositoryIndexedData = {
  * `synchronize` deliveries for the same push) needs a single string to key on that is
  * cheaper to compare than three separate fields, and because a log line naming just
  * `prKey` already says everything a human needs without joining back to the database.
+ *
+ * `prRef` (Phase 07 sub-task 1.3) exists **alongside** `prKey`, not instead of it, and
+ * the two must not be collapsed into one field. `prKey` includes `headSha` by design —
+ * it is what Inngest's own event-id dedup key is built from (`emit.ts`), and narrowing
+ * it would let two different commits on the same PR silently dedup against each other.
+ * But that exact property makes `prKey` useless as a **cancellation** predicate: Phase
+ * 07 needs to say "cancel every in-flight review for this PR, regardless of which commit
+ * it was reviewing", and a webhook `closed` delivery's `prKey` (built from *this*
+ * delivery's `headSha`) will almost never match the `prKey` an *earlier* `synchronize`
+ * delivery emitted for a different `headSha`. The original phase-07 spec's own §8
+ * (`cancelOn: pull-request/review.requested with a different headSha for the same
+ * prKey`) is unsatisfiable as written for exactly this reason — "same prKey, different
+ * headSha" cannot both hold at once when `headSha` is part of `prKey`. `prRef` is the
+ * fix: `${repositoryId}:${pullRequestNumber}`, stable across every commit on the PR, so
+ * a `cancelOn` predicate keyed on it actually matches. Do not "simplify" this back down
+ * to one field — that is exactly the bug this comment exists to prevent from recurring.
  */
 export const PULL_REQUEST_REVIEW_REQUESTED = "pull-request/review.requested";
 
@@ -158,6 +174,40 @@ export type PullRequestReviewRequestedData = {
   traceId: string;
   /** `${repositoryId}:${number}:${headSha}` — see the doc comment above. */
   prKey: string;
+  /** `${repositoryId}:${number}` — stable across commits. See the doc comment above for
+   * why this is a second field, not a replacement for `prKey`. */
+  prRef: string;
+};
+
+/**
+ * Phase 07 sub-task 1.3. Emitted by `apps/api`'s webhook event router when a
+ * `pull_request.closed` delivery resolves against one or more connected tenants — one
+ * event per tenant, exactly as `pull-request/review.requested`'s own fan-out works
+ * (`event-router.ts`'s `routePullRequestEvent`, the `PERSIST_AND_CANCEL` decision kind).
+ * `converted_to_draft` does **not** emit this — only a genuine close does, per
+ * `event-allowlist.ts`'s matrix.
+ *
+ * **The first, and so far only, consumer of this event is a `cancelOn` predicate**: a
+ * later prompt's review-processing function cancels on
+ * `pull-request/closed` matching `prRef`, which is exactly the cancellation `prKey`
+ * cannot express — see `PULL_REQUEST_REVIEW_REQUESTED`'s own doc comment for the full
+ * argument. A PR closing is rare enough, and the cost of a missed cancellation high
+ * enough (an in-flight review keeps burning LLM budget against a PR nobody can act on
+ * any more), that this event's producer (`apps/api/src/inngest/emit.ts`'s
+ * `emitPullRequestClosed`) is **awaited and bounded**, not fire-and-forget — the same
+ * departure `emitPullRequestReviewRequested`'s own doc comment argues for, for the
+ * identical reason.
+ */
+export const PULL_REQUEST_CLOSED = "pull-request/closed";
+
+export type PullRequestClosedData = {
+  projectId: string;
+  repositoryId: string;
+  pullRequestNumber: number;
+  /** `${repositoryId}:${pullRequestNumber}` — see `PullRequestReviewRequestedData.prRef`'s
+   * doc comment. This is the field a `cancelOn` predicate matches against. */
+  prRef: string;
+  traceId: string;
 };
 
 /**
@@ -173,6 +223,7 @@ export type EventRegistry = {
   "repository/index.requested": { data: RepositoryIndexRequestedData };
   "repository/indexed": { data: RepositoryIndexedData };
   "pull-request/review.requested": { data: PullRequestReviewRequestedData };
+  "pull-request/closed": { data: PullRequestClosedData };
 };
 
 /** Event names as a union — useful anywhere a name must be one of the declared events. */

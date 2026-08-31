@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PullRequestReviewRequestedData } from "@repo/shared";
+import type {
+  PullRequestClosedData,
+  PullRequestReviewRequestedData,
+} from "@repo/shared";
 import type { WebhookTenantTarget } from "../repositories/repository.repository.js";
 
 /**
@@ -103,8 +106,12 @@ function rawPullRequestPayload(overrides: Record<string, unknown> = {}) {
 
 function stubDispatcher(
   impl?: (events: readonly PullRequestReviewRequestedData[]) => Promise<void>,
+  closedImpl?: (events: readonly PullRequestClosedData[]) => Promise<void>,
 ) {
-  return { send: vi.fn(impl ?? (() => Promise.resolve())) };
+  return {
+    send: vi.fn(impl ?? (() => Promise.resolve())),
+    sendClosed: vi.fn(closedImpl ?? (() => Promise.resolve())),
+  };
 }
 
 beforeEach(() => {
@@ -200,6 +207,83 @@ describe("ingestDelivery", () => {
       "event-1",
       "EDITED_METADATA_ONLY",
     );
+  });
+
+  it("closed: sends one cancel event, upserts still applied, returns CANCELLED", async () => {
+    const dispatcher = stubDispatcher();
+
+    const outcome = await ingestDelivery({
+      deliveryId: "delivery-1",
+      eventType: "pull_request",
+      rawPayload: rawPullRequestPayload({ action: "closed" }),
+      traceId: "trace-1",
+      dispatcher,
+    });
+
+    expect(outcome).toEqual({ status: "CANCELLED", eventCount: 1 });
+    expect(dispatcher.send).not.toHaveBeenCalled();
+    expect(dispatcher.sendClosed).toHaveBeenCalledTimes(1);
+    expect(dispatcher.sendClosed.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({
+        projectId: "project-1",
+        repositoryId: "repo-1",
+        pullRequestNumber: 42,
+        prRef: "repo-1:42",
+      }),
+    ]);
+    expect(mockedUpsertMinimal).toHaveBeenCalledTimes(1);
+    expect(mockedMarkIgnored).toHaveBeenCalledWith(
+      "event-1",
+      "ACTION_NOT_TRIGGERING",
+    );
+    // Never routed through the review-dispatch retry path — see webhook.service.ts's own
+    // comment on why a failed cancel must not become a PENDING dispatchPayload row the
+    // webhook-sweeper would replay as a review request.
+    expect(mockedSavePendingDispatchPayload).not.toHaveBeenCalled();
+    expect(mockedMarkDispatched).not.toHaveBeenCalled();
+  });
+
+  it("closed: cancel dispatcher throws — still returns IGNORED, not PENDING (no sweeper replay of a cancel)", async () => {
+    const dispatcher = stubDispatcher(undefined, () =>
+      Promise.reject(new Error("inngest unavailable")),
+    );
+
+    const outcome = await ingestDelivery({
+      deliveryId: "delivery-1",
+      eventType: "pull_request",
+      rawPayload: rawPullRequestPayload({ action: "closed" }),
+      traceId: "trace-1",
+      dispatcher,
+    });
+
+    expect(outcome).toEqual({
+      status: "IGNORED",
+      reason: "ACTION_NOT_TRIGGERING",
+    });
+    expect(mockedMarkIgnored).toHaveBeenCalledWith(
+      "event-1",
+      "ACTION_NOT_TRIGGERING",
+    );
+    expect(mockedSavePendingDispatchPayload).not.toHaveBeenCalled();
+  });
+
+  it("converted_to_draft: PERSIST_ONLY, cancel dispatcher never called", async () => {
+    const dispatcher = stubDispatcher();
+
+    const outcome = await ingestDelivery({
+      deliveryId: "delivery-1",
+      eventType: "pull_request",
+      rawPayload: rawPullRequestPayload({ action: "converted_to_draft" }),
+      traceId: "trace-1",
+      dispatcher,
+    });
+
+    expect(outcome).toEqual({
+      status: "IGNORED",
+      reason: "ACTION_NOT_TRIGGERING",
+    });
+    expect(dispatcher.sendClosed).not.toHaveBeenCalled();
+    expect(dispatcher.send).not.toHaveBeenCalled();
   });
 
   it("malformed payload: returns FAILED, and a row is still inserted for audit", async () => {

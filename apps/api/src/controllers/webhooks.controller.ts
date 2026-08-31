@@ -1,7 +1,10 @@
 import type { Request, Response } from "express";
 import { createLogger, getTraceId } from "@repo/observability";
 import { env } from "../config/env.js";
-import { emitPullRequestReviewRequested } from "../inngest/emit.js";
+import {
+  emitPullRequestClosed,
+  emitPullRequestReviewRequested,
+} from "../inngest/emit.js";
 import { UnauthenticatedError, ValidationError } from "../lib/errors.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { isAllowedEvent } from "../modules/webhooks/event-allowlist.js";
@@ -179,10 +182,17 @@ export async function receiveGithubWebhook(
   // WebhookDispatcher's throw-on-failure contract, which webhook.service.ts's own
   // try/catch already expects — a failed send must surface as a rejection here for the
   // row to correctly stay PENDING for the sweeper (Prompt 4) rather than being marked
-  // dispatched or failed.
+  // dispatched or failed. `sendClosed` adapts `emitPullRequestClosed` the same way, for
+  // webhook.service.ts's PERSIST_AND_CANCEL branch.
   const dispatcher: WebhookDispatcher = {
     async send(events) {
       const result = await emitPullRequestReviewRequested(events);
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
+    },
+    async sendClosed(events) {
+      const result = await emitPullRequestClosed(events);
       if (!result.ok) {
         throw new Error(result.error);
       }

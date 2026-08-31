@@ -20,6 +20,7 @@ const {
   emitProjectDeleted,
   emitRepositoryIndexRequested,
   emitPullRequestReviewRequested,
+  emitPullRequestClosed,
 } = await import("./emit.js");
 
 beforeEach(() => {
@@ -115,6 +116,7 @@ describe("emitPullRequestReviewRequested (phase-06 §8)", () => {
     trigger: "opened",
     traceId: "trace-1",
     prKey: "repo-1:42:headsha1",
+    prRef: "repo-1:42",
   } as const;
 
   it("sends the event with its prKey as the Inngest id, and resolves { ok: true }", async () => {
@@ -155,6 +157,65 @@ describe("emitPullRequestReviewRequested (phase-06 §8)", () => {
       send.mockImplementationOnce(() => new Promise(() => {}));
 
       const resultPromise = emitPullRequestReviewRequested([event]);
+      await vi.advanceTimersByTimeAsync(300);
+      const result = await resultPromise;
+
+      expect(result).toEqual({
+        ok: false,
+        error: "emit timed out after 300ms",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("emitPullRequestClosed (phase-07 sub-task 1.3)", () => {
+  const closedEvent = {
+    projectId: "project-1",
+    repositoryId: "repo-1",
+    pullRequestNumber: 42,
+    prRef: "repo-1:42",
+    traceId: "trace-1",
+  } as const;
+
+  it("sends the event under the name from the shared contract, and resolves { ok: true }", async () => {
+    send.mockResolvedValueOnce(undefined);
+
+    const result = await emitPullRequestClosed([closedEvent]);
+
+    expect(result).toEqual({ ok: true });
+    expect(send).toHaveBeenCalledWith([
+      { name: "pull-request/closed", data: closedEvent },
+    ]);
+  });
+
+  it("returns { ok: false } and does not throw when send() rejects", async () => {
+    send.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 127.0.0.1:8288"),
+    );
+
+    const result = await emitPullRequestClosed([closedEvent]);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "connect ECONNREFUSED 127.0.0.1:8288",
+    });
+    expect(logSpies.error).toHaveBeenCalledWith(
+      "failed to emit pull-request/closed",
+      expect.objectContaining({
+        event: "pull-request/closed",
+        prRefs: [closedEvent.prRef],
+      }),
+    );
+  });
+
+  it("returns { ok: false } within roughly the timeout when send() hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      send.mockImplementationOnce(() => new Promise(() => {}));
+
+      const resultPromise = emitPullRequestClosed([closedEvent]);
       await vi.advanceTimersByTimeAsync(300);
       const result = await resultPromise;
 

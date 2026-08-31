@@ -46,7 +46,7 @@ function payload(
 }
 
 describe("routePullRequestEvent", () => {
-  it("dispatches on each triggering action", () => {
+  it("dispatches on each triggering action, with prRef correctly shaped", () => {
     for (const action of [
       "opened",
       "reopened",
@@ -59,6 +59,13 @@ describe("routePullRequestEvent", () => {
         traceId: TRACE_ID,
       });
       expect(decision.kind).toBe("DISPATCH");
+      if (decision.kind === "DISPATCH") {
+        // prRef (repositoryId:number) is stable across commits, unlike prKey
+        // (repositoryId:number:headSha) — see @repo/shared's own doc comment on why
+        // both fields exist. Asserted on every dispatched event, every action.
+        expect(decision.events[0]?.prRef).toBe("repo-1:42");
+        expect(decision.events[0]?.prKey).toBe("repo-1:42:headsha1");
+      }
     }
   });
 
@@ -77,22 +84,60 @@ describe("routePullRequestEvent", () => {
     }
   });
 
-  it("closed -> PERSIST_ONLY", () => {
+  it("closed -> PERSIST_AND_CANCEL, one close event per tenant", () => {
     const decision = routePullRequestEvent({
       payload: payload({ action: "closed" }),
       tenants: [tenant()],
       traceId: TRACE_ID,
     });
-    expect(decision.kind).toBe("PERSIST_ONLY");
+    expect(decision).toMatchObject({
+      kind: "PERSIST_AND_CANCEL",
+      reason: "ACTION_NOT_TRIGGERING",
+    });
+    if (decision.kind === "PERSIST_AND_CANCEL") {
+      expect(decision.pullRequestUpserts).toHaveLength(1);
+      expect(decision.closedEvents).toHaveLength(1);
+      expect(decision.closedEvents[0]).toEqual({
+        projectId: "project-1",
+        repositoryId: "repo-1",
+        pullRequestNumber: 42,
+        prRef: "repo-1:42",
+        traceId: TRACE_ID,
+      });
+    }
   });
 
-  it("converted_to_draft -> PERSIST_ONLY", () => {
+  it("closed, two tenants -> two close events with different prRef values", () => {
+    const tenantA = tenant({ repositoryId: "repo-a", projectId: "project-a" });
+    const tenantB = tenant({ repositoryId: "repo-b", projectId: "project-b" });
+
+    const decision = routePullRequestEvent({
+      payload: payload({ action: "closed" }),
+      tenants: [tenantA, tenantB],
+      traceId: TRACE_ID,
+    });
+
+    expect(decision.kind).toBe("PERSIST_AND_CANCEL");
+    if (decision.kind === "PERSIST_AND_CANCEL") {
+      expect(decision.closedEvents).toHaveLength(2);
+      expect(decision.pullRequestUpserts).toHaveLength(2);
+      const [eventA, eventB] = decision.closedEvents;
+      expect(eventA?.prRef).not.toBe(eventB?.prRef);
+      expect(eventA?.prRef).toBe("repo-a:42");
+      expect(eventA?.projectId).toBe("project-a");
+      expect(eventB?.prRef).toBe("repo-b:42");
+      expect(eventB?.projectId).toBe("project-b");
+    }
+  });
+
+  it("converted_to_draft -> PERSIST_ONLY, no close events (only closed cancels)", () => {
     const decision = routePullRequestEvent({
       payload: payload({ action: "converted_to_draft" }),
       tenants: [tenant()],
       traceId: TRACE_ID,
     });
     expect(decision.kind).toBe("PERSIST_ONLY");
+    expect(decision).not.toHaveProperty("closedEvents");
   });
 
   it("draft PR + default settings -> PERSIST_ONLY / DRAFT_SKIPPED", () => {
@@ -173,6 +218,9 @@ describe("routePullRequestEvent", () => {
       expect(decision.events).toHaveLength(2);
       const [eventA, eventB] = decision.events;
       expect(eventA?.prKey).not.toBe(eventB?.prKey);
+      expect(eventA?.prRef).not.toBe(eventB?.prRef);
+      expect(eventA?.prRef).toBe("repo-a:42");
+      expect(eventB?.prRef).toBe("repo-b:42");
       expect(eventA?.projectId).toBe("project-a");
       expect(eventA?.repositoryId).toBe("repo-a");
       expect(eventB?.projectId).toBe("project-b");

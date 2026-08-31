@@ -1,5 +1,6 @@
 import {
   parseProjectReviewSettings,
+  type PullRequestClosedData,
   type PullRequestReviewRequestedData,
 } from "@repo/shared";
 import {
@@ -44,6 +45,21 @@ export type RouterDecision =
       pullRequestUpserts: UpsertPullRequestInput[];
       reason: IgnoreReason;
     }
+  | {
+      /**
+       * Phase 07 sub-task 1.3. `pull_request.closed` only — `converted_to_draft` stays on
+       * `PERSIST_ONLY` above (see `routePullRequestEvent`'s own comment, rule 4). Carries
+       * both a `PullRequest` state upsert (the PR IS closed now, in this system's own
+       * record) and a cancellation event per tenant — a PR closing is exactly the "stop
+       * any review still running for this PR" signal the original phase-06 router had
+       * nothing to act on yet (its own rule 4 said so explicitly), because Phase 07 is
+       * what first has state worth cancelling.
+       */
+      kind: "PERSIST_AND_CANCEL";
+      pullRequestUpserts: UpsertPullRequestInput[];
+      closedEvents: PullRequestClosedData[];
+      reason: IgnoreReason;
+    }
   | { kind: "IGNORE"; reason: IgnoreReason };
 
 function buildUpsert(
@@ -76,6 +92,20 @@ function buildPrKey(
   return `${tenant.repositoryId}:${payload.pull_request.number}:${payload.pull_request.head.sha}`;
 }
 
+/**
+ * `${repositoryId}:${number}` — per **tenant**, like `buildPrKey` above, but stable
+ * across every commit on the PR. See `@repo/shared`'s `PullRequestReviewRequestedData`
+ * doc comment for why this is a second key, not a replacement for `prKey`: a
+ * cancellation predicate needs "this PR, regardless of which commit", which `prKey`
+ * (headSha-scoped, by design) cannot express.
+ */
+function buildPrRef(
+  tenant: WebhookTenantTarget,
+  payload: ParsedPullRequestEvent,
+): string {
+  return `${tenant.repositoryId}:${payload.pull_request.number}`;
+}
+
 function buildEvent(
   tenant: WebhookTenantTarget,
   payload: ParsedPullRequestEvent,
@@ -94,6 +124,21 @@ function buildEvent(
     // into every emitted payload — including every entry of a two-tenant fan-out.
     traceId,
     prKey: buildPrKey(tenant, payload),
+    prRef: buildPrRef(tenant, payload),
+  };
+}
+
+function buildClosedEvent(
+  tenant: WebhookTenantTarget,
+  payload: ParsedPullRequestEvent,
+  traceId: string,
+): PullRequestClosedData {
+  return {
+    projectId: tenant.projectId,
+    repositoryId: tenant.repositoryId,
+    pullRequestNumber: payload.pull_request.number,
+    prRef: buildPrRef(tenant, payload),
+    traceId,
   };
 }
 
@@ -123,12 +168,16 @@ function isStateSyncAction(action: string): boolean {
  *    §4.1) — `isReviewTriggeringAction`, `event-allowlist.ts`'s own matrix.
  * 3. **`edited` → `PERSIST_ONLY` / `EDITED_METADATA_ONLY`** (plan.md §14.2, phase-06
  *    §4): a title/body edit is not a code change and never triggers a re-review.
- * 4. **`closed`/`converted_to_draft` → `PERSIST_ONLY`.** Reported as
- *    `ACTION_NOT_TRIGGERING` — there is no dedicated reason code for this pair, and
- *    reusing this one is accurate: both actions are allow-listed but neither is a
- *    review trigger. Cancelling an in-flight review for a PR that just closed is Phase
- *    07's job; there is nothing in this phase's own state for it to cancel yet, which is
- *    why no such handling appears here.
+ * 4. **`converted_to_draft` → `PERSIST_ONLY`**, and **`closed` → `PERSIST_AND_CANCEL`**
+ *    (Phase 07 sub-task 1.3). Both report `ACTION_NOT_TRIGGERING` — there is no
+ *    dedicated reason code for this pair, and reusing this one is accurate: both actions
+ *    are allow-listed but neither is a *review* trigger. `closed` gets the extra
+ *    `closedEvents` entries because cancelling an in-flight review for a PR that just
+ *    closed is exactly Phase 07's job — the original phase-06 router had nothing in this
+ *    phase's own state to cancel yet, which is why both actions were once handled
+ *    identically; `converted_to_draft` still has nothing to cancel (a draft PR was never
+ *    dispatching a review to begin with — see the draft gate below), so it keeps the
+ *    plain `PERSIST_ONLY` behaviour unchanged.
  * 5. **Draft gate, applied per tenant, not globally.** For every triggering action
  *    *except* `ready_for_review`, a tenant whose `pull_request.draft` is `true` and
  *    whose `ProjectReviewSettings.reviewDraftPullRequests` is `false` (the default)
@@ -168,6 +217,21 @@ export function routePullRequestEvent(args: {
       kind: "PERSIST_ONLY",
       pullRequestUpserts,
       reason: "EDITED_METADATA_ONLY",
+    };
+  }
+
+  // Intercepted ahead of the generic isStateSyncAction check below, which still
+  // considers "closed" a state-sync action (event-allowlist.ts's own matrix comment is
+  // still accurate: the PR's stored state does move on close) — this branch is the one
+  // that adds the cancellation on top, so it must run first.
+  if (action === "closed") {
+    return {
+      kind: "PERSIST_AND_CANCEL",
+      pullRequestUpserts,
+      closedEvents: tenants.map((tenant) =>
+        buildClosedEvent(tenant, payload, traceId),
+      ),
+      reason: "ACTION_NOT_TRIGGERING",
     };
   }
 

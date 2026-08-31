@@ -1,5 +1,8 @@
 import { createLogger } from "@repo/observability";
-import type { PullRequestReviewRequestedData } from "@repo/shared";
+import type {
+  PullRequestClosedData,
+  PullRequestReviewRequestedData,
+} from "@repo/shared";
 import { InternalError } from "../../lib/errors.js";
 import * as repositoryRepository from "../repositories/repository.repository.js";
 import { routePullRequestEvent, type IgnoreReason } from "./event-router.js";
@@ -49,10 +52,14 @@ const logger = createLogger("webhook");
 
 export interface WebhookDispatcher {
   send(events: readonly PullRequestReviewRequestedData[]): Promise<void>;
+  /** Phase 07 sub-task 1.3 — the `pull-request/closed` counterpart to `send` above,
+   * exercised by the `PERSIST_AND_CANCEL` branch below. */
+  sendClosed(events: readonly PullRequestClosedData[]): Promise<void>;
 }
 
 export type IngestOutcome =
   | { status: "DISPATCHED"; eventCount: number }
+  | { status: "CANCELLED"; eventCount: number }
   | { status: "DUPLICATE" }
   | { status: "IGNORED"; reason: IgnoreReason }
   | { status: "PENDING"; reason: "DISPATCH_FAILED" }
@@ -151,8 +158,9 @@ export async function ingestDelivery(args: {
   // Step 4 — the pure routing decision.
   const decision = routePullRequestEvent({ payload, tenants, traceId });
 
-  // Step 5 — apply upserts. Both DISPATCH and PERSIST_ONLY carry them; IGNORE has none
-  // (it is only reached with zero tenants, so there is nothing to upsert regardless).
+  // Step 5 — apply upserts. DISPATCH, PERSIST_ONLY, and PERSIST_AND_CANCEL all carry
+  // them; IGNORE has none (it is only reached with zero tenants, so there is nothing to
+  // upsert regardless).
   if (decision.kind !== "IGNORE") {
     for (const upsert of decision.pullRequestUpserts) {
       await pullRequestRepository.upsertMinimal(upsert);
@@ -169,6 +177,41 @@ export async function ingestDelivery(args: {
       latencyMs: Date.now() - startedAt,
     });
     return { status: "IGNORED", reason: decision.reason };
+  }
+
+  // Step 6b — Phase 07 sub-task 1.3. A `closed` delivery: the PR upsert already applied
+  // above, and now the per-tenant cancellation events. **Deliberately not routed through
+  // the PENDING/dispatchPayload retry path** steps 7-10 below use for a review dispatch:
+  // `webhook-sweeper.ts` (apps/worker) re-sends a PENDING row's `dispatchPayload` verbatim
+  // as `pull-request/review.requested` — replaying a failed *cancel* through that exact
+  // mechanism would misinterpret `PullRequestClosedData` as `PullRequestReviewRequestedData`
+  // and emit a spurious review request for the PR that just closed, which is exactly
+  // backwards. A failed send is therefore logged at `error` (this event's cost of being
+  // silently dropped is real — see `emitPullRequestClosed`'s own doc comment) and the row
+  // still resolves to IGNORED; a dedicated cancel-retry path (paralleling the review-
+  // dispatch sweeper) is a later prompt's scope, not this one's.
+  if (decision.kind === "PERSIST_AND_CANCEL") {
+    try {
+      await dispatcher.sendClosed(decision.closedEvents);
+    } catch (err) {
+      logger.error("webhook cancel dispatch failed", {
+        ...baseLogFields,
+        status: "IGNORED",
+        latencyMs: Date.now() - startedAt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await webhookEventRepository.markIgnored(webhookEventId, decision.reason);
+      return { status: "IGNORED", reason: decision.reason };
+    }
+
+    await webhookEventRepository.markIgnored(webhookEventId, decision.reason);
+    logger.info("webhook delivery ignored: pull request closed, cancel dispatched", {
+      ...baseLogFields,
+      status: "CANCELLED",
+      eventCount: decision.closedEvents.length,
+      latencyMs: Date.now() - startedAt,
+    });
+    return { status: "CANCELLED", eventCount: decision.closedEvents.length };
   }
 
   // Step 7 — durable before the send, so the sweeper (Prompt 4) can retry a send that

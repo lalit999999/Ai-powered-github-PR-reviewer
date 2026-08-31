@@ -12,7 +12,8 @@
  * | `X-GitHub-Event`             | Actions                                            | Handling                          |
  * |-------------------------------|-----------------------------------------------------|------------------------------------|
  * | `pull_request`                 | `opened`, `reopened`, `synchronize`, `ready_for_review` | dispatch a review               |
- * | `pull_request`                 | `closed`, `converted_to_draft`                        | update PR state, no dispatch      |
+ * | `pull_request`                 | `closed`                                              | update PR state, cancel in-flight review (Phase 07) |
+ * | `pull_request`                 | `converted_to_draft`                                  | update PR state, no dispatch      |
  * | `pull_request`                 | `edited`                                              | update stored metadata only, never a re-review |
  * | `installation`                 | `created`, `deleted`, `suspend`, `unsuspend`          | installation sync (Prompt 4)      |
  * | `installation_repositories`    | `added`, `removed`                                    | installation sync (Prompt 4)      |

@@ -1,8 +1,10 @@
 import {
   PROJECT_DELETED,
+  PULL_REQUEST_CLOSED,
   PULL_REQUEST_REVIEW_REQUESTED,
   REPOSITORY_INDEX_REQUESTED,
   type ProjectDeletedData,
+  type PullRequestClosedData,
   type PullRequestReviewRequestedData,
   type RepositoryIndexRequestedData,
 } from "@repo/shared";
@@ -214,6 +216,50 @@ export async function emitPullRequestReviewRequested(
       event: PULL_REQUEST_REVIEW_REQUESTED,
       eventCount: events.length,
       prKeys: events.map((event) => event.prKey),
+      error: message,
+    });
+    return { ok: false, error: message };
+  }
+}
+
+/**
+ * Producer side of `pull-request/closed` (phase-07 sub-task 1.3) — modeled directly on
+ * `emitPullRequestReviewRequested` immediately above, **not** on the fire-and-forget
+ * `emitProjectDeleted`/`emitRepositoryIndexRequested` emitters at the top of this file.
+ * Same three grounds, restated for this event specifically:
+ *
+ * 1. This event has a real consumer from the moment it is defined — a later prompt's
+ *    `cancelOn` predicate (see `@repo/shared`'s own doc comment on `PULL_REQUEST_CLOSED`).
+ * 2. A dropped close event is not cosmetic: it leaves an in-flight review running
+ *    against a PR nobody can act on any more, burning real LLM budget for no reader.
+ * 3. Awaiting still only proves Inngest *accepted* the event, not that a function ran —
+ *    the same honest limit `emitPullRequestReviewRequested`'s own comment names.
+ *
+ * Bounded by the same `EMIT_TIMEOUT_MS` budget and the same `withTimeout` wrapper, for
+ * the same reason: an unbounded await here would put Inngest's availability back in the
+ * latency path of the webhook endpoint's 500 ms p99 budget.
+ *
+ * **No `id` is set on the send.** `emitPullRequestReviewRequested` sets `id: data.prKey`
+ * specifically because a `synchronize` webhook can legitimately redeliver the same
+ * commit; a `pull_request.closed` delivery has no equivalent "same close, redelivered
+ * with identical meaning" case Inngest itself needs to dedup — `WebhookEvent.deliveryId`'s
+ * own unique constraint already stops a redelivered `closed` webhook from reaching this
+ * function twice.
+ */
+export async function emitPullRequestClosed(
+  events: readonly PullRequestClosedData[],
+): Promise<EmitResult> {
+  const payloads = events.map((data) => ({ name: PULL_REQUEST_CLOSED, data }));
+
+  try {
+    await withTimeout(inngest.send(payloads), EMIT_TIMEOUT_MS);
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error("failed to emit pull-request/closed", {
+      event: PULL_REQUEST_CLOSED,
+      eventCount: events.length,
+      prRefs: events.map((event) => event.prRef),
       error: message,
     });
     return { ok: false, error: message };
