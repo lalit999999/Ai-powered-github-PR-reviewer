@@ -138,6 +138,17 @@ but do not treat it as a database. See `docs/decisions/phase-02-log.md` §8.
 
 Locally, `docker compose up -d` starts both Postgres and Redis.
 
+**Phase 05 — the production Postgres must have the `vector` extension available.**
+`CodeChunk.embedding` is a `halfvec(1024)` column (`packages/db/prisma/schema.prisma`),
+which needs pgvector **>= 0.7.0**; the HNSW index on it alone would only need >= 0.5.0.
+The first migration that creates the column also runs `CREATE EXTENSION IF NOT EXISTS
+vector`, so nothing extra needs to run in production — but the _database_ itself must
+ship the extension for that `CREATE EXTENSION` to succeed. **Neon does** (it is on the
+allow-listed extension list already). Locally, `docker-compose.yml`'s `postgresdb`
+service runs `pgvector/pgvector:pg16` for the identical reason. If this system is ever
+pointed at a different managed Postgres, confirm `vector` is on that provider's
+allow-list before deploying this phase's migration.
+
 ## ⚠️ GitHub App vs. GitHub OAuth App
 
 From Phase 02 there are **two** GitHub registrations per environment, and they are not

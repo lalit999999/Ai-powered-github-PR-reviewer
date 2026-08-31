@@ -25,7 +25,7 @@ const DB_PACKAGE_DIR = path.resolve(
 let container: StartedPostgreSqlContainer | undefined;
 
 export default async function setup(): Promise<() => Promise<void>> {
-  container = await new PostgreSqlContainer("postgres:15")
+  container = await new PostgreSqlContainer("pgvector/pgvector:pg16")
     .withStartupTimeout(120_000)
     .start();
 
