@@ -3,6 +3,7 @@ import {
   deleteByFilePaths,
   deleteByRepository,
   prisma,
+  search,
   upsertChunks,
   VectorDimensionError,
 } from "@repo/db";
@@ -256,5 +257,144 @@ describe("pgvector.store — deleteByFilePaths / deleteByRepository", () => {
       SELECT id FROM "CodeChunk" WHERE "repositoryId" = ${repoB.id}
     `;
     expect(remainingB).toHaveLength(1);
+  });
+});
+
+describe("pgvector.store — search (sub-task 2.3)", () => {
+  it("respects limit and orders by ascending distance / descending vectorScore", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+
+    // Chunk 0's embedding is identical to the query vector (distance 0, vectorScore 1);
+    // each subsequent chunk is a progressively worse match.
+    const query = makeEmbedding(0);
+    const chunks = Array.from({ length: 10 }, (_, i) =>
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: i,
+        contentHash: `hash-${i.toString()}`,
+        embedding: i === 0 ? query : makeEmbedding(i * 500),
+      }),
+    );
+    await upsertChunks(chunks);
+
+    const results = await search({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(5);
+    expect(results[0]!.id).toBe(chunks[0]!.id);
+    expect(results[0]!.vectorScore).toBeCloseTo(1, 5);
+    for (let i = 1; i < results.length; i += 1) {
+      expect(results[i - 1]!.vectorScore).toBeGreaterThanOrEqual(
+        results[i]!.vectorScore,
+      );
+    }
+  });
+
+  it("never returns a chunk with a NULL embedding", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    await upsertChunks([
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: 1,
+        embedding: query,
+      }),
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: 2,
+        contentHash: "pending",
+        embedding: null,
+      }),
+    ]);
+
+    const results = await search({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      limit: 10,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.startLine).toBe(1);
+  });
+
+  it("filters by commitSha and chunkKinds", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    await upsertChunks([
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: 1,
+        contentHash: "h1",
+        commitSha: "sha-old",
+        chunkKind: "SYMBOL",
+        embedding: query,
+      }),
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: 2,
+        contentHash: "h2",
+        commitSha: "sha-new",
+        chunkKind: "FILE_HEADER",
+        embedding: query,
+      }),
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: 3,
+        contentHash: "h3",
+        commitSha: "sha-new",
+        chunkKind: "SYMBOL",
+        embedding: query,
+      }),
+    ]);
+
+    const byCommit = await search({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      limit: 10,
+      commitSha: "sha-new",
+    });
+    expect(byCommit.map((r) => r.startLine).sort()).toEqual([2, 3]);
+
+    const byKind = await search({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      limit: 10,
+      chunkKinds: ["FILE_HEADER"],
+    });
+    expect(byKind.map((r) => r.startLine)).toEqual([2]);
+  });
+
+  it("never returns a chunk from a different repository", async () => {
+    const repoA = await seedRepository();
+    const repoB = await seedRepository();
+    const fileA = await seedRepositoryFile(repoA.id, "src/a.ts");
+    const fileB = await seedRepositoryFile(repoB.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    await upsertChunks([
+      makeChunk({ repositoryId: repoA.id, fileId: fileA, embedding: query }),
+      makeChunk({ repositoryId: repoB.id, fileId: fileB, embedding: query }),
+    ]);
+
+    const results = await search({
+      repositoryId: repoA.id,
+      queryEmbedding: query,
+      limit: 10,
+    });
+    expect(results).toHaveLength(1);
   });
 });

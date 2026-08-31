@@ -1,7 +1,14 @@
+import { createLogger } from "@repo/observability";
 import { EMBEDDING_DIMENSIONS } from "@repo/shared";
 import { prisma } from "../client.js";
 import { Prisma } from "../generated/client.js";
-import type { ChunkUpsertInput } from "./vector-store.interface.js";
+import type {
+  ChunkUpsertInput,
+  ScoredChunk,
+  VectorSearchOptions,
+} from "./vector-store.interface.js";
+
+const logger = createLogger("db.pgvector");
 
 /**
  * Phase 05 prompt 2, sub-task 2.2: the pgvector-backed `VectorStore` implementation.
@@ -185,6 +192,149 @@ export async function deleteByRepository(
   `;
 }
 
+// ---------------------------------------------------------------------------
+// Sub-task 2.3 — vector-only search
+// ---------------------------------------------------------------------------
+
+/**
+ * Postgres applies the HNSW index scan *before* the `WHERE "repositoryId" = ...` filter
+ * (phase-05-vector-search.md §22's named risk): with many tenants in one table, a
+ * top-N index scan can return candidates that all belong to other repositories, leaving
+ * zero results for a repository that has thousands of perfectly good chunks. Raising
+ * `hnsw.ef_search` (pgvector's HNSW search-time candidate-list size) into the 80–200 band
+ * widens that index scan enough that a selective `repositoryId` filter still finds real
+ * matches. Exported so Prompt 5's recall test can vary it; see sub-task 2.6's report for
+ * the measured value this constant was set to.
+ */
+export const HNSW_EF_SEARCH_FILTERED = 120;
+
+/**
+ * `embedding <=> $1` is pgvector's cosine **distance** (`halfvec_cosine_ops`, the HNSW
+ * index's own operator class), range `[0, 2]` — not a similarity, and not bounded to
+ * `[0, 1]`. `1 - distance` is the naive conversion a reviewer expects, but it produces
+ * negative scores for any distance above 1 (a very dissimilar pair, still a legal
+ * `<=>` output) and would silently corrupt the hybrid formula's weighted sum, which
+ * assumes every term is in `[0, 1]`. Mapping `[0, 2] -> [1, 0]` instead is the correct
+ * affine transform, clamped defensively in case of floating-point overshoot right at the
+ * boundary.
+ *
+ * This mirrors the formula sub-task 2.4's `hybrid-scorer.ts` also defines and unit-tests
+ * as `normalizeVectorScore` — duplicated here only until that module exists; sub-task
+ * 2.4's own commit removes this copy and imports the pure-module version instead, so the
+ * conversion has exactly one definition once both sub-tasks have landed.
+ */
+function distanceToVectorScore(distance: number): number {
+  const score = 1 - distance / 2;
+  return Math.min(1, Math.max(0, score));
+}
+
+interface VectorSearchRow {
+  id: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  chunkKind: string;
+  content: string;
+  symbols: string[];
+  distance: number;
+}
+
+/**
+ * Builds the optional `commitSha`/`chunkKinds` predicates as composable `Prisma.sql`
+ * fragments and joins them with the mandatory `repositoryId`/`embedding IS NOT NULL`
+ * predicates — never a conditionally-built SQL string (`plan.md` §35.11).
+ */
+function buildVectorWhereClause(options: VectorSearchOptions): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`"repositoryId" = ${options.repositoryId}`,
+    Prisma.sql`"embedding" IS NOT NULL`,
+  ];
+  if (options.commitSha !== undefined) {
+    conditions.push(Prisma.sql`"commitSha" = ${options.commitSha}`);
+  }
+  if (options.chunkKinds !== undefined && options.chunkKinds.length > 0) {
+    conditions.push(Prisma.sql`"chunkKind" = ANY(${options.chunkKinds})`);
+  }
+  return Prisma.join(conditions, " AND ");
+}
+
+/**
+ * Vector-only similarity search — the unweighted path. `score` is `vectorScore` alone;
+ * `graphProximity`/`lexicalScore`/`recencyOrImportance`/`pathAffinity` are set to `0`,
+ * not any `hybridSearch` tier constant (e.g. `GRAPH_PROXIMITY.NONE`), because this method
+ * never computes any of those signals at all — a nonzero placeholder here would
+ * misleadingly imply a real signal was measured. Populated only so both `search` and
+ * `hybridSearch` return the same `ScoredChunk` shape; use `hybridSearch` (sub-task 2.5)
+ * for the real, weighted retrieval path.
+ *
+ * Runs inside an interactive transaction so `SET LOCAL hnsw.ef_search` (only valid for
+ * the lifetime of a transaction) applies to the search query that follows it — verified
+ * empirically that `SET LOCAL` accepts no bind parameter (`syntax error at or near
+ * "$1"`), so the fixed, code-controlled {@link HNSW_EF_SEARCH_FILTERED} constant is
+ * spliced in via `Prisma.raw`, never anything request-derived.
+ *
+ * `ORDER BY "embedding" <=> ...` repeats the raw distance expression rather than
+ * referencing the `AS "distance"` alias, and nothing wraps it — both deliberate, so the
+ * HNSW index remains usable for the ordering (phase-05-vector-search.md §10/§22).
+ */
+export async function search(
+  options: VectorSearchOptions,
+): Promise<ScoredChunk[]> {
+  const start = performance.now();
+  const literal = `[${options.queryEmbedding.join(",")}]`;
+  const whereClause = buildVectorWhereClause(options);
+
+  const rows = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SET LOCAL hnsw.ef_search = ${Prisma.raw(String(HNSW_EF_SEARCH_FILTERED))}`;
+    return tx.$queryRaw<VectorSearchRow[]>`
+      SELECT
+        "id",
+        "filePath",
+        "startLine",
+        "endLine",
+        "chunkKind",
+        "content",
+        "symbols",
+        "embedding" <=> ${literal}::halfvec(1024) AS "distance"
+      FROM "CodeChunk"
+      WHERE ${whereClause}
+      ORDER BY "embedding" <=> ${literal}::halfvec(1024)
+      LIMIT ${options.limit}
+    `;
+  });
+
+  const results: ScoredChunk[] = rows.map((row) => {
+    const vectorScore = distanceToVectorScore(row.distance);
+    return {
+      id: row.id,
+      filePath: row.filePath,
+      startLine: row.startLine,
+      endLine: row.endLine,
+      chunkKind: row.chunkKind as ScoredChunk["chunkKind"],
+      content: row.content,
+      symbols: row.symbols,
+      score: vectorScore,
+      vectorScore,
+      graphProximity: 0,
+      lexicalScore: 0,
+      recencyOrImportance: 0,
+      pathAffinity: 0,
+    };
+  });
+
+  // Never log the query embedding or chunk content — content is private repository
+  // source (phase-05-vector-search.md §20).
+  logger.debug("vector search", {
+    repositoryId: options.repositoryId,
+    limit: options.limit,
+    efSearch: HNSW_EF_SEARCH_FILTERED,
+    resultCount: results.length,
+    elapsedMs: performance.now() - start,
+  });
+
+  return results;
+}
+
 // The `pgvectorStore: VectorStore` object satisfying the full interface is assembled
-// once `search` (sub-task 2.3) and `hybridSearch` (sub-task 2.5) exist alongside these
-// two methods in this same file — see the bottom of this file after sub-task 2.5.
+// once `hybridSearch` (sub-task 2.5) exists alongside these methods in this same file —
+// see the bottom of this file after sub-task 2.5.

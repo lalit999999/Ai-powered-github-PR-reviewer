@@ -19,7 +19,13 @@ export { Prisma } from "./generated/client.js";
 export {
   deleteByFilePaths,
   deleteByRepository,
+  HNSW_EF_SEARCH_FILTERED,
+  search,
   upsertChunks,
   VectorDimensionError,
 } from "./vector/pgvector.store.js";
-export type { ChunkUpsertInput } from "./vector/vector-store.interface.js";
+export type {
+  ChunkUpsertInput,
+  ScoredChunk,
+  VectorSearchOptions,
+} from "./vector/vector-store.interface.js";
