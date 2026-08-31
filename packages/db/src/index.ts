@@ -11,3 +11,15 @@ export { authAdapter } from "./auth-adapter.js";
 // it touches no environment variable and opens no connection, so re-exporting `Prisma`
 // from it adds no new footgun for a consumer that only wants the query-building helpers.
 export { Prisma } from "./generated/client.js";
+
+// Phase 05 prompt 2: the pgvector VectorStore implementation. Exported progressively as
+// sub-tasks 2.2/2.3/2.5 land the individual functions and, once every method exists,
+// the assembled `pgvectorStore: VectorStore` instance — see sub-task 2.7's own export
+// block below for the final, fully-commented surface.
+export {
+  deleteByFilePaths,
+  deleteByRepository,
+  upsertChunks,
+  VectorDimensionError,
+} from "./vector/pgvector.store.js";
+export type { ChunkUpsertInput } from "./vector/vector-store.interface.js";
