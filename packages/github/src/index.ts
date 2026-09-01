@@ -63,6 +63,7 @@ export {
 // ---------------------------------------------------------------------------
 export * as installationGithub from "./services/installation.github.js";
 export * as repositoryGithub from "./services/repository.github.js";
+export * as pullRequestGithub from "./services/pull-request.github.js";
 
 // Also named directly — repository-validation.service.ts (apps/api) references these
 // as bare types throughout, and re-deriving every reference through the namespace above
@@ -76,3 +77,8 @@ export type {
   GithubInstallationSummary,
   InstallationRepositorySummary,
 } from "./services/installation.github.js";
+export type {
+  GithubPullRequestMetadata,
+  GithubPullRequestSummary,
+  PullRequestGithubOptions,
+} from "./services/pull-request.github.js";
