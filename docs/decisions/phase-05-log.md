@@ -181,3 +181,138 @@ deploy`, 1.8's integration suite) ran against the local `pgvector/pgvector:pg16`
   successfully in this session (Docker/Testcontainers available), including the
   10,000-file-shaped real-repo suites; nothing in this phase's own scope could not be
   run end-to-end.
+
+## Prompt 2 — `VectorStore` interface, pgvector store, hybrid scoring
+
+Records the judgment calls made implementing Prompt 2 of Phase 05: the `VectorStore`
+interface, the pgvector-backed implementation (`upsert`, `search`, `hybridSearch`,
+`deleteByFilePaths`, `deleteByRepository`), and the hybrid scoring formula as a pure
+module.
+
+### The `halfvec` binding technique
+
+pgvector's wire format for a vector is the string literal `'[0.1,0.2,...]'`, not a JS
+`number[]` bound as a Postgres array. Every write and read binds the serialized string
+as a parameter and casts it statically: `${literal}::halfvec(1024)`, where `literal =
+`[${vector.join(",")}]``. A `null` embedding binds as `NULL::halfvec(1024)` — the
+explicit cast matters in a multi-row `VALUES` list where the first row happens to be
+null, so Postgres can still infer the column's type for every other row.
+
+`SET LOCAL hnsw.ef_search = ...` was verified **not** to accept a bind parameter —
+`prisma.$executeRaw`'s tagged template with a parameter in that position fails with
+`syntax error at or near "$1"` (Postgres's `SET` grammar only accepts a literal
+constant). The fixed, code-controlled `HNSW_EF_SEARCH_FILTERED` constant is spliced in
+via `Prisma.raw(String(HNSW_EF_SEARCH_FILTERED))` instead — never anything
+request-derived, so this does not reopen the string-interpolation rule (`plan.md`
+§35.11) it otherwise upholds everywhere else.
+
+### `String[]` binding — verified, not assumed
+
+`symbols`/`imports` (`text[]` columns) were tested directly against the `PrismaPg`
+driver adapter: a plain JS `string[]` parameter binds cleanly to a `text[]` column with
+**no explicit cast needed**, verified by a real insert-and-read-back
+(`apps/worker/tests/integration/vector-store.test.ts`'s "round-trips symbols/imports
+text[] columns" test). This works because the `INSERT`'s own explicit column list
+already tells Postgres what type to expect at that position — the same reason
+`repository-file.repository.ts`'s column-list `INSERT` never needs casts but its
+column-list-free `UPDATE ... FROM (VALUES ...)` does.
+
+### The distance-to-score conversion, and why not `1 - distance`
+
+`embedding <=> $1` is cosine **distance**, range `[0, 2]`, not a similarity and not
+bounded to `[0, 1]`. The naive `1 - distance` conversion a reviewer would expect
+produces negative scores for any distance above 1 — a legal, unremarkable `<=>` output
+for a dissimilar pair — which would silently corrupt the hybrid formula's weighted sum
+(every term is assumed to be in `[0, 1]`). The correct affine map is `1 - distance / 2`,
+clamped `[0, 1]` defensively for floating-point overshoot at the boundary. This
+conversion has exactly one definition in the codebase
+(`hybrid-scorer.ts`'s `normalizeVectorScore`) — `search`'s own vector-only path
+originally carried a duplicate copy (necessary since sub-task 2.3 landed before
+sub-task 2.4's pure module existed) and was refactored to import the pure-module
+version in the same commit that added `hybrid-scorer.ts`.
+
+### Set-relative normalization — lexical and fan-in
+
+Both `lexicalScore` (`ts_rank`) and the fan-in half of `recencyOrImportance`
+(`RepositoryFile.inboundEdgeCount`) are normalized **within the current candidate set**
+— divided by the maximum value present among the candidates being scored, not by any
+absolute or historical maximum. `ts_rank` is unbounded above and typically tiny
+(0.0–0.1) for real matches; contributed directly at weight 0.15 it would be
+decorative. This is a real design decision, not an obvious one: it means both terms
+measure "how good is this match relative to the best match this query found," not an
+absolute, cross-query-comparable quantity — logged score breakdowns are only
+comparable to each other within the same query's result set, not across different
+queries. A zero max (no lexical matches at all, or every candidate has zero fan-in)
+returns `0` for every candidate rather than dividing by zero.
+
+### Churn deferred from `recencyOrImportance`
+
+Spec §10 names "churn rate / export-ness / fan-in." Churn requires commit history,
+which nothing in this system stores yet (Phase 14, incremental indexing, is where that
+arrives). Implemented: fan-in (`RepositoryFile.inboundEdgeCount`) and export-ness
+(`CodeSymbol.isExported`), combined as an even 50/50 blend — spec §10 gives no
+sub-weights for the three named inputs, and with churn absent there is no basis yet to
+weight the two available signals unevenly. `RecencyImportanceInput` is a small,
+explicit type carrying only the two available fields, so adding churn later is a field
+addition, not a rewrite of every call site.
+
+### Graph proximity as a caller-supplied input
+
+`hybridSearch` never queries `CodeDependency` itself. `apps/api` cannot import from
+`apps/worker` (ESLint Rule C) and `packages/db` must not import from either, so
+`graphProximityByFilePath` is a plain, caller-supplied `Record<filePath, proximity>`
+rather than something the store computes. This keeps `VectorStore` a pure
+storage-and-retrieval abstraction with no knowledge of the dependency graph — the same
+property that keeps a future Qdrant implementation from also having to reproduce graph
+traversal (`docs/vector-search.md`). No map supplied (or no entry for a candidate's
+path) falls back to `GRAPH_PROXIMITY.NONE` (0.1) uniformly — not a bug; with no graph
+signal, the other four terms alone decide the ranking.
+
+### `pathAffinity`'s missing reference path, this phase
+
+`HybridSearchOptions` (sub-task 2.1, matching the prompt's own literal interface) has
+no "changed/reference file path" field — only `queryText` and `changedSymbolNames`.
+`hybridSearch` therefore always calls `pathAffinity` with `queryFilePath: null`, and
+every candidate gets the `NO_REFERENCE` tier (0.5, chosen as the numeric midpoint
+rather than `0` — see `hybrid-scorer.ts`'s own comment on why `0` would make
+cross-query score logs incomparable). This is a real, honest scope boundary, not an
+oversight: Phase 08 is spec's own stated "first consumer that actually calls
+[the formula] as part of a real review," and is where a reference path would first
+exist to pass in.
+
+### Measured `ef_search`, and the under-return risk in two different shapes
+
+`HNSW_EF_SEARCH_FILTERED = 120` (the middle of spec §22's named 80–200 band) is what
+shipped. Two adversarial shapes were measured directly, empirically, in this
+environment (`pgvector/pgvector:pg16` via Testcontainers, and cross-checked against a
+local `pgvector/pgvector:pg16` container for faster iteration):
+
+1. **One repository dominates the whole table** (the shape `search`/`hybridSearch`'s
+   own scale tests use): Postgres only prefers the HNSW index scan over a plain
+   scan-and-sort once that repository's own row count reaches the tens of
+   thousands — measured at this build: 3,000 rows still chose a Bitmap Heap Scan +
+   in-memory sort; 20,000 and 30,000 rows still chose a full Seq Scan + sort; the plan
+   flips to `Index Scan using "CodeChunk_embedding_hnsw_idx"` somewhere between 30,000
+   and 40,000 rows (50,000 was used for the committed tests as a comfortable margin
+   above the measured crossover). Below that crossover, "a few thousand rows" (the
+   naive assumption `graph-query-plans.test.ts`'s own precedent might suggest) is
+   **not** enough to exercise the index at all in this environment.
+2. **One small tenant shares a table with a much larger second tenant**
+   (`vector-tenant-isolation.test.ts`'s own shape, repoA 40 rows / repoB 2,000+ rows):
+   here the under-return risk did **not** reproduce, even at repoB scaled up to
+   100,000 rows in a follow-up check — Postgres's cost model keeps preferring the
+   cheap, _exact_ `repositoryId`-index-scan-and-sort plan for repoA's query
+   regardless of how large repoB grows, because that plan's cost depends only on
+   repoA's own (fixed, small) matching-row count, not on total table size. `ef_search`
+   was not the deciding factor in this shape at any scale tested — the planner's own
+   selectivity-based cost estimate already protects it. `ef_search` remains the
+   correct mitigation for shape 1, which does reproduce, and the constant is exported
+   specifically so a future, larger-scale recall test (Prompt 5) can re-measure this
+   as real data volumes grow.
+
+### What could not be verified from this environment
+
+- No change from Prompt 1's own list. All of this prompt's own DoD gates (build,
+  typecheck, lint, format, unit tests, integration tests including the two scale/
+  EXPLAIN-ANALYZE suites and the tenant-isolation suite) ran successfully against the
+  local Docker/Testcontainers `pgvector/pgvector:pg16` environment in this session.
