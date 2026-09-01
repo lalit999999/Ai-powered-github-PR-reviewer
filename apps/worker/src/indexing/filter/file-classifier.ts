@@ -1,5 +1,6 @@
 import path from "node:path";
-import type { FileClassification } from "@repo/shared";
+import type { FileClassification, PullRequestFileStatus, ReviewDepth } from "@repo/shared";
+import { CLASSIFICATION_REVIEW_DEPTH } from "@repo/shared";
 
 /**
  * Step 4 of `plan.md` §8.2, the last three stages: size cap → binary detection →
@@ -346,4 +347,92 @@ export function classify(
     isGenerated,
     packageName,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 07 (phase-07-pr-ingestion.md, Prompt 3, sub-task 3.3) — changed-file
+// classification and review depth
+// ---------------------------------------------------------------------------
+
+/**
+ * Classification for a file as it appears in a PR diff — path-only, because that is all a
+ * changed-file entry gives us. Deliberately reuses the same primitives {@link classify}
+ * uses (`detectLanguage`/`detectIsTest`/`detectIsGenerated`/`classifyFile`) so a path
+ * classified at index time and the same path classified at review time can never disagree.
+ *
+ * `classify()` itself is unusable here: it requires the file's content `Buffer`, its size
+ * on disk, and the repository's package roots, none of which exist for a diff entry (a PR
+ * changed-file gives a path, a status, additions/deletions, and maybe a patch — nothing
+ * else).
+ */
+export function classifyChangedFile(relativePath: string): FileClassification {
+  const language = detectLanguage(relativePath);
+  const isTest = detectIsTest(relativePath);
+  const isGenerated = detectIsGenerated(relativePath);
+  return classifyFile(relativePath, isTest, isGenerated, language);
+}
+
+export interface ReviewDepthInput {
+  classification: FileClassification;
+  /** PullRequestFileStatus (@repo/shared) — GitHub's own `added`/`removed`/`modified`/
+   * `renamed`/`copied`/`changed`/`unchanged`, all seven values. */
+  status: PullRequestFileStatus;
+  additions: number;
+  deletions: number;
+  /** False when GitHub omitted `patch` on this changed-file entry (a binary file, or a
+   * diff over GitHub's own per-file patch size cap). */
+  hasPatch: boolean;
+  /** `countChangedLines(parsed)` (patch-parser.ts) — 0 when there is no patch. */
+  changedLines: number;
+}
+
+/** plan.md §16.5's own conditional row: a file whose classification cannot be resolved
+ * (unrecognized extension, no other signal) still gets a lightweight pass rather than
+ * being silently skipped, provided its diff is not implausibly large. */
+const UNKNOWN_SHALLOW_MAX_CHANGED_LINES = 500;
+
+/**
+ * Decides how deeply a changed file should be reviewed. **Status overrides run FIRST,
+ * then classification** — a status override can short-circuit straight to `SKIP` (or fall
+ * through) before classification is even consulted, per `plan.md` §16.5:
+ *
+ * - `removed` -> `SKIP`. Never sent to the file reviewer — "who still imports this?" is a
+ *   graph question, answered deterministically in Phase 10, not an LLM question.
+ * - `renamed` with no content change (`additions === 0 && deletions === 0`) -> `SKIP`.
+ *   Nothing to review; the importer-update check is Phase 10's deterministic job.
+ * - `unchanged` -> `SKIP`. Nothing changed.
+ * - `copied` -> falls through to classification. `plan.md` §16.5: treat as `added`,
+ *   noting the source in the prompt (Phase 09's concern, not this function's).
+ * - `renamed` **with** content change -> falls through to classification. The content
+ *   diff is reviewed normally; `previousPath` is what Phase 08 uses to find the old
+ *   file's symbols.
+ * - `added` / `modified` / `changed` -> falls through to classification. The ordinary path.
+ *
+ * If no status override fired: `!hasPatch` -> `SKIP` (nothing to review without content).
+ * Otherwise, every classification except `UNKNOWN` looks up
+ * {@link CLASSIFICATION_REVIEW_DEPTH} (`@repo/shared`) directly. `UNKNOWN` is decided here
+ * rather than in that table (per its own comment) because its depth depends on the file's
+ * size, not its classification alone: `SHALLOW` when it has a patch and
+ * `changedLines < 500`, else `SKIP`.
+ *
+ * The 300/40 whole-PR caps (`MAX_FILES_CONSIDERED`/`MAX_DEEP_FILES`) are deliberately NOT
+ * applied here — they depend on every other file's priority score, so they belong to
+ * `review/file-manifest.ts`'s whole-PR pass (sub-task 3.5). Keeping this function per-file
+ * and pure is what makes it exhaustively unit-testable without assembling a whole PR.
+ */
+export function decideReviewDepth(input: ReviewDepthInput): ReviewDepth {
+  const { classification, status, additions, deletions, hasPatch, changedLines } = input;
+
+  if (status === "removed") return "SKIP";
+  if (status === "renamed" && additions === 0 && deletions === 0) return "SKIP";
+  if (status === "unchanged") return "SKIP";
+  // copied, renamed-with-content-change, added, modified, changed: fall through below.
+
+  if (!hasPatch) return "SKIP";
+
+  if (classification === "UNKNOWN") {
+    return changedLines < UNKNOWN_SHALLOW_MAX_CHANGED_LINES ? "SHALLOW" : "SKIP";
+  }
+
+  return CLASSIFICATION_REVIEW_DEPTH[classification];
 }
