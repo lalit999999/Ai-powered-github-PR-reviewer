@@ -78,6 +78,7 @@ export type {
   InstallationRepositorySummary,
 } from "./services/installation.github.js";
 export type {
+  GithubPullRequestFile,
   GithubPullRequestMetadata,
   GithubPullRequestSummary,
   PullRequestGithubOptions,

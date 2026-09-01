@@ -1,6 +1,11 @@
 import type { Octokit } from "@octokit/core";
 import { createLogger, type Logger } from "@repo/observability";
 import {
+  MAX_FILES_FETCHED,
+  PULL_REQUEST_FILE_STATUSES,
+  type PullRequestFileStatus,
+} from "@repo/shared";
+import {
   createInstallationOctokit,
   GITHUB_CLIENT_COMPONENT,
 } from "../client/octokit-factory.js";
@@ -309,6 +314,160 @@ export async function listOpenPullRequests(
       installationId: installationId.toString(),
       endpoint: "GET /repos/{owner}/{repo}/pulls",
       fullName: `${owner}/${repo}`,
+      reason,
+    });
+    return { ok: false, reason };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET /repos/{owner}/{repo}/pulls/{pull_number}/files — paginated changed files
+// ---------------------------------------------------------------------------
+
+export interface GithubPullRequestFile {
+  /** GitHub's `filename`. */
+  path: string;
+  /** `previous_filename`, present only on renames. */
+  previousPath: string | null;
+  status: PullRequestFileStatus;
+  additions: number;
+  deletions: number;
+  changes: number;
+  /** Absent for binary files and very large diffs. `null`, never `undefined`, so a
+   * consumer has exactly one absence check to make. */
+  patch: string | null;
+  /** Blob sha at head, when GitHub supplies it. */
+  sha: string | null;
+}
+
+interface RawPullRequestFile {
+  filename?: string;
+  previous_filename?: string;
+  status?: string;
+  additions?: number;
+  deletions?: number;
+  changes?: number;
+  patch?: string;
+  sha?: string;
+}
+
+const KNOWN_FILE_STATUSES: readonly string[] = PULL_REQUEST_FILE_STATUSES;
+
+function normalizeStatus(
+  raw: string | undefined,
+  logger: Logger,
+  context: { installationId: bigint; fullName: string; pullNumber: number },
+): PullRequestFileStatus {
+  if (raw !== undefined && KNOWN_FILE_STATUSES.includes(raw)) {
+    return raw as PullRequestFileStatus;
+  }
+
+  logger.warn(
+    "github returned an unrecognized file status; defaulting to modified",
+    {
+      installationId: context.installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+      fullName: context.fullName,
+      pullNumber: context.pullNumber,
+      status: raw,
+    },
+  );
+  return "modified";
+}
+
+/**
+ * Every changed file on a pull request, fully paginated up to GitHub's own
+ * {@link MAX_FILES_FETCHED} cap.
+ *
+ * **Deliberately does not stop at 300 files (`MAX_FILES_CONSIDERED`).** GitHub returns
+ * files in roughly alphabetical order, not priority order; cutting pagination at the
+ * processing cap would silently bias which files get reviewed toward whatever happens to
+ * sort early, so a PR's most important file could be dropped purely because its path
+ * starts with `z`. This function fetches everything up to the *GitHub-side* 3,000 cap;
+ * the 300-file processing cap is applied afterward as an explicit priority-ordered step
+ * (Prompt 3), never folded into pagination here. Do not "optimise" this back.
+ */
+export async function listPullRequestFiles(
+  installationId: bigint,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  options: PullRequestGithubOptions = {},
+): Promise<GithubResult<{ files: GithubPullRequestFile[]; truncated: boolean }>> {
+  const logger = options.logger ?? defaultLogger;
+  const octokit =
+    options.octokit ?? createInstallationOctokit(installationId, { logger });
+  const fullName = `${owner}/${repo}`;
+
+  try {
+    const files: GithubPullRequestFile[] = [];
+    let truncated = false;
+
+    for (let page = 1; ; page += 1) {
+      const response = await octokit.request(
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+        { owner, repo, pull_number: pullNumber, per_page: PER_PAGE, page },
+      );
+      const batch = (response.data as RawPullRequestFile[] | undefined) ?? [];
+
+      for (const raw of batch) {
+        if (typeof raw.filename !== "string") {
+          logger.warn("skipped a pull request file entry with no filename", {
+            installationId: installationId.toString(),
+            endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+            fullName,
+            pullNumber,
+          });
+          continue;
+        }
+
+        files.push({
+          path: raw.filename,
+          previousPath:
+            raw.status === "renamed" && typeof raw.previous_filename === "string"
+              ? raw.previous_filename
+              : null,
+          status: normalizeStatus(raw.status, logger, {
+            installationId,
+            fullName,
+            pullNumber,
+          }),
+          additions: raw.additions ?? 0,
+          deletions: raw.deletions ?? 0,
+          changes: raw.changes ?? 0,
+          patch: typeof raw.patch === "string" ? raw.patch : null,
+          sha: typeof raw.sha === "string" ? raw.sha : null,
+        });
+      }
+
+      if (files.length >= MAX_FILES_FETCHED) {
+        // GitHub's own hard cap. `truncated` is true only when the last page fetched
+        // was itself full — i.e. GitHub had more to give and this call simply stopped,
+        // as opposed to the PR happening to have exactly MAX_FILES_FETCHED files.
+        truncated = batch.length === PER_PAGE;
+        if (files.length > MAX_FILES_FETCHED) files.length = MAX_FILES_FETCHED;
+        break;
+      }
+      if (batch.length < PER_PAGE) break;
+    }
+
+    logger.info("fetched pull request changed files", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+      fullName,
+      pullNumber,
+      count: files.length,
+      truncated,
+    });
+
+    return { ok: true, files, truncated };
+  } catch (error) {
+    const reason = classifyGithubError(error);
+    logger.warn("failed to fetch pull request changed files", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+      fullName,
+      pullNumber,
       reason,
     });
     return { ok: false, reason };

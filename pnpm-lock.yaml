@@ -526,6 +526,9 @@ importers:
       '@repo/observability':
         specifier: workspace:*
         version: link:../observability
+      '@repo/shared':
+        specifier: workspace:*
+        version: link:../shared
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
