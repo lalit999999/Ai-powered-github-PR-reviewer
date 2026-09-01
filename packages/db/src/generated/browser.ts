@@ -78,6 +78,26 @@ export type WebhookEvent = Prisma.WebhookEventModel
  */
 export type PullRequest = Prisma.PullRequestModel
 /**
+ * Model Review
+ * 
+ */
+export type Review = Prisma.ReviewModel
+/**
+ * Model PullRequestFile
+ * 
+ */
+export type PullRequestFile = Prisma.PullRequestFileModel
+/**
+ * Model ReviewJob
+ * 
+ */
+export type ReviewJob = Prisma.ReviewJobModel
+/**
+ * Model PatchBlob
+ * 
+ */
+export type PatchBlob = Prisma.PatchBlobModel
+/**
  * Model Account
  * 
  */

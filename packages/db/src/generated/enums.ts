@@ -47,3 +47,27 @@ export const IndexStatus = {
 } as const
 
 export type IndexStatus = (typeof IndexStatus)[keyof typeof IndexStatus]
+
+
+export const ReviewStatus = {
+  PENDING: 'PENDING',
+  WAITING_FOR_INDEX: 'WAITING_FOR_INDEX',
+  RUNNING: 'RUNNING',
+  AGGREGATING: 'AGGREGATING',
+  PUBLISHING: 'PUBLISHING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+  SUPERSEDED: 'SUPERSEDED'
+} as const
+
+export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus]
+
+
+export const ReviewDepth = {
+  DEEP: 'DEEP',
+  SHALLOW: 'SHALLOW',
+  SKIP: 'SKIP'
+} as const
+
+export type ReviewDepth = (typeof ReviewDepth)[keyof typeof ReviewDepth]

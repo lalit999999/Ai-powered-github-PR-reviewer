@@ -63,6 +63,10 @@ export const ModelName = {
   IndexJob: 'IndexJob',
   WebhookEvent: 'WebhookEvent',
   PullRequest: 'PullRequest',
+  Review: 'Review',
+  PullRequestFile: 'PullRequestFile',
+  ReviewJob: 'ReviewJob',
+  PatchBlob: 'PatchBlob',
   Account: 'Account',
   Session: 'Session',
   VerificationToken: 'VerificationToken'
@@ -308,11 +312,104 @@ export const PullRequestScalarFieldEnum = {
   headSha: 'headSha',
   state: 'state',
   isDraft: 'isDraft',
+  title: 'title',
+  body: 'body',
+  authorLogin: 'authorLogin',
+  authorAvatarUrl: 'authorAvatarUrl',
+  baseRef: 'baseRef',
+  baseSha: 'baseSha',
+  headRef: 'headRef',
+  htmlUrl: 'htmlUrl',
+  additions: 'additions',
+  deletions: 'deletions',
+  changedFileCount: 'changedFileCount',
+  latestReviewId: 'latestReviewId',
+  githubCreatedAt: 'githubCreatedAt',
+  githubUpdatedAt: 'githubUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type PullRequestScalarFieldEnum = (typeof PullRequestScalarFieldEnum)[keyof typeof PullRequestScalarFieldEnum]
+
+
+export const ReviewScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  repositoryId: 'repositoryId',
+  pullRequestId: 'pullRequestId',
+  idempotencyKey: 'idempotencyKey',
+  status: 'status',
+  trigger: 'trigger',
+  headSha: 'headSha',
+  baseSha: 'baseSha',
+  contextQuality: 'contextQuality',
+  inputTokens: 'inputTokens',
+  outputTokens: 'outputTokens',
+  estimatedCostCents: 'estimatedCostCents',
+  error: 'error',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ReviewScalarFieldEnum = (typeof ReviewScalarFieldEnum)[keyof typeof ReviewScalarFieldEnum]
+
+
+export const PullRequestFileScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  path: 'path',
+  previousPath: 'previousPath',
+  status: 'status',
+  additions: 'additions',
+  deletions: 'deletions',
+  changes: 'changes',
+  sha: 'sha',
+  patchRef: 'patchRef',
+  patchBytes: 'patchBytes',
+  classification: 'classification',
+  depth: 'depth',
+  priorityScore: 'priorityScore',
+  reviewStatus: 'reviewStatus',
+  isOversized: 'isOversized',
+  diffPositionMap: 'diffPositionMap',
+  error: 'error',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PullRequestFileScalarFieldEnum = (typeof PullRequestFileScalarFieldEnum)[keyof typeof PullRequestFileScalarFieldEnum]
+
+
+export const ReviewJobScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  kind: 'kind',
+  status: 'status',
+  pullRequestFileId: 'pullRequestFileId',
+  inngestRunId: 'inngestRunId',
+  attempts: 'attempts',
+  error: 'error',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ReviewJobScalarFieldEnum = (typeof ReviewJobScalarFieldEnum)[keyof typeof ReviewJobScalarFieldEnum]
+
+
+export const PatchBlobScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  path: 'path',
+  content: 'content',
+  byteSize: 'byteSize',
+  createdAt: 'createdAt'
+} as const
+
+export type PatchBlobScalarFieldEnum = (typeof PatchBlobScalarFieldEnum)[keyof typeof PatchBlobScalarFieldEnum]
 
 
 export const AccountScalarFieldEnum = {

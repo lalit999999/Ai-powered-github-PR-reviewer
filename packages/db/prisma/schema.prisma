@@ -535,12 +535,14 @@ model WebhookEvent {
 // webhook can populate on its own, with no GitHub API call to enrich it — every column
 // below comes straight out of the webhook payload the router already has in hand.
 //
-// Phase 07 extends this model additively with `title`, `body`, `authorLogin`, `baseRef`,
-// `baseSha`, `additions`, `deletions`, `changedFileCount`, `htmlUrl`, and GitHub's own
-// timestamps, once that phase actually needs them for review. Nothing in this phase
-// reads any of those; they are not declared early here because — unlike
-// `Repository.indexedCommitSha` et al. — phase-06 §6 does not ask for them and this
-// phase has no read path that would exercise a null default correctly.
+// Phase 07 (sub-task 1.4) extends this model additively with `title`, `body`,
+// `authorLogin`, `authorAvatarUrl`, `baseRef`, `baseSha`, `headRef`, `htmlUrl`,
+// `additions`, `deletions`, `changedFileCount`, `latestReviewId`, and GitHub's own
+// timestamps, now that Phase 07 actually needs them for review. **Every new column is
+// nullable** — `upsertMinimal` (apps/api/src/modules/webhooks/pull-request.repository.ts)
+// still writes only the original six fields by design (see that function's own doc
+// comment), so a `synchronize` webhook re-upserting this row can never wipe this phase's
+// enrichment; only Phase 07's own write path (a later prompt) ever populates them.
 //
 // `@@unique([repositoryId, number])`, not a unique constraint on `githubPrId` alone: the
 // same GitHub pull request can legitimately produce two rows here, exactly as the same
@@ -558,13 +560,295 @@ model PullRequest {
   headSha        String
   state          String
   isDraft        Boolean   @default(false)
+
+  // --- Phase 07 enrichment — every field nullable; see the model comment above. ---
+  title             String?
+  body              String?
+  authorLogin       String?
+  authorAvatarUrl   String?
+  baseRef           String?
+  baseSha           String?
+  headRef           String?
+  htmlUrl           String?
+  additions         Int?
+  deletions         Int?
+  changedFileCount  Int?
+  // Plain id, deliberately not a `@relation` — the identical "an id column that names a
+  // sibling row without wanting that row's delete to cascade back through here" choice
+  // `CodeSymbol.parentSymbolId` already makes (see that field's own comment). A fast
+  // "what's the current review for this PR" pointer that a later prompt maintains;
+  // `Review.pullRequestId` (below) is the real, FK-backed relation everything else reads.
+  latestReviewId    String?
+  githubCreatedAt   DateTime?
+  githubUpdatedAt   DateTime?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  // Phase 07 — every review attempt run against this PR, across every commit. Cascades:
+  // a PullRequest row is never expected to be deleted in practice (GitHub never deletes a
+  // PR, only closes it), but if one ever is, its review history should not survive it
+  // orphaned.
+  reviews    Review[]
 
   @@unique([repositoryId, number])
   @@index([repositoryId, state])
+  // Phase 07 sub-task 1.4 — not in Phase 06's own index list. A project/repository
+  // dashboard listing "most recently active PRs" orders by GitHub's own updated_at, not
+  // by this row's local `updatedAt` (which also ticks on purely-local writes, like a
+  // review completing, that are not "PR activity" from GitHub's point of view).
+  @@index([repositoryId, githubUpdatedAt(sort: Desc)])
+}
+
+// Phase 07 (PR ingestion) — the manifest, not the content: turns a webhook event into a
+// persisted, classified, prioritized snapshot of a PR (a `Review` row, one
+// `PullRequestFile` row per changed file, and a diff position map per file). No LLM
+// call, no vector search, no finding is produced by this phase — that is a later
+// phase's job, reading the rows below.
+//
+// **Provenance note**: the phase-07 spec document this schema is modeled on is not
+// present in this repository checkout (only referenced by earlier phases' own doc
+// comments as external material, the same way `plan.md` is referenced throughout this
+// file without being checked in). Every field below traces to an explicit requirement
+// named in Prompt 1's own sub-task 1.4 text — `idempotencyKey`'s shape and uniqueness,
+// the input/output token/cost columns, the three named `Review` indexes, the four
+// `Review` relations, `PatchBlob`'s exact shape — or to the established sibling-model
+// pattern (`Repository`/`RepositoryFile`/`PullRequest`/`IndexJob`) where the prompt is
+// silent, never invented speculatively. Per this repo's own non-negotiable rule 2
+// ("the codebase wins on conflicts... follow the real layout and record the override in
+// a comment"), this note is that record.
+
+enum ReviewStatus {
+  PENDING
+  WAITING_FOR_INDEX
+  RUNNING
+  AGGREGATING
+  PUBLISHING
+  COMPLETED
+  FAILED
+  CANCELLED
+  SUPERSEDED
+}
+
+enum ReviewDepth {
+  DEEP
+  SHALLOW
+  SKIP
+}
+
+// One row per **review attempt**, not one row per PR — a PR gets a new `Review` on
+// every reviewable commit (a fresh `headSha`), and `idempotencyKey`'s uniqueness is what
+// stops the same attempt from being double-created under concurrent webhook deliveries.
+// A newer commit landing while an older `Review` is still in flight moves the older one
+// to `SUPERSEDED` rather than deleting it — every attempt survives for audit history.
+//
+// `projectId`/`repositoryId` are **denormalized, unrelated columns** — deliberately not
+// `@relation` fields. The authoritative ownership chain is `Review → pullRequest →
+// repository → project`, resolved in one query by `review.repository.ts`'s
+// `findOwnershipById` (sub-task 1.5); these two columns exist only so a caller that
+// already has them in hand (every Prompt 2+ Inngest function starts from
+// `PullRequestReviewRequestedData`, which already carries both) never has to re-derive
+// them with a join just to log or scope a query — the identical "avoid a round trip for
+// what the caller already knows" argument `RepositoryIndexRequestedData`/
+// `PullRequestReviewRequestedData` (`@repo/shared`'s `events.ts`) already make for their
+// own `projectId` field. `projectId` additionally carries a required index (below) for
+// a project-wide "recent review activity across every repository" query; `repositoryId`
+// has no index of its own because no such requirement was named for it — declared
+// anyway because leaving it out would make `repositoryId` unavailable everywhere except
+// through a join, for a value every writer already has for free.
+model Review {
+  id           String @id @default(uuid())
+  projectId    String
+  repositoryId String
+
+  pullRequestId String
+  // Built ONLY by `@repo/shared`'s `buildIdempotencyKey` (sub-task 1.2) —
+  // `apps/api` builds it to look up an existing review, `apps/worker` builds it to
+  // insert one. This unique constraint is the actual concurrency guard; if the two
+  // call sites ever built the key differently, the guard would silently stop working
+  // while every single-sided unit test kept passing (see that function's own comment).
+  idempotencyKey String @unique
+
+  status ReviewStatus @default(PENDING)
+  // REVIEW_TRIGGERS (@repo/shared) — a plain String column, not a Postgres enum,
+  // matching the `Repository.connectionStatus` / `IndexJob.status` precedent this
+  // schema already follows throughout (docs/decisions/phase-02-log.md §5).
+  trigger String
+
+  headSha String
+  baseSha String
+
+  // CONTEXT_QUALITIES (@repo/shared) — FULL | DEGRADED. Null until the index-readiness
+  // gate (a later prompt) resolves which of the two this run actually got; a review
+  // that never reached that gate (failed earlier) legitimately has no answer.
+  contextQuality String?
+
+  // Declared now, populated starting Phase 09 — the same "declare a later-phase field
+  // now" pattern `Repository.indexedCommitSha` already uses (docs/decisions/
+  // phase-02-log.md §4), so the LLM-calling phase does not need a schema migration just
+  // to start recording spend.
+  inputTokens        Int?
+  outputTokens        Int?
+  estimatedCostCents Int?
+
+  // { code, message, ...details } — the same shape `IndexJob.error`/`Repository.indexError`
+  // already use for a terminal failure.
+  error Json?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pullRequest PullRequest       @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  files       PullRequestFile[]
+  jobs        ReviewJob[]
+  patchBlobs  PatchBlob[]
+
+  @@index([pullRequestId, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([status])
+}
+
+// One row per file changed in the PR **as of this `Review`'s `headSha`** — scoped to a
+// `Review`, deliberately NOT to a `PullRequest`, because the changed-file set differs
+// between commits on the same PR (a `synchronize` webhook can add, remove, or leave
+// unchanged any file relative to the previous commit's set). Scoping to `PullRequest`
+// instead would force every new commit to somehow reconcile against the previous
+// commit's file list rather than simply writing a fresh one.
+model PullRequestFile {
+  id       String @id @default(uuid())
+  reviewId String
+
+  path String
+  // GitHub reports the pre-rename path only when `status` is "renamed"/"copied"; null
+  // otherwise. Lets a later prompt resolve a renamed file back to its `RepositoryFile`
+  // row under its old path when the new path alone doesn't match.
+  previousPath String?
+
+  // PULL_REQUEST_FILE_STATUSES (@repo/shared) — GitHub's own `added`/`removed`/
+  // `modified`/`renamed`/`copied`/`changed`/`unchanged`, copied verbatim, matching the
+  // identical "keep GitHub's own spelling" choice `webhooks.ts`'s `PULL_REQUEST_STATES`
+  // already makes for `PullRequest.state` (see that union's own doc comment).
+  status    String
+  additions Int
+  deletions Int
+  changes   Int
+
+  // The blob sha GitHub reports for this file's contents at `Review.headSha` — null for
+  // a removed file (GitHub omits it). Not a commit sha; this row already belongs to
+  // exactly one `Review`, which already names the commit.
+  sha String?
+
+  // sub-task 1.6 (patch store) — `inline:<patch text>` | `blob:<PatchBlob.id>` | null (no
+  // patch supplied: a binary or over-GitHub's-own-size-cap file). Written by
+  // `apps/worker/src/lib/patch-store.ts`; `apps/api` never reads the patch body itself in
+  // this phase, only this pointer.
+  patchRef   String?
+  patchBytes Int     @default(0)
+
+  // The real Prisma enum `RepositoryFile.classification` already uses — reused
+  // directly, not re-declared, since this is the identical vocabulary classifying the
+  // identical kind of fact (a file's role), just for a file that may not have a
+  // `RepositoryFile` row yet (newly added in this PR; the repository has not been
+  // re-indexed at this exact commit).
+  classification FileClassification @default(UNKNOWN)
+  // CLASSIFICATION_REVIEW_DEPTH (@repo/shared) maps a classification to this — a real
+  // Postgres enum (declared above), unlike every String-typed vocabulary on this model.
+  depth          ReviewDepth
+  // plan.md §17.1 — Prompt 3's formula, over `RepositoryFile.inboundEdgeCount`/
+  // `symbolCount` (joined live by `(repositoryId, path)`, not duplicated onto this row —
+  // see this model's own header comment on why no `repositoryFileId` is stored).
+  priorityScore  Float               @default(0)
+
+  // PULL_REQUEST_FILE_REVIEW_STATUSES (@repo/shared) — this system's own progress
+  // through the review pipeline, independent of `status` above (GitHub's diff
+  // classification of the file, not this system's review progress).
+  reviewStatus String @default("PENDING")
+
+  // OVERSIZED_FILE_DIFF_LINES (@repo/shared) — flagged, not acted on, in this phase;
+  // splitting an oversized diff into reviewable pieces is a later phase's job.
+  isOversized Boolean @default(false)
+
+  // The reason sub-task 1.1's own framing names this phase's real deliverable: which
+  // lines of this file's diff GitHub's Review API will legally accept an inline comment
+  // on. Shape is left to whichever later phase is the first real consumer; this phase
+  // only computes and stores it. Null until a later prompt populates it.
+  diffPositionMap Json?
+
+  error     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, path])
+  @@index([reviewId, reviewStatus])
+  // Prompt 3+'s fan-out reads files in priority order — the entire point of computing
+  // the score in the first place.
+  @@index([reviewId, priorityScore(sort: Desc)])
+}
+
+// The Postgres mirror of Inngest run state for the review pipeline (plan.md §27.6:
+// "Inngest is the executor, Postgres is the status of record") — the identical role
+// `IndexJob` already plays for the indexing pipeline. The UI polls this table, never the
+// Inngest API. One row per unit of work Inngest actually schedules: the overall PROCESS
+// run, one FILE job per reviewed file, the AGGREGATE step, and the PUBLISH step that
+// posts results back to GitHub (REVIEW_JOB_KINDS, @repo/shared).
+model ReviewJob {
+  id       String @id @default(uuid())
+  reviewId String
+
+  // REVIEW_JOB_KINDS (@repo/shared) — PROCESS | FILE | AGGREGATE | PUBLISH.
+  kind String
+  // REVIEW_JOB_STATUSES (@repo/shared) — PENDING | RUNNING | SUCCEEDED | FAILED.
+  status String @default("PENDING")
+
+  // Set only for kind="FILE" — the specific file this job reviews. Plain id, not a
+  // `@relation`, for the identical reason `PullRequest.latestReviewId` isn't one either
+  // (see that field's own comment): a fast pointer a later prompt maintains, not a
+  // relationship this schema wants cascade-delete semantics for.
+  pullRequestFileId String?
+
+  inngestRunId String?
+  attempts     Int     @default(0)
+  error        Json?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, kind])
+}
+
+// **Not in the spec — a deliberate, argued addition.** `PullRequestFile.patchRef` needs
+// to point somewhere when a patch exceeds `PATCH_INLINE_MAX_BYTES` (@repo/shared,
+// sub-task 1.6), and the spec's own field list requires that pointer to name "blob
+// storage" — but no object storage (S3, R2, or otherwise) exists anywhere in this
+// system, and no env var for one is configured (sub-task 1.4's own review of this).
+// Introducing one here would mean new credentials, a new failure mode, and new deploy
+// configuration for a path that is by definition rare (most patches are well under
+// 64 KiB). A separate Postgres table achieves the actual goal — keeping the hot-path
+// `PullRequestFile` row small, since no query on the review pipeline selects
+// `PatchBlob.content` unless it specifically wants that one patch — at zero
+// infrastructure cost, and leaves `patchRef`'s `scheme:value` format (`inline:`/`blob:`)
+// as a clean seam to swap in real object storage later without a schema change.
+model PatchBlob {
+  id       String @id @default(uuid())
+  reviewId String
+  path     String
+  content  String @db.Text
+  byteSize Int
+
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, path])
+  @@index([reviewId])
 }
 
 // --- Auth.js adapter tables (@auth/prisma-adapter) ---

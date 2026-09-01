@@ -29,11 +29,17 @@ export type AggregatePullRequest = {
 export type PullRequestAvgAggregateOutputType = {
   number: number | null
   githubPrId: number | null
+  additions: number | null
+  deletions: number | null
+  changedFileCount: number | null
 }
 
 export type PullRequestSumAggregateOutputType = {
   number: number | null
   githubPrId: bigint | null
+  additions: number | null
+  deletions: number | null
+  changedFileCount: number | null
 }
 
 export type PullRequestMinAggregateOutputType = {
@@ -44,6 +50,20 @@ export type PullRequestMinAggregateOutputType = {
   headSha: string | null
   state: string | null
   isDraft: boolean | null
+  title: string | null
+  body: string | null
+  authorLogin: string | null
+  authorAvatarUrl: string | null
+  baseRef: string | null
+  baseSha: string | null
+  headRef: string | null
+  htmlUrl: string | null
+  additions: number | null
+  deletions: number | null
+  changedFileCount: number | null
+  latestReviewId: string | null
+  githubCreatedAt: Date | null
+  githubUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -56,6 +76,20 @@ export type PullRequestMaxAggregateOutputType = {
   headSha: string | null
   state: string | null
   isDraft: boolean | null
+  title: string | null
+  body: string | null
+  authorLogin: string | null
+  authorAvatarUrl: string | null
+  baseRef: string | null
+  baseSha: string | null
+  headRef: string | null
+  htmlUrl: string | null
+  additions: number | null
+  deletions: number | null
+  changedFileCount: number | null
+  latestReviewId: string | null
+  githubCreatedAt: Date | null
+  githubUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -68,6 +102,20 @@ export type PullRequestCountAggregateOutputType = {
   headSha: number
   state: number
   isDraft: number
+  title: number
+  body: number
+  authorLogin: number
+  authorAvatarUrl: number
+  baseRef: number
+  baseSha: number
+  headRef: number
+  htmlUrl: number
+  additions: number
+  deletions: number
+  changedFileCount: number
+  latestReviewId: number
+  githubCreatedAt: number
+  githubUpdatedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -77,11 +125,17 @@ export type PullRequestCountAggregateOutputType = {
 export type PullRequestAvgAggregateInputType = {
   number?: true
   githubPrId?: true
+  additions?: true
+  deletions?: true
+  changedFileCount?: true
 }
 
 export type PullRequestSumAggregateInputType = {
   number?: true
   githubPrId?: true
+  additions?: true
+  deletions?: true
+  changedFileCount?: true
 }
 
 export type PullRequestMinAggregateInputType = {
@@ -92,6 +146,20 @@ export type PullRequestMinAggregateInputType = {
   headSha?: true
   state?: true
   isDraft?: true
+  title?: true
+  body?: true
+  authorLogin?: true
+  authorAvatarUrl?: true
+  baseRef?: true
+  baseSha?: true
+  headRef?: true
+  htmlUrl?: true
+  additions?: true
+  deletions?: true
+  changedFileCount?: true
+  latestReviewId?: true
+  githubCreatedAt?: true
+  githubUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -104,6 +172,20 @@ export type PullRequestMaxAggregateInputType = {
   headSha?: true
   state?: true
   isDraft?: true
+  title?: true
+  body?: true
+  authorLogin?: true
+  authorAvatarUrl?: true
+  baseRef?: true
+  baseSha?: true
+  headRef?: true
+  htmlUrl?: true
+  additions?: true
+  deletions?: true
+  changedFileCount?: true
+  latestReviewId?: true
+  githubCreatedAt?: true
+  githubUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -116,6 +198,20 @@ export type PullRequestCountAggregateInputType = {
   headSha?: true
   state?: true
   isDraft?: true
+  title?: true
+  body?: true
+  authorLogin?: true
+  authorAvatarUrl?: true
+  baseRef?: true
+  baseSha?: true
+  headRef?: true
+  htmlUrl?: true
+  additions?: true
+  deletions?: true
+  changedFileCount?: true
+  latestReviewId?: true
+  githubCreatedAt?: true
+  githubUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -215,6 +311,20 @@ export type PullRequestGroupByOutputType = {
   headSha: string
   state: string
   isDraft: boolean
+  title: string | null
+  body: string | null
+  authorLogin: string | null
+  authorAvatarUrl: string | null
+  baseRef: string | null
+  baseSha: string | null
+  headRef: string | null
+  htmlUrl: string | null
+  additions: number | null
+  deletions: number | null
+  changedFileCount: number | null
+  latestReviewId: string | null
+  githubCreatedAt: Date | null
+  githubUpdatedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: PullRequestCountAggregateOutputType | null
@@ -250,9 +360,24 @@ export type PullRequestWhereInput = {
   headSha?: Prisma.StringFilter<"PullRequest"> | string
   state?: Prisma.StringFilter<"PullRequest"> | string
   isDraft?: Prisma.BoolFilter<"PullRequest"> | boolean
+  title?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  body?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  authorLogin?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  authorAvatarUrl?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  baseRef?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  baseSha?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  headRef?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  htmlUrl?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  additions?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  deletions?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  changedFileCount?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  latestReviewId?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  githubCreatedAt?: Prisma.DateTimeNullableFilter<"PullRequest"> | Date | string | null
+  githubUpdatedAt?: Prisma.DateTimeNullableFilter<"PullRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"PullRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PullRequest"> | Date | string
   repository?: Prisma.XOR<Prisma.RepositoryScalarRelationFilter, Prisma.RepositoryWhereInput>
+  reviews?: Prisma.ReviewListRelationFilter
 }
 
 export type PullRequestOrderByWithRelationInput = {
@@ -263,9 +388,24 @@ export type PullRequestOrderByWithRelationInput = {
   headSha?: Prisma.SortOrder
   state?: Prisma.SortOrder
   isDraft?: Prisma.SortOrder
+  title?: Prisma.SortOrderInput | Prisma.SortOrder
+  body?: Prisma.SortOrderInput | Prisma.SortOrder
+  authorLogin?: Prisma.SortOrderInput | Prisma.SortOrder
+  authorAvatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  baseRef?: Prisma.SortOrderInput | Prisma.SortOrder
+  baseSha?: Prisma.SortOrderInput | Prisma.SortOrder
+  headRef?: Prisma.SortOrderInput | Prisma.SortOrder
+  htmlUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  additions?: Prisma.SortOrderInput | Prisma.SortOrder
+  deletions?: Prisma.SortOrderInput | Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  latestReviewId?: Prisma.SortOrderInput | Prisma.SortOrder
+  githubCreatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  githubUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   repository?: Prisma.RepositoryOrderByWithRelationInput
+  reviews?: Prisma.ReviewOrderByRelationAggregateInput
 }
 
 export type PullRequestWhereUniqueInput = Prisma.AtLeast<{
@@ -280,9 +420,24 @@ export type PullRequestWhereUniqueInput = Prisma.AtLeast<{
   headSha?: Prisma.StringFilter<"PullRequest"> | string
   state?: Prisma.StringFilter<"PullRequest"> | string
   isDraft?: Prisma.BoolFilter<"PullRequest"> | boolean
+  title?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  body?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  authorLogin?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  authorAvatarUrl?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  baseRef?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  baseSha?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  headRef?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  htmlUrl?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  additions?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  deletions?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  changedFileCount?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  latestReviewId?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  githubCreatedAt?: Prisma.DateTimeNullableFilter<"PullRequest"> | Date | string | null
+  githubUpdatedAt?: Prisma.DateTimeNullableFilter<"PullRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"PullRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PullRequest"> | Date | string
   repository?: Prisma.XOR<Prisma.RepositoryScalarRelationFilter, Prisma.RepositoryWhereInput>
+  reviews?: Prisma.ReviewListRelationFilter
 }, "id" | "repositoryId_number">
 
 export type PullRequestOrderByWithAggregationInput = {
@@ -293,6 +448,20 @@ export type PullRequestOrderByWithAggregationInput = {
   headSha?: Prisma.SortOrder
   state?: Prisma.SortOrder
   isDraft?: Prisma.SortOrder
+  title?: Prisma.SortOrderInput | Prisma.SortOrder
+  body?: Prisma.SortOrderInput | Prisma.SortOrder
+  authorLogin?: Prisma.SortOrderInput | Prisma.SortOrder
+  authorAvatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  baseRef?: Prisma.SortOrderInput | Prisma.SortOrder
+  baseSha?: Prisma.SortOrderInput | Prisma.SortOrder
+  headRef?: Prisma.SortOrderInput | Prisma.SortOrder
+  htmlUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  additions?: Prisma.SortOrderInput | Prisma.SortOrder
+  deletions?: Prisma.SortOrderInput | Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  latestReviewId?: Prisma.SortOrderInput | Prisma.SortOrder
+  githubCreatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  githubUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.PullRequestCountOrderByAggregateInput
@@ -313,6 +482,20 @@ export type PullRequestScalarWhereWithAggregatesInput = {
   headSha?: Prisma.StringWithAggregatesFilter<"PullRequest"> | string
   state?: Prisma.StringWithAggregatesFilter<"PullRequest"> | string
   isDraft?: Prisma.BoolWithAggregatesFilter<"PullRequest"> | boolean
+  title?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  body?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  authorLogin?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  authorAvatarUrl?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  baseRef?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  baseSha?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  headRef?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  htmlUrl?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  additions?: Prisma.IntNullableWithAggregatesFilter<"PullRequest"> | number | null
+  deletions?: Prisma.IntNullableWithAggregatesFilter<"PullRequest"> | number | null
+  changedFileCount?: Prisma.IntNullableWithAggregatesFilter<"PullRequest"> | number | null
+  latestReviewId?: Prisma.StringNullableWithAggregatesFilter<"PullRequest"> | string | null
+  githubCreatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"PullRequest"> | Date | string | null
+  githubUpdatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"PullRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"PullRequest"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"PullRequest"> | Date | string
 }
@@ -324,9 +507,24 @@ export type PullRequestCreateInput = {
   headSha: string
   state: string
   isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   repository: Prisma.RepositoryCreateNestedOneWithoutPullRequestsInput
+  reviews?: Prisma.ReviewCreateNestedManyWithoutPullRequestInput
 }
 
 export type PullRequestUncheckedCreateInput = {
@@ -337,8 +535,23 @@ export type PullRequestUncheckedCreateInput = {
   headSha: string
   state: string
   isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutPullRequestInput
 }
 
 export type PullRequestUpdateInput = {
@@ -348,9 +561,24 @@ export type PullRequestUpdateInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repository?: Prisma.RepositoryUpdateOneRequiredWithoutPullRequestsNestedInput
+  reviews?: Prisma.ReviewUpdateManyWithoutPullRequestNestedInput
 }
 
 export type PullRequestUncheckedUpdateInput = {
@@ -361,8 +589,23 @@ export type PullRequestUncheckedUpdateInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviews?: Prisma.ReviewUncheckedUpdateManyWithoutPullRequestNestedInput
 }
 
 export type PullRequestCreateManyInput = {
@@ -373,6 +616,20 @@ export type PullRequestCreateManyInput = {
   headSha: string
   state: string
   isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -384,6 +641,20 @@ export type PullRequestUpdateManyMutationInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -396,6 +667,20 @@ export type PullRequestUncheckedUpdateManyInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -423,6 +708,20 @@ export type PullRequestCountOrderByAggregateInput = {
   headSha?: Prisma.SortOrder
   state?: Prisma.SortOrder
   isDraft?: Prisma.SortOrder
+  title?: Prisma.SortOrder
+  body?: Prisma.SortOrder
+  authorLogin?: Prisma.SortOrder
+  authorAvatarUrl?: Prisma.SortOrder
+  baseRef?: Prisma.SortOrder
+  baseSha?: Prisma.SortOrder
+  headRef?: Prisma.SortOrder
+  htmlUrl?: Prisma.SortOrder
+  additions?: Prisma.SortOrder
+  deletions?: Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrder
+  latestReviewId?: Prisma.SortOrder
+  githubCreatedAt?: Prisma.SortOrder
+  githubUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -430,6 +729,9 @@ export type PullRequestCountOrderByAggregateInput = {
 export type PullRequestAvgOrderByAggregateInput = {
   number?: Prisma.SortOrder
   githubPrId?: Prisma.SortOrder
+  additions?: Prisma.SortOrder
+  deletions?: Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrder
 }
 
 export type PullRequestMaxOrderByAggregateInput = {
@@ -440,6 +742,20 @@ export type PullRequestMaxOrderByAggregateInput = {
   headSha?: Prisma.SortOrder
   state?: Prisma.SortOrder
   isDraft?: Prisma.SortOrder
+  title?: Prisma.SortOrder
+  body?: Prisma.SortOrder
+  authorLogin?: Prisma.SortOrder
+  authorAvatarUrl?: Prisma.SortOrder
+  baseRef?: Prisma.SortOrder
+  baseSha?: Prisma.SortOrder
+  headRef?: Prisma.SortOrder
+  htmlUrl?: Prisma.SortOrder
+  additions?: Prisma.SortOrder
+  deletions?: Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrder
+  latestReviewId?: Prisma.SortOrder
+  githubCreatedAt?: Prisma.SortOrder
+  githubUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -452,6 +768,20 @@ export type PullRequestMinOrderByAggregateInput = {
   headSha?: Prisma.SortOrder
   state?: Prisma.SortOrder
   isDraft?: Prisma.SortOrder
+  title?: Prisma.SortOrder
+  body?: Prisma.SortOrder
+  authorLogin?: Prisma.SortOrder
+  authorAvatarUrl?: Prisma.SortOrder
+  baseRef?: Prisma.SortOrder
+  baseSha?: Prisma.SortOrder
+  headRef?: Prisma.SortOrder
+  htmlUrl?: Prisma.SortOrder
+  additions?: Prisma.SortOrder
+  deletions?: Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrder
+  latestReviewId?: Prisma.SortOrder
+  githubCreatedAt?: Prisma.SortOrder
+  githubUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -459,6 +789,14 @@ export type PullRequestMinOrderByAggregateInput = {
 export type PullRequestSumOrderByAggregateInput = {
   number?: Prisma.SortOrder
   githubPrId?: Prisma.SortOrder
+  additions?: Prisma.SortOrder
+  deletions?: Prisma.SortOrder
+  changedFileCount?: Prisma.SortOrder
+}
+
+export type PullRequestScalarRelationFilter = {
+  is?: Prisma.PullRequestWhereInput
+  isNot?: Prisma.PullRequestWhereInput
 }
 
 export type PullRequestCreateNestedManyWithoutRepositoryInput = {
@@ -503,6 +841,20 @@ export type PullRequestUncheckedUpdateManyWithoutRepositoryNestedInput = {
   deleteMany?: Prisma.PullRequestScalarWhereInput | Prisma.PullRequestScalarWhereInput[]
 }
 
+export type PullRequestCreateNestedOneWithoutReviewsInput = {
+  create?: Prisma.XOR<Prisma.PullRequestCreateWithoutReviewsInput, Prisma.PullRequestUncheckedCreateWithoutReviewsInput>
+  connectOrCreate?: Prisma.PullRequestCreateOrConnectWithoutReviewsInput
+  connect?: Prisma.PullRequestWhereUniqueInput
+}
+
+export type PullRequestUpdateOneRequiredWithoutReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.PullRequestCreateWithoutReviewsInput, Prisma.PullRequestUncheckedCreateWithoutReviewsInput>
+  connectOrCreate?: Prisma.PullRequestCreateOrConnectWithoutReviewsInput
+  upsert?: Prisma.PullRequestUpsertWithoutReviewsInput
+  connect?: Prisma.PullRequestWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PullRequestUpdateToOneWithWhereWithoutReviewsInput, Prisma.PullRequestUpdateWithoutReviewsInput>, Prisma.PullRequestUncheckedUpdateWithoutReviewsInput>
+}
+
 export type PullRequestCreateWithoutRepositoryInput = {
   id?: string
   number: number
@@ -510,8 +862,23 @@ export type PullRequestCreateWithoutRepositoryInput = {
   headSha: string
   state: string
   isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  reviews?: Prisma.ReviewCreateNestedManyWithoutPullRequestInput
 }
 
 export type PullRequestUncheckedCreateWithoutRepositoryInput = {
@@ -521,8 +888,23 @@ export type PullRequestUncheckedCreateWithoutRepositoryInput = {
   headSha: string
   state: string
   isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutPullRequestInput
 }
 
 export type PullRequestCreateOrConnectWithoutRepositoryInput = {
@@ -562,8 +944,142 @@ export type PullRequestScalarWhereInput = {
   headSha?: Prisma.StringFilter<"PullRequest"> | string
   state?: Prisma.StringFilter<"PullRequest"> | string
   isDraft?: Prisma.BoolFilter<"PullRequest"> | boolean
+  title?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  body?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  authorLogin?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  authorAvatarUrl?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  baseRef?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  baseSha?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  headRef?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  htmlUrl?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  additions?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  deletions?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  changedFileCount?: Prisma.IntNullableFilter<"PullRequest"> | number | null
+  latestReviewId?: Prisma.StringNullableFilter<"PullRequest"> | string | null
+  githubCreatedAt?: Prisma.DateTimeNullableFilter<"PullRequest"> | Date | string | null
+  githubUpdatedAt?: Prisma.DateTimeNullableFilter<"PullRequest"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"PullRequest"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PullRequest"> | Date | string
+}
+
+export type PullRequestCreateWithoutReviewsInput = {
+  id?: string
+  number: number
+  githubPrId: bigint | number
+  headSha: string
+  state: string
+  isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  repository: Prisma.RepositoryCreateNestedOneWithoutPullRequestsInput
+}
+
+export type PullRequestUncheckedCreateWithoutReviewsInput = {
+  id?: string
+  repositoryId: string
+  number: number
+  githubPrId: bigint | number
+  headSha: string
+  state: string
+  isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type PullRequestCreateOrConnectWithoutReviewsInput = {
+  where: Prisma.PullRequestWhereUniqueInput
+  create: Prisma.XOR<Prisma.PullRequestCreateWithoutReviewsInput, Prisma.PullRequestUncheckedCreateWithoutReviewsInput>
+}
+
+export type PullRequestUpsertWithoutReviewsInput = {
+  update: Prisma.XOR<Prisma.PullRequestUpdateWithoutReviewsInput, Prisma.PullRequestUncheckedUpdateWithoutReviewsInput>
+  create: Prisma.XOR<Prisma.PullRequestCreateWithoutReviewsInput, Prisma.PullRequestUncheckedCreateWithoutReviewsInput>
+  where?: Prisma.PullRequestWhereInput
+}
+
+export type PullRequestUpdateToOneWithWhereWithoutReviewsInput = {
+  where?: Prisma.PullRequestWhereInput
+  data: Prisma.XOR<Prisma.PullRequestUpdateWithoutReviewsInput, Prisma.PullRequestUncheckedUpdateWithoutReviewsInput>
+}
+
+export type PullRequestUpdateWithoutReviewsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  number?: Prisma.IntFieldUpdateOperationsInput | number
+  githubPrId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  headSha?: Prisma.StringFieldUpdateOperationsInput | string
+  state?: Prisma.StringFieldUpdateOperationsInput | string
+  isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUpdateOneRequiredWithoutPullRequestsNestedInput
+}
+
+export type PullRequestUncheckedUpdateWithoutReviewsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  number?: Prisma.IntFieldUpdateOperationsInput | number
+  githubPrId?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  headSha?: Prisma.StringFieldUpdateOperationsInput | string
+  state?: Prisma.StringFieldUpdateOperationsInput | string
+  isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type PullRequestCreateManyRepositoryInput = {
@@ -573,6 +1089,20 @@ export type PullRequestCreateManyRepositoryInput = {
   headSha: string
   state: string
   isDraft?: boolean
+  title?: string | null
+  body?: string | null
+  authorLogin?: string | null
+  authorAvatarUrl?: string | null
+  baseRef?: string | null
+  baseSha?: string | null
+  headRef?: string | null
+  htmlUrl?: string | null
+  additions?: number | null
+  deletions?: number | null
+  changedFileCount?: number | null
+  latestReviewId?: string | null
+  githubCreatedAt?: Date | string | null
+  githubUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -584,8 +1114,23 @@ export type PullRequestUpdateWithoutRepositoryInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviews?: Prisma.ReviewUpdateManyWithoutPullRequestNestedInput
 }
 
 export type PullRequestUncheckedUpdateWithoutRepositoryInput = {
@@ -595,8 +1140,23 @@ export type PullRequestUncheckedUpdateWithoutRepositoryInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviews?: Prisma.ReviewUncheckedUpdateManyWithoutPullRequestNestedInput
 }
 
 export type PullRequestUncheckedUpdateManyWithoutRepositoryInput = {
@@ -606,10 +1166,53 @@ export type PullRequestUncheckedUpdateManyWithoutRepositoryInput = {
   headSha?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.StringFieldUpdateOperationsInput | string
   isDraft?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  body?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorLogin?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authorAvatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  htmlUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  additions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  deletions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  changedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  latestReviewId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubCreatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  githubUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+
+/**
+ * Count Type PullRequestCountOutputType
+ */
+
+export type PullRequestCountOutputType = {
+  reviews: number
+}
+
+export type PullRequestCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  reviews?: boolean | PullRequestCountOutputTypeCountReviewsArgs
+}
+
+/**
+ * PullRequestCountOutputType without action
+ */
+export type PullRequestCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PullRequestCountOutputType
+   */
+  select?: Prisma.PullRequestCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * PullRequestCountOutputType without action
+ */
+export type PullRequestCountOutputTypeCountReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ReviewWhereInput
+}
 
 
 export type PullRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -620,9 +1223,25 @@ export type PullRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   headSha?: boolean
   state?: boolean
   isDraft?: boolean
+  title?: boolean
+  body?: boolean
+  authorLogin?: boolean
+  authorAvatarUrl?: boolean
+  baseRef?: boolean
+  baseSha?: boolean
+  headRef?: boolean
+  htmlUrl?: boolean
+  additions?: boolean
+  deletions?: boolean
+  changedFileCount?: boolean
+  latestReviewId?: boolean
+  githubCreatedAt?: boolean
+  githubUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  reviews?: boolean | Prisma.PullRequest$reviewsArgs<ExtArgs>
+  _count?: boolean | Prisma.PullRequestCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["pullRequest"]>
 
 export type PullRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -633,6 +1252,20 @@ export type PullRequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   headSha?: boolean
   state?: boolean
   isDraft?: boolean
+  title?: boolean
+  body?: boolean
+  authorLogin?: boolean
+  authorAvatarUrl?: boolean
+  baseRef?: boolean
+  baseSha?: boolean
+  headRef?: boolean
+  htmlUrl?: boolean
+  additions?: boolean
+  deletions?: boolean
+  changedFileCount?: boolean
+  latestReviewId?: boolean
+  githubCreatedAt?: boolean
+  githubUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
@@ -646,6 +1279,20 @@ export type PullRequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   headSha?: boolean
   state?: boolean
   isDraft?: boolean
+  title?: boolean
+  body?: boolean
+  authorLogin?: boolean
+  authorAvatarUrl?: boolean
+  baseRef?: boolean
+  baseSha?: boolean
+  headRef?: boolean
+  htmlUrl?: boolean
+  additions?: boolean
+  deletions?: boolean
+  changedFileCount?: boolean
+  latestReviewId?: boolean
+  githubCreatedAt?: boolean
+  githubUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
@@ -659,13 +1306,29 @@ export type PullRequestSelectScalar = {
   headSha?: boolean
   state?: boolean
   isDraft?: boolean
+  title?: boolean
+  body?: boolean
+  authorLogin?: boolean
+  authorAvatarUrl?: boolean
+  baseRef?: boolean
+  baseSha?: boolean
+  headRef?: boolean
+  htmlUrl?: boolean
+  additions?: boolean
+  deletions?: boolean
+  changedFileCount?: boolean
+  latestReviewId?: boolean
+  githubCreatedAt?: boolean
+  githubUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type PullRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "repositoryId" | "number" | "githubPrId" | "headSha" | "state" | "isDraft" | "createdAt" | "updatedAt", ExtArgs["result"]["pullRequest"]>
+export type PullRequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "repositoryId" | "number" | "githubPrId" | "headSha" | "state" | "isDraft" | "title" | "body" | "authorLogin" | "authorAvatarUrl" | "baseRef" | "baseSha" | "headRef" | "htmlUrl" | "additions" | "deletions" | "changedFileCount" | "latestReviewId" | "githubCreatedAt" | "githubUpdatedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["pullRequest"]>
 export type PullRequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  reviews?: boolean | Prisma.PullRequest$reviewsArgs<ExtArgs>
+  _count?: boolean | Prisma.PullRequestCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type PullRequestIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
@@ -678,6 +1341,7 @@ export type $PullRequestPayload<ExtArgs extends runtime.Types.Extensions.Interna
   name: "PullRequest"
   objects: {
     repository: Prisma.$RepositoryPayload<ExtArgs>
+    reviews: Prisma.$ReviewPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -687,6 +1351,20 @@ export type $PullRequestPayload<ExtArgs extends runtime.Types.Extensions.Interna
     headSha: string
     state: string
     isDraft: boolean
+    title: string | null
+    body: string | null
+    authorLogin: string | null
+    authorAvatarUrl: string | null
+    baseRef: string | null
+    baseSha: string | null
+    headRef: string | null
+    htmlUrl: string | null
+    additions: number | null
+    deletions: number | null
+    changedFileCount: number | null
+    latestReviewId: string | null
+    githubCreatedAt: Date | null
+    githubUpdatedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["pullRequest"]>
@@ -1084,6 +1762,7 @@ readonly fields: PullRequestFieldRefs;
 export interface Prisma__PullRequestClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   repository<T extends Prisma.RepositoryDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RepositoryDefaultArgs<ExtArgs>>): Prisma.Prisma__RepositoryClient<runtime.Types.Result.GetResult<Prisma.$RepositoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  reviews<T extends Prisma.PullRequest$reviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PullRequest$reviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1120,6 +1799,20 @@ export interface PullRequestFieldRefs {
   readonly headSha: Prisma.FieldRef<"PullRequest", 'String'>
   readonly state: Prisma.FieldRef<"PullRequest", 'String'>
   readonly isDraft: Prisma.FieldRef<"PullRequest", 'Boolean'>
+  readonly title: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly body: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly authorLogin: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly authorAvatarUrl: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly baseRef: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly baseSha: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly headRef: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly htmlUrl: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly additions: Prisma.FieldRef<"PullRequest", 'Int'>
+  readonly deletions: Prisma.FieldRef<"PullRequest", 'Int'>
+  readonly changedFileCount: Prisma.FieldRef<"PullRequest", 'Int'>
+  readonly latestReviewId: Prisma.FieldRef<"PullRequest", 'String'>
+  readonly githubCreatedAt: Prisma.FieldRef<"PullRequest", 'DateTime'>
+  readonly githubUpdatedAt: Prisma.FieldRef<"PullRequest", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"PullRequest", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"PullRequest", 'DateTime'>
 }
@@ -1520,6 +2213,30 @@ export type PullRequestDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many PullRequests to delete.
    */
   limit?: number
+}
+
+/**
+ * PullRequest.reviews
+ */
+export type PullRequest$reviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Review
+   */
+  select?: Prisma.ReviewSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Review
+   */
+  omit?: Prisma.ReviewOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ReviewInclude<ExtArgs> | null
+  where?: Prisma.ReviewWhereInput
+  orderBy?: Prisma.ReviewOrderByWithRelationInput | Prisma.ReviewOrderByWithRelationInput[]
+  cursor?: Prisma.ReviewWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ReviewScalarFieldEnum | Prisma.ReviewScalarFieldEnum[]
 }
 
 /**
