@@ -1,0 +1,31 @@
+{
+  "name": "@repo/embeddings",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test:unit": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@repo/db": "workspace:*",
+    "@repo/observability": "workspace:*",
+    "@repo/shared": "workspace:*",
+    "ioredis": "^6.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2",
+    "vitest": "^3.0.0"
+  }
+}

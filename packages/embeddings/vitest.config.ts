@@ -1,0 +1,10 @@
+import { defineConfig } from "vitest/config";
+
+// Fast, no-I/O unit tests colocated with source (*.test.ts) — same shape as
+// packages/shared/vitest.config.ts and packages/observability/vitest.config.ts.
+export default defineConfig({
+  test: {
+    include: ["src/**/*.test.ts"],
+    environment: "node",
+  },
+});

@@ -14,10 +14,11 @@ import tseslint from "typescript-eslint";
 // Rule C — Inngest functions (apps/worker) may not import the API layer's
 //          routes/controllers directly.
 // Rule D — the webhooks module (apps/api/src/modules/webhooks/**) may not import
-//          @repo/github/@repo/ai/@repo/embedings or reach into packages/github/src/**
-//          — the thin-handler principle (phase-06 §22): this endpoint makes zero
-//          outbound calls, and a well-meaning future change ("just fetch the PR's base
-//          branch here") is exactly the regression this rule exists to catch mechanically.
+//          @repo/github/@repo/ai/@repo/embeddings (or the misspelled @repo/embedings)
+//          or reach into packages/github/src/** — the thin-handler principle
+//          (phase-06 §22): this endpoint makes zero outbound calls, and a well-meaning
+//          future change ("just fetch the PR's base branch here") is exactly the
+//          regression this rule exists to catch mechanically.
 //
 // Each rule's `files` list includes both its real target path and a matching fixture
 // under tests/fixtures/lint/, so the fixtures exercise the exact same rule config as
@@ -130,9 +131,15 @@ export default tseslint.config(
                 "@repo/github/*",
                 "@repo/embedings",
                 "@repo/embedings/*",
+                // The correctly-spelled package name (Phase 05 prompt 3) — kept
+                // alongside the "@repo/embedings" typo above rather than replacing it.
+                // A package actually named "@repo/embedings" would otherwise slip
+                // straight past this rule; see docs/decisions/phase-05-log.md, Prompt 3.
+                "@repo/embeddings",
+                "@repo/embeddings/*",
               ],
               message:
-                "API routes/controllers may not import the ai/github/embedings (ai/indexing/retrieval) packages directly — go through a module service instead (Rule A, phase-00 §3).",
+                "API routes/controllers may not import the ai/github/embeddings (ai/indexing/retrieval) packages directly — go through a module service instead (Rule A, phase-00 §3).",
             },
             {
               // Phase 02 put the GitHub App client inside apps/api itself
@@ -225,10 +232,14 @@ export default tseslint.config(
                 "@repo/github/*",
                 "@repo/embedings",
                 "@repo/embedings/*",
+                // See Rule A's own comment above — the correctly-spelled package name,
+                // kept alongside the typo.
+                "@repo/embeddings",
+                "@repo/embeddings/*",
                 "**/packages/github/src/**",
               ],
               message:
-                "The webhooks module (apps/api/src/modules/webhooks/**) may not import the ai/github/embedings packages, or reach into packages/github's internals — this endpoint makes zero outbound calls, the thin-handler principle (Rule D, phase-06 §22).",
+                "The webhooks module (apps/api/src/modules/webhooks/**) may not import the ai/github/embeddings packages, or reach into packages/github's internals — this endpoint makes zero outbound calls, the thin-handler principle (Rule D, phase-06 §22).",
             },
           ],
         },
