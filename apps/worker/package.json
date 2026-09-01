@@ -18,6 +18,7 @@
   "type": "module",
   "dependencies": {
     "@repo/db": "workspace:*",
+    "@repo/embeddings": "workspace:*",
     "@repo/github": "workspace:*",
     "@repo/observability": "workspace:*",
     "@repo/shared": "workspace:*",

@@ -404,6 +404,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@repo/embeddings':
+        specifier: workspace:*
+        version: link:../../packages/embeddings
       '@repo/github':
         specifier: workspace:*
         version: link:../../packages/github

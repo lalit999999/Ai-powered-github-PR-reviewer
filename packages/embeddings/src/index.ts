@@ -9,4 +9,18 @@
  * `./testing` subpath (src/testing.ts) so production code cannot accidentally import a
  * test double.
  */
-export {};
+
+// Sub-task 3.7 — the two-layer embedding cache. `apps/worker`'s integration suite
+// (tests/integration/embedding-cache.test.ts) is this package's first real consumer, so
+// these are exported as soon as they exist rather than waiting for sub-task 3.8's final
+// barrel pass, which adds the chunking/embedding-client exports still to come.
+export {
+  EMBEDDING_CACHE_BATCH_SIZE,
+  EMBEDDING_CACHE_REDIS_TTL_SECONDS,
+  getCached,
+  putCached,
+  recordHits,
+  type EmbeddingCacheDeps,
+  type EmbeddingCacheEntry,
+  type RedisLike,
+} from "./embedding/embedding-cache.repository.js";
