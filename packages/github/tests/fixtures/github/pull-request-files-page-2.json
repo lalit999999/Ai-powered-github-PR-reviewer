@@ -1,0 +1,457 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": [
+    {
+      "filename": "src/file101.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value101 = 101;\n+const value101 = 102;",
+      "sha": "f101aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file102.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value102 = 102;\n+const value102 = 103;",
+      "sha": "f102aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file103.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value103 = 103;\n+const value103 = 104;",
+      "sha": "f103aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file104.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value104 = 104;\n+const value104 = 105;",
+      "sha": "f104aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file105.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value105 = 105;\n+const value105 = 106;",
+      "sha": "f105aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file106.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value106 = 106;\n+const value106 = 107;",
+      "sha": "f106aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file107.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value107 = 107;\n+const value107 = 108;",
+      "sha": "f107aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file108.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value108 = 108;\n+const value108 = 109;",
+      "sha": "f108aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file109.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value109 = 109;\n+const value109 = 110;",
+      "sha": "f109aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file110.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value110 = 110;\n+const value110 = 111;",
+      "sha": "f110aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file111.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value111 = 111;\n+const value111 = 112;",
+      "sha": "f111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file112.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value112 = 112;\n+const value112 = 113;",
+      "sha": "f112aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file113.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value113 = 113;\n+const value113 = 114;",
+      "sha": "f113aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file114.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value114 = 114;\n+const value114 = 115;",
+      "sha": "f114aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file115.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value115 = 115;\n+const value115 = 116;",
+      "sha": "f115aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file116.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value116 = 116;\n+const value116 = 117;",
+      "sha": "f116aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file117.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value117 = 117;\n+const value117 = 118;",
+      "sha": "f117aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file118.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value118 = 118;\n+const value118 = 119;",
+      "sha": "f118aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file119.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value119 = 119;\n+const value119 = 120;",
+      "sha": "f119aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file120.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value120 = 120;\n+const value120 = 121;",
+      "sha": "f120aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file121.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value121 = 121;\n+const value121 = 122;",
+      "sha": "f121aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file122.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value122 = 122;\n+const value122 = 123;",
+      "sha": "f122aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file123.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value123 = 123;\n+const value123 = 124;",
+      "sha": "f123aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file124.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value124 = 124;\n+const value124 = 125;",
+      "sha": "f124aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file125.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value125 = 125;\n+const value125 = 126;",
+      "sha": "f125aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file126.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value126 = 126;\n+const value126 = 127;",
+      "sha": "f126aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file127.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value127 = 127;\n+const value127 = 128;",
+      "sha": "f127aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file128.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value128 = 128;\n+const value128 = 129;",
+      "sha": "f128aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file129.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value129 = 129;\n+const value129 = 130;",
+      "sha": "f129aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file130.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value130 = 130;\n+const value130 = 131;",
+      "sha": "f130aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file131.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value131 = 131;\n+const value131 = 132;",
+      "sha": "f131aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file132.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value132 = 132;\n+const value132 = 133;",
+      "sha": "f132aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file133.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value133 = 133;\n+const value133 = 134;",
+      "sha": "f133aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file134.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value134 = 134;\n+const value134 = 135;",
+      "sha": "f134aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file135.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value135 = 135;\n+const value135 = 136;",
+      "sha": "f135aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file136.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value136 = 136;\n+const value136 = 137;",
+      "sha": "f136aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file137.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value137 = 137;\n+const value137 = 138;",
+      "sha": "f137aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file138.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value138 = 138;\n+const value138 = 139;",
+      "sha": "f138aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file139.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value139 = 139;\n+const value139 = 140;",
+      "sha": "f139aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file140.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value140 = 140;\n+const value140 = 141;",
+      "sha": "f140aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file141.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value141 = 141;\n+const value141 = 142;",
+      "sha": "f141aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file142.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value142 = 142;\n+const value142 = 143;",
+      "sha": "f142aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file143.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value143 = 143;\n+const value143 = 144;",
+      "sha": "f143aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "src/file144.ts",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "changes": 2,
+      "patch": "@@ -1,1 +1,1 @@\n-const value144 = 144;\n+const value144 = 145;",
+      "sha": "f144aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "filename": "docs/CHANGELOG.md",
+      "status": "added",
+      "additions": 12,
+      "deletions": 0,
+      "changes": 12,
+      "patch": "@@ -0,0 +1,12 @@\n+# Changelog\n+\n+## 1.2.0\n+- Add pagination guard.",
+      "sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+    },
+    {
+      "filename": "docs/release notes.md",
+      "status": "modified",
+      "additions": 3,
+      "deletions": 1,
+      "changes": 4,
+      "patch": "@@ -8,1 +8,3 @@ ## Highlights\n-- nothing yet\n+- pagination guard\n+- diff fallback\n+- patch parser",
+      "sha": "b2c3d4e5f60718293a4b5c6d7e8f90123456789a"
+    },
+    {
+      "filename": "scripts/deploy.sh",
+      "status": "removed",
+      "additions": 0,
+      "deletions": 3,
+      "changes": 3,
+      "patch": "@@ -1,3 +0,0 @@\n-#!/bin/sh\n-echo deploying\n-exit 0",
+      "sha": null
+    },
+    {
+      "filename": "src/new-name.ts",
+      "previous_filename": "src/old-name.ts",
+      "status": "renamed",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "sha": "c3d4e5f60718293a4b5c6d7e8f90123456789ab0"
+    },
+    {
+      "filename": "src/new-name-copy.ts",
+      "status": "copied",
+      "additions": 40,
+      "deletions": 0,
+      "changes": 40,
+      "patch": "@@ -0,0 +1,2 @@\n+export function helper() {\n+  return true;\n+}",
+      "sha": "d4e5f60718293a4b5c6d7e8f90123456789ab0c1"
+    },
+    {
+      "filename": "src/vendored/upstream.ts",
+      "status": "unchanged",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "sha": "e5f60718293a4b5c6d7e8f90123456789ab0c1d2"
+    }
+  ]
+}

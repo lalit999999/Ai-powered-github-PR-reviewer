@@ -1,0 +1,49 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": [
+    {
+      "id": 1935423293,
+      "number": 42,
+      "title": "Add pagination guard to the changed-files fetch",
+      "user": {
+        "login": "octocat",
+        "avatar_url": "https://avatars.githubusercontent.com/u/583231?v=4"
+      },
+      "state": "open",
+      "draft": false,
+      "base": {
+        "ref": "main",
+        "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5"
+      },
+      "head": {
+        "ref": "octocat/pagination-guard",
+        "sha": "34c5c7793cb491521132c1e8e94c07b4e5aa9c5c"
+      },
+      "html_url": "https://github.com/acme-corp/service-1/pull/42",
+      "created_at": "2026-08-20T14:03:11Z",
+      "updated_at": "2026-08-21T09:12:44Z"
+    },
+    {
+      "id": 1935423310,
+      "number": 43,
+      "title": "Draft: prototype the diff-position map",
+      "user": null,
+      "state": "open",
+      "draft": true,
+      "base": {
+        "ref": "main",
+        "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5"
+      },
+      "head": {
+        "ref": "acme-corp/position-map-draft",
+        "sha": "9f8e7d6c5b4a392817263544352617283940abcd"
+      },
+      "html_url": "https://github.com/acme-corp/service-1/pull/43",
+      "created_at": "2026-08-22T08:30:00Z",
+      "updated_at": "2026-08-22T08:30:00Z"
+    }
+  ]
+}

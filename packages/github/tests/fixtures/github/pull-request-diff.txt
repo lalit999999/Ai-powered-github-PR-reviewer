@@ -1,0 +1,50 @@
+diff --git a/assets/logo.png b/assets/logo.png
+index f1a2b3c..02b3c4d 100644
+Binary files a/assets/logo.png and b/assets/logo.png differ
+diff --git a/src/huge-generated.ts b/src/huge-generated.ts
+index 02b3c4d..f1a2b3c 100644
+--- a/src/huge-generated.ts
++++ b/src/huge-generated.ts
+@@ -1,3 +1,3 @@
+-export const GENERATED_AT = "2026-08-19T00:00:00Z";
+-export const ROW_COUNT = 11800;
++export const GENERATED_AT = "2026-08-21T00:00:00Z";
++export const ROW_COUNT = 12000;
+ export const SCHEMA_VERSION = 7;
+@@ -9040,4 +9040,4 @@ export const TABLE_9040 = {
+   id: 9040,
+-  checksum: "old-checksum-9040",
++  checksum: "new-checksum-9040",
+ };
+diff --git a/src/old-name.ts b/src/new-name.ts
+similarity index 100%
+rename from src/old-name.ts
+rename to src/new-name.ts
+diff --git a/docs/release notes.md b/docs/release notes.md
+index b2c3d4e..c3d4e5f 100644
+--- a/docs/release notes.md
++++ b/docs/release notes.md
+@@ -8,1 +8,3 @@ ## Highlights
+-- nothing yet
++- pagination guard
++- diff fallback
++- patch parser
+diff --git a/scripts/deploy.sh b/scripts/deploy.sh
+deleted file mode 100644
+index abc1234..0000000
+--- a/scripts/deploy.sh
++++ /dev/null
+@@ -1,3 +0,0 @@
+-#!/bin/sh
+-echo deploying
+-exit 0
+diff --git a/docs/CHANGELOG.md b/docs/CHANGELOG.md
+new file mode 100644
+index 0000000..a1b2c3d
+--- /dev/null
++++ b/docs/CHANGELOG.md
+@@ -0,0 +1,4 @@
++# Changelog
++
++## 1.2.0
++- Add pagination guard.

@@ -1,0 +1,24 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "body": [
+    {
+      "filename": "assets/logo.png",
+      "status": "modified",
+      "additions": 0,
+      "deletions": 0,
+      "changes": 0,
+      "sha": "f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4"
+    },
+    {
+      "filename": "src/huge-generated.ts",
+      "status": "modified",
+      "additions": 12000,
+      "deletions": 340,
+      "changes": 12340,
+      "sha": "02b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5"
+    }
+  ]
+}
