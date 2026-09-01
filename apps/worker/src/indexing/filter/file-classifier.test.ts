@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { CLASSIFICATION_REVIEW_DEPTH, FILE_CLASSIFICATIONS } from "@repo/shared";
 import {
   BINARY_SNIFF_BYTES,
   classify,
+  classifyChangedFile,
   classifyFile,
   countLines,
+  decideReviewDepth,
   detectBinary,
   detectIsGenerated,
   detectIsTest,
@@ -274,4 +277,179 @@ describe("classify — the combined decision, in order", () => {
       packageName: ".",
     });
   });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 07 sub-task 3.6 — classifyChangedFile / decideReviewDepth
+// ---------------------------------------------------------------------------
+
+describe("classifyChangedFile", () => {
+  it.each([
+    "src/auth/login.ts",
+    "src/x.test.ts",
+    "pnpm-lock.yaml",
+    "README.md",
+    "logo.png",
+    "tsconfig.json",
+    "schema.generated.ts",
+    "weird.xyz",
+  ])("agrees with classify()'s classification for %s", (relativePath) => {
+    // Non-binary, short, unminified content so classify() never short-circuits on the
+    // size/binary/minified stages that classifyChangedFile() has no equivalent of — the
+    // point of this test is only whether the two agree on *classification*.
+    const content = Buffer.from("export const x = 1;\n");
+    const decision = classify(relativePath, content.byteLength, content, ["."]);
+
+    expect(decision.skip).toBe(false);
+    if (!decision.skip) {
+      expect(classifyChangedFile(relativePath)).toBe(decision.classification);
+    }
+  });
+});
+
+describe("decideReviewDepth — status overrides run before classification", () => {
+  it("removed -> SKIP even for a SOURCE file with a large patch", () => {
+    expect(
+      decideReviewDepth({
+        classification: "SOURCE",
+        status: "removed",
+        additions: 500,
+        deletions: 500,
+        hasPatch: true,
+        changedLines: 1000,
+      }),
+    ).toBe("SKIP");
+  });
+
+  it("renamed with additions:0, deletions:0 -> SKIP", () => {
+    expect(
+      decideReviewDepth({
+        classification: "SOURCE",
+        status: "renamed",
+        additions: 0,
+        deletions: 0,
+        hasPatch: false,
+        changedLines: 0,
+      }),
+    ).toBe("SKIP");
+  });
+
+  it("renamed with a content change on a SOURCE file -> DEEP", () => {
+    expect(
+      decideReviewDepth({
+        classification: "SOURCE",
+        status: "renamed",
+        additions: 3,
+        deletions: 1,
+        hasPatch: true,
+        changedLines: 4,
+      }),
+    ).toBe("DEEP");
+  });
+
+  it("copied on a SOURCE file -> DEEP", () => {
+    expect(
+      decideReviewDepth({
+        classification: "SOURCE",
+        status: "copied",
+        additions: 10,
+        deletions: 0,
+        hasPatch: true,
+        changedLines: 10,
+      }),
+    ).toBe("DEEP");
+  });
+
+  it("unchanged -> SKIP", () => {
+    expect(
+      decideReviewDepth({
+        classification: "SOURCE",
+        status: "unchanged",
+        additions: 0,
+        deletions: 0,
+        hasPatch: true,
+        changedLines: 0,
+      }),
+    ).toBe("SKIP");
+  });
+
+  it.each(["added", "modified", "changed"] as const)(
+    "%s on a SOURCE file -> DEEP",
+    (status) => {
+      expect(
+        decideReviewDepth({
+          classification: "SOURCE",
+          status,
+          additions: 5,
+          deletions: 2,
+          hasPatch: true,
+          changedLines: 7,
+        }),
+      ).toBe("DEEP");
+    },
+  );
+});
+
+describe("decideReviewDepth — hasPatch: false", () => {
+  it.each(FILE_CLASSIFICATIONS)("-> SKIP for %s even when the status would otherwise fall through", (classification) => {
+    expect(
+      decideReviewDepth({
+        classification,
+        status: "modified",
+        additions: 1,
+        deletions: 1,
+        hasPatch: false,
+        changedLines: 0,
+      }),
+    ).toBe("SKIP");
+  });
+});
+
+describe("decideReviewDepth — UNKNOWN's size-dependent depth, boundary asserted both sides", () => {
+  it("changedLines: 499 -> SHALLOW", () => {
+    expect(
+      decideReviewDepth({
+        classification: "UNKNOWN",
+        status: "modified",
+        additions: 250,
+        deletions: 249,
+        hasPatch: true,
+        changedLines: 499,
+      }),
+    ).toBe("SHALLOW");
+  });
+
+  it("changedLines: 500 -> SKIP", () => {
+    expect(
+      decideReviewDepth({
+        classification: "UNKNOWN",
+        status: "modified",
+        additions: 250,
+        deletions: 250,
+        hasPatch: true,
+        changedLines: 500,
+      }),
+    ).toBe("SKIP");
+  });
+});
+
+describe("decideReviewDepth — every CLASSIFICATION_REVIEW_DEPTH entry, on the plain path", () => {
+  it.each(Object.entries(CLASSIFICATION_REVIEW_DEPTH))(
+    "%s -> %s",
+    (classification, expectedDepth) => {
+      expect(
+        decideReviewDepth({
+          classification: classification as Exclude<
+            (typeof FILE_CLASSIFICATIONS)[number],
+            "UNKNOWN"
+          >,
+          status: "modified",
+          additions: 1,
+          deletions: 1,
+          hasPatch: true,
+          changedLines: 2,
+        }),
+      ).toBe(expectedDepth);
+    },
+  );
 });
