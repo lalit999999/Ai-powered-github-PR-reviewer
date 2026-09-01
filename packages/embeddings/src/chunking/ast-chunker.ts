@@ -59,7 +59,11 @@ export interface ChunkableFile {
 // Small text helpers
 // ---------------------------------------------------------------------------
 
-function sliceLines(sourceLines: readonly string[], startLine: number, endLine: number): string[] {
+function sliceLines(
+  sourceLines: readonly string[],
+  startLine: number,
+  endLine: number,
+): string[] {
   // startLine/endLine are 1-based inclusive; sourceLines is 0-based.
   return sourceLines.slice(startLine - 1, endLine);
 }
@@ -75,7 +79,12 @@ function buildChunk(
   imports: string[],
   anchorSymbolName: string | null,
 ): CodeChunkDraft {
-  const header = formatChunkHeader({ filePath, symbolName, startLine, endLine });
+  const header = formatChunkHeader({
+    filePath,
+    symbolName,
+    startLine,
+    endLine,
+  });
   const content = `${header}\n${bodyText}`;
   return {
     chunkKind,
@@ -107,7 +116,9 @@ interface LeadingDocblock {
  * per-symbol `docComment` — so this chunker reads it directly out of the raw source it's
  * handed, independent of the parsed symbol/import data.
  */
-function extractLeadingDocblock(sourceLines: readonly string[]): LeadingDocblock | null {
+function extractLeadingDocblock(
+  sourceLines: readonly string[],
+): LeadingDocblock | null {
   let i = 0;
   while (i < sourceLines.length && (sourceLines[i] ?? "").trim() === "") i++;
   if (i >= sourceLines.length) return null;
@@ -115,7 +126,8 @@ function extractLeadingDocblock(sourceLines: readonly string[]): LeadingDocblock
   const first = (sourceLines[i] ?? "").trim();
   if (first.startsWith("/*")) {
     const startIdx = i;
-    while (i < sourceLines.length && !(sourceLines[i] ?? "").includes("*/")) i++;
+    while (i < sourceLines.length && !(sourceLines[i] ?? "").includes("*/"))
+      i++;
     if (i >= sourceLines.length) return null; // unterminated block comment — bail, not a real docblock
     const raw = sourceLines.slice(startIdx, i + 1).join("\n");
     const text = raw
@@ -131,7 +143,11 @@ function extractLeadingDocblock(sourceLines: readonly string[]): LeadingDocblock
 
   if (first.startsWith("//")) {
     const startIdx = i;
-    while (i < sourceLines.length && (sourceLines[i] ?? "").trim().startsWith("//")) i++;
+    while (
+      i < sourceLines.length &&
+      (sourceLines[i] ?? "").trim().startsWith("//")
+    )
+      i++;
     const text = sourceLines
       .slice(startIdx, i)
       .map((l) => l.trim().replace(/^\/\/\s?/, ""))
@@ -169,7 +185,10 @@ function buildFileHeaderChunk(
     .filter((s) => s.isExported && !s.parentSymbol)
     .map((s) => ({ name: s.name, signature: s.signature }));
 
-  const lastImportLine = file.imports.reduce((max, i) => Math.max(max, i.line), 0);
+  const lastImportLine = file.imports.reduce(
+    (max, i) => Math.max(max, i.line),
+    0,
+  );
   const firstSymbolLine = file.symbols.reduce(
     (min, s) => Math.min(min, s.startLine),
     Number.POSITIVE_INFINITY,
@@ -179,14 +198,18 @@ function buildFileHeaderChunk(
     ? Math.min(rawEndLine, Math.max(1, firstSymbolLine - 1))
     : rawEndLine;
 
-  const bodyFor = (entries: readonly { name: string; signature: string }[]): string => {
+  const bodyFor = (
+    entries: readonly { name: string; signature: string }[],
+  ): string => {
     const parts: string[] = [];
     if (leadingDoc) parts.push(leadingDoc.text);
     if (importSpecifiers.length > 0) {
       parts.push(`Imports: ${importSpecifiers.join(", ")}`);
     }
     if (entries.length > 0) {
-      parts.push(`Exports:\n${entries.map((e) => `  ${e.signature}`).join("\n")}`);
+      parts.push(
+        `Exports:\n${entries.map((e) => `  ${e.signature}`).join("\n")}`,
+      );
     }
     return parts.join("\n");
   };
@@ -207,10 +230,15 @@ function buildFileHeaderChunk(
   // Drop the longest signature first until the chunk fits the token band, or nothing is
   // left to drop. Dropping is by (name, signature) pair together, so the `symbols` field
   // and the body's signature list never desync.
-  while (chunk.tokenCount > FILE_HEADER_TARGET_TOKENS_MAX && remaining.length > 0) {
+  while (
+    chunk.tokenCount > FILE_HEADER_TARGET_TOKENS_MAX &&
+    remaining.length > 0
+  ) {
     const longestIndex = remaining.reduce(
       (bestIdx, entry, idx, arr) =>
-        entry.signature.length > (arr[bestIdx]?.signature.length ?? 0) ? idx : bestIdx,
+        entry.signature.length > (arr[bestIdx]?.signature.length ?? 0)
+          ? idx
+          : bestIdx,
       0,
     );
     remaining = remaining.filter((_, idx) => idx !== longestIndex);
@@ -312,7 +340,8 @@ function splitOversizedSymbol(
   bodyLines: readonly string[],
 ): LineRange[] {
   const totalLines = bodyLines.length;
-  if (totalLines === 0) return [{ startLine: symbolStartLine, endLine: symbolStartLine }];
+  if (totalLines === 0)
+    return [{ startLine: symbolStartLine, endLine: symbolStartLine }];
 
   const depths = computeRelativeBraceDepths(bodyLines);
   const targetChars = SPLIT_WINDOW_TOKENS * CHARS_PER_TOKEN_ESTIMATE;
@@ -338,8 +367,17 @@ function splitOversizedSymbol(
       break;
     }
 
-    const splitEnd = findSplitPoint(idealEnd, windowStart, totalLines - 1, depths, bodyLines);
-    ranges.push({ startLine: symbolStartLine + windowStart, endLine: symbolStartLine + splitEnd });
+    const splitEnd = findSplitPoint(
+      idealEnd,
+      windowStart,
+      totalLines - 1,
+      depths,
+      bodyLines,
+    );
+    ranges.push({
+      startLine: symbolStartLine + windowStart,
+      endLine: symbolStartLine + splitEnd,
+    });
 
     // Next window backs up by ~overlapChars worth of lines from splitEnd, always making
     // forward progress by at least one line.
@@ -366,7 +404,9 @@ function classifySymbol(
   symbol: ChunkableSymbol,
   sourceLines: readonly string[],
 ): { symbolClass: SymbolClass; tokenCount: number } {
-  const body = sliceLines(sourceLines, symbol.startLine, symbol.endLine).join("\n");
+  const body = sliceLines(sourceLines, symbol.startLine, symbol.endLine).join(
+    "\n",
+  );
   const header = formatChunkHeader({
     filePath: file.filePath,
     symbolName: symbol.name,
@@ -375,8 +415,10 @@ function classifySymbol(
   });
   const tokenCount = estimateTokens(`${header}\n${body}`);
 
-  if (tokenCount >= SYMBOL_CHUNK_MAX_TOKENS) return { symbolClass: "oversized", tokenCount };
-  if (tokenCount < NEIGHBORHOOD_MIN_SYMBOL_TOKENS) return { symbolClass: "tiny", tokenCount };
+  if (tokenCount >= SYMBOL_CHUNK_MAX_TOKENS)
+    return { symbolClass: "oversized", tokenCount };
+  if (tokenCount < NEIGHBORHOOD_MIN_SYMBOL_TOKENS)
+    return { symbolClass: "tiny", tokenCount };
   return { symbolClass: "standalone", tokenCount };
 }
 
@@ -433,7 +475,9 @@ function buildSymbolChunks(
       if (group.length === 0) return;
       const first = group[0]!.symbol;
       const last = group[group.length - 1]!.symbol;
-      const body = sliceLines(sourceLines, first.startLine, last.endLine).join("\n");
+      const body = sliceLines(sourceLines, first.startLine, last.endLine).join(
+        "\n",
+      );
       chunks.push(
         buildChunk(
           file.filePath,
@@ -454,7 +498,9 @@ function buildSymbolChunks(
       const candidateGroup = [...group, entry];
       const first = candidateGroup[0]!.symbol;
       const last = candidateGroup[candidateGroup.length - 1]!.symbol;
-      const body = sliceLines(sourceLines, first.startLine, last.endLine).join("\n");
+      const body = sliceLines(sourceLines, first.startLine, last.endLine).join(
+        "\n",
+      );
       const header = formatChunkHeader({
         filePath: file.filePath,
         symbolName: null,
@@ -484,10 +530,18 @@ function buildSymbolChunks(
     flushTinyRun();
 
     if (symbolClass === "oversized") {
-      const bodyLines = sliceLines(sourceLines, symbol.startLine, symbol.endLine);
+      const bodyLines = sliceLines(
+        sourceLines,
+        symbol.startLine,
+        symbol.endLine,
+      );
       const ranges = splitOversizedSymbol(symbol.startLine, bodyLines);
       for (const range of ranges) {
-        const body = sliceLines(sourceLines, range.startLine, range.endLine).join("\n");
+        const body = sliceLines(
+          sourceLines,
+          range.startLine,
+          range.endLine,
+        ).join("\n");
         chunks.push(
           buildChunk(
             file.filePath,
@@ -506,7 +560,9 @@ function buildSymbolChunks(
     }
 
     // standalone
-    const body = sliceLines(sourceLines, symbol.startLine, symbol.endLine).join("\n");
+    const body = sliceLines(sourceLines, symbol.startLine, symbol.endLine).join(
+      "\n",
+    );
     chunks.push(
       buildChunk(
         file.filePath,
@@ -534,7 +590,11 @@ function buildSymbolChunks(
     const current = chunks[i]!;
     if (current.startLine > prevEndLine + 1) {
       const extendedStart = prevEndLine + 1;
-      const extraBody = sliceLines(sourceLines, extendedStart, current.startLine - 1).join("\n");
+      const extraBody = sliceLines(
+        sourceLines,
+        extendedStart,
+        current.startLine - 1,
+      ).join("\n");
       chunks[i] = rebuildWithExtendedRange(
         file.filePath,
         current,
@@ -547,7 +607,11 @@ function buildSymbolChunks(
   }
   const last = chunks[chunks.length - 1];
   if (last && last.endLine < sourceLines.length) {
-    const extraBody = sliceLines(sourceLines, last.endLine + 1, sourceLines.length).join("\n");
+    const extraBody = sliceLines(
+      sourceLines,
+      last.endLine + 1,
+      sourceLines.length,
+    ).join("\n");
     if (extraBody.trim().length > 0) {
       chunks[chunks.length - 1] = rebuildWithExtendedRange(
         file.filePath,
@@ -578,7 +642,9 @@ function rebuildWithExtendedRange(
 ): CodeChunkDraft {
   const existingBody = chunk.content.split("\n").slice(1).join("\n");
   const symbolNameForHeader = chunk.anchorSymbolName;
-  const body = gapBeforeExisting ? `${gapBody}\n${existingBody}` : `${existingBody}\n${gapBody}`;
+  const body = gapBeforeExisting
+    ? `${gapBody}\n${existingBody}`
+    : `${existingBody}\n${gapBody}`;
   const header = formatChunkHeader({
     filePath,
     symbolName: symbolNameForHeader,
@@ -601,7 +667,10 @@ function rebuildWithExtendedRange(
  * `parseState === "OK"` and `symbols.length > 0`. `source` is the file's raw text; `file`
  * is a `ParsedFile`-shaped value (structurally, per this module's header comment).
  */
-export function chunkFileWithAst(file: ChunkableFile, source: string): CodeChunkDraft[] {
+export function chunkFileWithAst(
+  file: ChunkableFile,
+  source: string,
+): CodeChunkDraft[] {
   const sourceLines = source.split("\n");
   const fileHeader = buildFileHeaderChunk(file, sourceLines);
   const symbolChunks = buildSymbolChunks(file, sourceLines, fileHeader.endLine);
@@ -640,7 +709,9 @@ export function assertChunkInvariants(
     }
   }
 
-  const topLevelSymbols = file.symbols.filter((s) => s.parentSymbol === undefined);
+  const topLevelSymbols = file.symbols.filter(
+    (s) => s.parentSymbol === undefined,
+  );
 
   for (const chunk of chunks) {
     if (!chunk.content.startsWith("// FILE: ")) {
@@ -665,7 +736,9 @@ export function assertChunkInvariants(
 
   for (const symbol of topLevelSymbols) {
     for (let line = symbol.startLine; line <= symbol.endLine; line++) {
-      const covered = chunks.some((c) => c.startLine <= line && line <= c.endLine);
+      const covered = chunks.some(
+        (c) => c.startLine <= line && line <= c.endLine,
+      );
       if (!covered) {
         throw new ChunkInvariantViolation(
           `line ${String(line)} of symbol "${symbol.name}" is not covered by any chunk`,

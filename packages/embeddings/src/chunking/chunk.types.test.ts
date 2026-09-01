@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeContentHash,
-  formatChunkHeader,
-} from "./chunk.types.js";
+import { computeContentHash, formatChunkHeader } from "./chunk.types.js";
 
 describe("formatChunkHeader", () => {
   it("produces the exact spec §10 format with a symbol name", () => {
@@ -28,7 +25,8 @@ describe("formatChunkHeader", () => {
 
 describe("computeContentHash", () => {
   it("is stable across repeated calls with the same content", () => {
-    const content = "// FILE: a.ts | SYMBOL: foo | LINES 1-3\nfunction foo() {}";
+    const content =
+      "// FILE: a.ts | SYMBOL: foo | LINES 1-3\nfunction foo() {}";
     expect(computeContentHash(content)).toBe(computeContentHash(content));
   });
 

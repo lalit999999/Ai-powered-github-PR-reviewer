@@ -38,7 +38,12 @@ function buildWindowChunk(
   lines: readonly string[],
 ): CodeChunkDraft {
   const body = lines.slice(startLine - 1, endLine).join("\n");
-  const header = formatChunkHeader({ filePath, symbolName: null, startLine, endLine });
+  const header = formatChunkHeader({
+    filePath,
+    symbolName: null,
+    startLine,
+    endLine,
+  });
   const content = `${header}\n${body}`;
   return {
     chunkKind: "WINDOW",
@@ -68,7 +73,10 @@ function buildWindowChunk(
  *   (see {@link ORPHAN_THRESHOLD_LINES}), the current window's `endLine` is extended to
  *   the end of the file instead, folding the orphan tail into it.
  */
-export function chunkFileWithWindows(source: string, filePath: string): CodeChunkDraft[] {
+export function chunkFileWithWindows(
+  source: string,
+  filePath: string,
+): CodeChunkDraft[] {
   if (source.trim().length === 0) return [];
 
   const lines = source.split("\n");

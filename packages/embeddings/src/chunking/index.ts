@@ -31,7 +31,10 @@ export { CHARS_PER_TOKEN_ESTIMATE, estimateTokens } from "./token-estimator.js";
  * small barrel file still becomes exactly one chunk, so no content is lost, only the
  * synthetic summary framing.
  */
-export function chunkFile(file: ChunkableFile, source: string): CodeChunkDraft[] {
+export function chunkFile(
+  file: ChunkableFile,
+  source: string,
+): CodeChunkDraft[] {
   if (file.parseState === "OK" && file.symbols.length > 0) {
     return chunkFileWithAst(file, source);
   }
