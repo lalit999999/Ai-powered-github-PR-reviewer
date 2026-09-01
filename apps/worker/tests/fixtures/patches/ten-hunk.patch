@@ -1,0 +1,101 @@
+# ten-hunk.patch — hand-verified fixture for diff-position-map.test.ts (sub-task 3.2).
+#
+# Everything below the first "@@" is a real, synthetic single-file patch: 10 hunks of
+# mixed shape, chosen so every commentability rule in diff-position-map.ts is exercised
+# by at least one hunk. Lines up here, before the first "@@", are never read by
+# parsePatch — content before the first hunk header is silently skipped (same as a real
+# "--- a/file"/"+++ b/file" pair, which GitHub's own `patch` field never actually
+# includes) — so this preamble is a safe place for the hand-derivation record itself.
+#
+# oldStart/newStart were chosen so the file is internally consistent hunk-to-hunk (each
+# hunk's net line delta accounted for in the next hunk's starting numbers), even though
+# parsePatch itself never checks cross-hunk consistency — this just keeps the fixture
+# readable as "one plausible file" rather than ten unrelated snippets.
+#
+# Hunk shapes:
+#   H1  ctx,del,add,add,ctx      @@ -1,3   +1,4  @@   normal, net +1
+#   H2  ctx,add,ctx              @@ -10,2  +11,3 @@   normal, net +1
+#   H3  ctx,del,del,ctx          @@ -20,4  +22,2 @@   normal, net -2
+#   H4  del,del,del              @@ -34,3  +34,0 @@   deletion-only: newEnd(33) < newStart(34)
+#   H5  add,add                  @@ -45,0  +42,2 @@   addition-only: oldEnd(44) < oldStart(45)
+#   H6  ctx,ctx,del,add,ctx,ctx  @@ -55,5  +54,5 @@   context-heavy, single change in the middle
+#   H7  ctx,add,ctx              @@ -70,2  +69,3 @@   normal, net +1
+#   H8  ctx,del,ctx              @@ -82,3  +82,2 @@   normal, net -1
+#   H9  ctx,del,del,add,add,ctx  @@ -95,4  +94,4 @@   replace, net 0
+#   H10 ctx,add,ctx              @@ -109,2 +108,3 @@  normal, net +1
+#
+# Position counter (GitHub's legacy `position`, 1-based from the first "@@"): the first
+# header consumes none; every line after that — including every later "@@" header, which
+# gets no PatchLine of its own — consumes exactly one. Hand-tally, hunk by hunk:
+#   H1 header consumes none. Lines pos 1-5   (h1ctxA=1, h1old=2, h1new1=3, h1new2=4, h1ctxB=5)
+#   H2 header consumes pos 6 (silent).  Lines pos 7-9   (h2ctxA=7, h2new=8, h2ctxB=9)
+#   H3 header consumes pos 10 (silent). Lines pos 11-14 (h3ctxA=11, h3old1=12, h3old2=13, h3ctxB=14)
+#   H4 header consumes pos 15 (silent). Lines pos 16-18 (h4old1=16, h4old2=17, h4old3=18)
+#   H5 header consumes pos 19 (silent). Lines pos 20-21 (h5new1=20, h5new2=21)
+#   H6 header consumes pos 22 (silent). Lines pos 23-28 (h6ctxA=23, h6ctxB=24, h6old=25, h6new=26, h6ctxC=27, h6ctxD=28)
+#   H7 header consumes pos 29 (silent). Lines pos 30-32 (h7ctxA=30, h7new=31, h7ctxB=32)
+#   H8 header consumes pos 33 (silent). Lines pos 34-36 (h8ctxA=34, h8old=35, h8ctxB=36)
+#   H9 header consumes pos 37 (silent). Lines pos 38-43 (h9ctxA=38, h9old1=39, h9old2=40, h9new1=41, h9new2=42, h9ctxB=43)
+#   H10 header consumes pos 44 (silent). Lines pos 45-47 (h10ctxA=45, h10new=46, h10ctxB=47)
+#
+# Per-hunk old/new line numbers (oldLineNum/newLineNum start at the header's
+# oldStart/newStart and increment on every context/delete or context/add line
+# respectively), hand-walked the same way:
+#   H1: h1ctxA old1/new1, h1old old2, h1new1 new2, h1new2 new3, h1ctxB old3/new4
+#   H2: h2ctxA old10/new11, h2new new12, h2ctxB old11/new13
+#   H3: h3ctxA old20/new22, h3old1 old21, h3old2 old22, h3ctxB old23/new23
+#   H4: h4old1 old34, h4old2 old35, h4old3 old36
+#   H5: h5new1 new42, h5new2 new43
+#   H6: h6ctxA old55/new54, h6ctxB old56/new55, h6old old57, h6new new56, h6ctxC old58/new57, h6ctxD old59/new58
+#   H7: h7ctxA old70/new69, h7new new70, h7ctxB old71/new71
+#   H8: h8ctxA old82/new82, h8old old83, h8ctxB old84/new83
+#   H9: h9ctxA old95/new94, h9old1 old96, h9old2 old97, h9new1 new95, h9new2 new96, h9ctxB old98/new97
+#   H10: h10ctxA old109/new108, h10new new109, h10ctxB old110/new110
+@@ -1,3 +1,4 @@
+ h1ctxA
+-h1old
++h1new1
++h1new2
+ h1ctxB
+@@ -10,2 +11,3 @@
+ h2ctxA
++h2new
+ h2ctxB
+@@ -20,4 +22,2 @@
+ h3ctxA
+-h3old1
+-h3old2
+ h3ctxB
+@@ -34,3 +34,0 @@
+-h4old1
+-h4old2
+-h4old3
+@@ -45,0 +42,2 @@
++h5new1
++h5new2
+@@ -55,5 +54,5 @@
+ h6ctxA
+ h6ctxB
+-h6old
++h6new
+ h6ctxC
+ h6ctxD
+@@ -70,2 +69,3 @@
+ h7ctxA
++h7new
+ h7ctxB
+@@ -82,3 +82,2 @@
+ h8ctxA
+-h8old
+ h8ctxB
+@@ -95,4 +94,4 @@
+ h9ctxA
+-h9old1
+-h9old2
++h9new1
++h9new2
+ h9ctxB
+@@ -109,2 +108,3 @@
+ h10ctxA
++h10new
+ h10ctxB
