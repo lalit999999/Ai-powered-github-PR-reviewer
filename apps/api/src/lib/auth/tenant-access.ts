@@ -1,5 +1,7 @@
 import * as projectRepository from "../../modules/projects/project.repository.js";
+import * as pullRequestRepository from "../../modules/pull-requests/pull-request.repository.js";
 import * as repositoryRepository from "../../modules/repositories/repository.repository.js";
+import * as reviewRepository from "../../modules/reviews/review.repository.js";
 import { InternalError, NotFoundError } from "../errors.js";
 import {
   createLogger,
@@ -24,25 +26,34 @@ export interface OwnerContext {
  * Produced by {@link requireTenantAccess} and consumed by every service call that
  * touches a specific project (plan.md §5/§34.2). The shape only ever grows.
  *
- * `projectId` is always present, including on the repository path — resolving a
- * repository resolves *up* the chain to the project that owns it, so a repository
- * context names both. `repositoryId` is present only when one was asked for.
+ * `projectId` is always present — every resource in this system resolves *up* the
+ * ownership chain to the project that owns it, so every context names it. `repositoryId`,
+ * `pullRequestId`, and `reviewId` are present only as far up the chain as the caller
+ * actually asked to resolve: a `reviewId` context (Phase 07 sub-task 1.5) resolves the
+ * *whole* chain in one query and so names all four — `projectId`, `repositoryId`,
+ * `pullRequestId`, and `reviewId` — because later services on that path legitimately
+ * need all four and should not re-query for them; a bare `repositoryId` context still
+ * names only `projectId`/`repositoryId`, exactly as it did before this extension.
  */
 export interface TenantContext extends OwnerContext {
   projectId: string;
   repositoryId?: string;
+  pullRequestId?: string;
+  reviewId?: string;
 }
 
 /**
  * What the caller is asking to reach. Deliberately a bag of optional ids rather than a
- * positional argument: Phase 02 added `repositoryId?`, Phase 07 adds `reviewId?`, and
- * each one resolves *up* the ownership chain to the same `TenantContext`. Every later
- * phase extends this helper — it is never reimplemented per resource type
- * (phase-01 §7, phase-02 §7, plan.md §34.2).
+ * positional argument: Phase 02 added `repositoryId?`, Phase 07 sub-task 1.5 adds
+ * `pullRequestId?` and `reviewId?`, and each one resolves *up* the ownership chain to
+ * the same `TenantContext`. Every later phase extends this helper — it is never
+ * reimplemented per resource type (phase-01 §7, phase-02 §7, plan.md §34.2).
  */
 export interface TenantResource {
   projectId?: string;
   repositoryId?: string;
+  pullRequestId?: string;
+  reviewId?: string;
 }
 
 export interface TenantAccessOptions {
@@ -125,6 +136,16 @@ export async function requireTenantAccess(
   options: TenantAccessOptions = {},
 ): Promise<TenantContext> {
   const userId = session.user.id;
+
+  // Most specific first — a `reviewId` resolves the whole chain in one query, so it is
+  // checked before a bare `pullRequestId`/`repositoryId` would otherwise be reached.
+  if (resource.reviewId) {
+    return resolveReview(userId, resource.reviewId, resource, options);
+  }
+
+  if (resource.pullRequestId) {
+    return resolvePullRequest(userId, resource.pullRequestId, resource, options);
+  }
 
   if (resource.repositoryId) {
     return resolveRepository(
@@ -234,11 +255,165 @@ async function resolveRepository(
   return { userId, projectId: repository.projectId, repositoryId };
 }
 
+/**
+ * The `pullRequestId` extension (Phase 07 sub-task 1.5). Resolves
+ * `PullRequest → Repository → Project → userId` in **one query**
+ * (`pull-request.repository.findOwnershipById`) and returns a context carrying
+ * `projectId`, `repositoryId`, and `pullRequestId` — every pull request is under
+ * exactly one repository under exactly one project, and services on this path
+ * legitimately need both parents.
+ *
+ * When the caller also supplies `projectId` and/or `repositoryId`, each is asserted
+ * against the resolved chain — the identical "a mismatch is a denial, not a silent
+ * preference for one" rule `resolveRepository` above already enforces, extended to a
+ * second possible mismatch point now that there are two ancestors to check instead of
+ * one.
+ */
+async function resolvePullRequest(
+  userId: string,
+  pullRequestId: string,
+  resource: TenantResource,
+  options: TenantAccessOptions,
+): Promise<TenantContext> {
+  const pullRequest =
+    await pullRequestRepository.findOwnershipById(pullRequestId);
+
+  if (!pullRequest) {
+    throw denied({
+      pullRequestId,
+      projectId: resource.projectId ?? null,
+      userId,
+      reason: "MISSING",
+    });
+  }
+  if (pullRequest.userId !== userId) {
+    throw denied({
+      pullRequestId,
+      projectId: pullRequest.projectId,
+      userId,
+      reason: "FOREIGN",
+    });
+  }
+  if (
+    (resource.projectId !== undefined &&
+      pullRequest.projectId !== resource.projectId) ||
+    (resource.repositoryId !== undefined &&
+      pullRequest.repositoryId !== resource.repositoryId)
+  ) {
+    // Logged with the *attempted* ids, not the real ones — same reasoning
+    // resolveRepository's own MISMATCH branch already argues.
+    throw denied({
+      pullRequestId,
+      projectId: resource.projectId ?? pullRequest.projectId,
+      userId,
+      reason: "MISMATCH",
+      repositoryId: resource.repositoryId,
+    });
+  }
+  if (pullRequest.projectDeletedAt !== null && !options.allowDeleted) {
+    throw denied({
+      pullRequestId,
+      projectId: pullRequest.projectId,
+      userId,
+      reason: "DELETED",
+      repositoryId: pullRequest.repositoryId,
+    });
+  }
+
+  setTraceProjectId(pullRequest.projectId);
+  setTraceRepositoryId(pullRequest.repositoryId);
+
+  return {
+    userId,
+    projectId: pullRequest.projectId,
+    repositoryId: pullRequest.repositoryId,
+    pullRequestId,
+  };
+}
+
+/**
+ * The `reviewId` extension (Phase 07 sub-task 1.5). Resolves
+ * `Review → PullRequest → Repository → Project → userId` in **one query**
+ * (`review.repository.findOwnershipById`) and returns a context carrying all four ids —
+ * a review resolves the entire chain, and later services on this path legitimately need
+ * `projectId`, `repositoryId`, and `pullRequestId` alongside `reviewId` without
+ * re-querying for them.
+ *
+ * Mismatch checking extends one hop further than `resolvePullRequest`'s: a caller may
+ * supply any combination of `projectId`, `repositoryId`, and `pullRequestId` alongside
+ * `reviewId`, and each supplied id is asserted against the resolved chain.
+ */
+async function resolveReview(
+  userId: string,
+  reviewId: string,
+  resource: TenantResource,
+  options: TenantAccessOptions,
+): Promise<TenantContext> {
+  const review = await reviewRepository.findOwnershipById(reviewId);
+
+  if (!review) {
+    throw denied({
+      reviewId,
+      projectId: resource.projectId ?? null,
+      userId,
+      reason: "MISSING",
+    });
+  }
+  if (review.userId !== userId) {
+    throw denied({
+      reviewId,
+      projectId: review.projectId,
+      userId,
+      reason: "FOREIGN",
+    });
+  }
+  if (
+    (resource.projectId !== undefined &&
+      review.projectId !== resource.projectId) ||
+    (resource.repositoryId !== undefined &&
+      review.repositoryId !== resource.repositoryId) ||
+    (resource.pullRequestId !== undefined &&
+      review.pullRequestId !== resource.pullRequestId)
+  ) {
+    throw denied({
+      reviewId,
+      projectId: resource.projectId ?? review.projectId,
+      userId,
+      reason: "MISMATCH",
+      repositoryId: resource.repositoryId,
+      pullRequestId: resource.pullRequestId,
+    });
+  }
+  if (review.projectDeletedAt !== null && !options.allowDeleted) {
+    throw denied({
+      reviewId,
+      projectId: review.projectId,
+      userId,
+      reason: "DELETED",
+      repositoryId: review.repositoryId,
+      pullRequestId: review.pullRequestId,
+    });
+  }
+
+  setTraceProjectId(review.projectId);
+  setTraceRepositoryId(review.repositoryId);
+
+  return {
+    userId,
+    projectId: review.projectId,
+    repositoryId: review.repositoryId,
+    pullRequestId: review.pullRequestId,
+    reviewId,
+  };
+}
+
 interface Denial {
   projectId: string | null;
   userId: string;
   reason: DenialReason;
   repositoryId?: string;
+  pullRequestId?: string;
+  reviewId?: string;
 }
 
 /**
@@ -247,12 +422,13 @@ interface Denial {
  * internal reason. This is the first signal of an authorization bug or a probing
  * attempt, so it is deliberately noisier than the 404 the caller sees.
  *
- * `repositoryId` is emitted only on the repository path, so the project-path log line
- * is byte-for-byte what phase 01 emitted and existing log queries keep working.
+ * `repositoryId`/`pullRequestId`/`reviewId` are emitted only on the path that resolved
+ * that far, so the project-only-path log line is byte-for-byte what phase 01 emitted and
+ * existing log queries keep working.
  *
- * The message is always "Project not found" — including for a repository. Saying
- * "Repository not found" would confirm that the id names a repository at all, which is
- * the same oracle in a smaller box.
+ * The message is always "Project not found" — including for a repository, a pull
+ * request, or a review. Saying "Review not found" would confirm that the id names a
+ * review at all, which is the same oracle in a smaller box.
  */
 function denied(denial: Denial): NotFoundError {
   logger.warn("tenant access denied", {
@@ -260,6 +436,8 @@ function denied(denial: Denial): NotFoundError {
     userId: denial.userId,
     reason: denial.reason,
     ...(denial.repositoryId ? { repositoryId: denial.repositoryId } : {}),
+    ...(denial.pullRequestId ? { pullRequestId: denial.pullRequestId } : {}),
+    ...(denial.reviewId ? { reviewId: denial.reviewId } : {}),
   });
   return new NotFoundError("Project not found");
 }

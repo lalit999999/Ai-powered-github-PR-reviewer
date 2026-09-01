@@ -11,6 +11,12 @@ vi.mock("../../modules/projects/project.repository.js", () => ({
 vi.mock("../../modules/repositories/repository.repository.js", () => ({
   findOwnershipById: vi.fn(),
 }));
+vi.mock("../../modules/pull-requests/pull-request.repository.js", () => ({
+  findOwnershipById: vi.fn(),
+}));
+vi.mock("../../modules/reviews/review.repository.js", () => ({
+  findOwnershipById: vi.fn(),
+}));
 
 // Captures the phase-01 §20 warn line without racing pino's stdout.
 const logSpies = {
@@ -28,6 +34,11 @@ const { findOwnershipById } =
   await import("../../modules/projects/project.repository.js");
 const repositoryRepository =
   await import("../../modules/repositories/repository.repository.js");
+const pullRequestRepository = await import(
+  "../../modules/pull-requests/pull-request.repository.js"
+);
+const reviewRepository =
+  await import("../../modules/reviews/review.repository.js");
 const { InternalError, NotFoundError } = await import("../errors.js");
 const { requireTenantAccess } = await import("./tenant-access.js");
 const { getTraceContext, runWithTraceContext } =
@@ -38,6 +49,8 @@ const OTHER_ID = "user-b";
 const PROJECT_ID = "project-1";
 const OTHER_PROJECT_ID = "project-2";
 const REPOSITORY_ID = "repo-1";
+const PULL_REQUEST_ID = "pr-1";
+const REVIEW_ID = "review-1";
 
 function sessionFor(userId: string): AuthenticatedSession {
   return {
@@ -50,6 +63,10 @@ const mockedFindOwnershipById = vi.mocked(findOwnershipById);
 const mockedFindRepositoryOwnership = vi.mocked(
   repositoryRepository.findOwnershipById,
 );
+const mockedFindPullRequestOwnership = vi.mocked(
+  pullRequestRepository.findOwnershipById,
+);
+const mockedFindReviewOwnership = vi.mocked(reviewRepository.findOwnershipById);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -499,5 +516,323 @@ describe("requireTenantAccess — the project-only path is unchanged by the exte
       userId: OWNER_ID,
       reason: "MISSING",
     });
+  });
+});
+
+/**
+ * Phase 07 sub-task 1.5's extension. Same discipline the phase-02 repositoryId section
+ * above already pins down: the extension does not loosen anything — same 404, same
+ * "the reason lives only in the log line" rule, one link further up the chain.
+ */
+describe("requireTenantAccess — pullRequestId resolution (phase-07 sub-task 1.5)", () => {
+  function pullRequestOwnership(
+    overrides: Partial<{
+      userId: string;
+      projectId: string;
+      repositoryId: string;
+      projectDeletedAt: Date | null;
+    }> = {},
+  ) {
+    return {
+      id: PULL_REQUEST_ID,
+      projectId: PROJECT_ID,
+      repositoryId: REPOSITORY_ID,
+      userId: OWNER_ID,
+      projectDeletedAt: null,
+      ...overrides,
+    };
+  }
+
+  it("returns a context carrying projectId, repositoryId, AND pullRequestId", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(pullRequestOwnership());
+
+    await expect(
+      requireTenantAccess(sessionFor(OWNER_ID), {
+        pullRequestId: PULL_REQUEST_ID,
+      }),
+    ).resolves.toEqual({
+      userId: OWNER_ID,
+      projectId: PROJECT_ID,
+      repositoryId: REPOSITORY_ID,
+      pullRequestId: PULL_REQUEST_ID,
+    });
+  });
+
+  it("walks PullRequest -> Repository -> Project -> userId in a single query", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(pullRequestOwnership());
+
+    await requireTenantAccess(sessionFor(OWNER_ID), {
+      pullRequestId: PULL_REQUEST_ID,
+    });
+
+    expect(mockedFindPullRequestOwnership).toHaveBeenCalledTimes(1);
+    expect(mockedFindPullRequestOwnership).toHaveBeenCalledWith(
+      PULL_REQUEST_ID,
+    );
+    expect(mockedFindRepositoryOwnership).not.toHaveBeenCalled();
+    expect(mockedFindOwnershipById).not.toHaveBeenCalled();
+  });
+
+  it("puts projectId AND repositoryId in the trace context", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(pullRequestOwnership());
+
+    await runWithTraceContext({ traceId: "trace-pr" }, async () => {
+      await requireTenantAccess(sessionFor(OWNER_ID), {
+        pullRequestId: PULL_REQUEST_ID,
+      });
+      expect(getTraceContext()).toMatchObject({
+        traceId: "trace-pr",
+        projectId: PROJECT_ID,
+        repositoryId: REPOSITORY_ID,
+      });
+    });
+  });
+
+  it("denies a foreign pull request with a 404, not a 403", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(
+      pullRequestOwnership({ userId: OTHER_ID }),
+    );
+
+    const promise = requireTenantAccess(sessionFor(OWNER_ID), {
+      pullRequestId: PULL_REQUEST_ID,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      projectId: PROJECT_ID,
+      userId: OWNER_ID,
+      reason: "FOREIGN",
+      pullRequestId: PULL_REQUEST_ID,
+    });
+  });
+
+  it("denies a nonexistent pull request as MISSING, with no project to name", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(null);
+
+    await expect(
+      requireTenantAccess(sessionFor(OWNER_ID), {
+        pullRequestId: PULL_REQUEST_ID,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      projectId: null,
+      userId: OWNER_ID,
+      reason: "MISSING",
+      pullRequestId: PULL_REQUEST_ID,
+    });
+  });
+
+  it("denies a pull request whose parent project is soft-deleted", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(
+      pullRequestOwnership({ projectDeletedAt: new Date() }),
+    );
+
+    await expect(
+      requireTenantAccess(sessionFor(OWNER_ID), {
+        pullRequestId: PULL_REQUEST_ID,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith(
+      "tenant access denied",
+      expect.objectContaining({
+        reason: "DELETED",
+        pullRequestId: PULL_REQUEST_ID,
+      }),
+    );
+  });
+
+  it("denies a mismatch when the caller's projectId disagrees with the resolved chain", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValue(pullRequestOwnership());
+
+    const promise = requireTenantAccess(sessionFor(OWNER_ID), {
+      projectId: OTHER_PROJECT_ID,
+      pullRequestId: PULL_REQUEST_ID,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      // The *attempted* project, not the real one.
+      projectId: OTHER_PROJECT_ID,
+      userId: OWNER_ID,
+      reason: "MISMATCH",
+      pullRequestId: PULL_REQUEST_ID,
+    });
+  });
+
+  it("gives a foreign pull request the same envelope as a nonexistent one — no oracle", async () => {
+    mockedFindPullRequestOwnership.mockResolvedValueOnce(
+      pullRequestOwnership({ userId: OTHER_ID }),
+    );
+    const foreign = await requireTenantAccess(sessionFor(OWNER_ID), {
+      pullRequestId: PULL_REQUEST_ID,
+    }).catch((e) => e);
+
+    mockedFindPullRequestOwnership.mockResolvedValueOnce(null);
+    const missing = await requireTenantAccess(sessionFor(OWNER_ID), {
+      pullRequestId: PULL_REQUEST_ID,
+    }).catch((e) => e);
+
+    expect(foreign.toEnvelope()).toEqual(missing.toEnvelope());
+    expect(foreign.message).toBe("Project not found");
+  });
+});
+
+describe("requireTenantAccess — reviewId resolution (phase-07 sub-task 1.5)", () => {
+  function reviewOwnership(
+    overrides: Partial<{
+      userId: string;
+      projectId: string;
+      repositoryId: string;
+      pullRequestId: string;
+      projectDeletedAt: Date | null;
+    }> = {},
+  ) {
+    return {
+      id: REVIEW_ID,
+      projectId: PROJECT_ID,
+      repositoryId: REPOSITORY_ID,
+      pullRequestId: PULL_REQUEST_ID,
+      userId: OWNER_ID,
+      projectDeletedAt: null,
+      ...overrides,
+    };
+  }
+
+  it("returns a context carrying all four ids — a review resolves the whole chain", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(reviewOwnership());
+
+    await expect(
+      requireTenantAccess(sessionFor(OWNER_ID), { reviewId: REVIEW_ID }),
+    ).resolves.toEqual({
+      userId: OWNER_ID,
+      projectId: PROJECT_ID,
+      repositoryId: REPOSITORY_ID,
+      pullRequestId: PULL_REQUEST_ID,
+      reviewId: REVIEW_ID,
+    });
+  });
+
+  it("walks Review -> PullRequest -> Repository -> Project -> userId in a single query", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(reviewOwnership());
+
+    await requireTenantAccess(sessionFor(OWNER_ID), { reviewId: REVIEW_ID });
+
+    expect(mockedFindReviewOwnership).toHaveBeenCalledTimes(1);
+    expect(mockedFindReviewOwnership).toHaveBeenCalledWith(REVIEW_ID);
+    expect(mockedFindPullRequestOwnership).not.toHaveBeenCalled();
+    expect(mockedFindRepositoryOwnership).not.toHaveBeenCalled();
+    expect(mockedFindOwnershipById).not.toHaveBeenCalled();
+  });
+
+  it("denies a foreign review with a 404, not a 403", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(
+      reviewOwnership({ userId: OTHER_ID }),
+    );
+
+    const promise = requireTenantAccess(sessionFor(OWNER_ID), {
+      reviewId: REVIEW_ID,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      projectId: PROJECT_ID,
+      userId: OWNER_ID,
+      reason: "FOREIGN",
+      reviewId: REVIEW_ID,
+    });
+  });
+
+  it("denies a nonexistent review as MISSING, with no project to name", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(null);
+
+    await expect(
+      requireTenantAccess(sessionFor(OWNER_ID), { reviewId: REVIEW_ID }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      projectId: null,
+      userId: OWNER_ID,
+      reason: "MISSING",
+      reviewId: REVIEW_ID,
+    });
+  });
+
+  it("denies a review whose parent project is soft-deleted", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(
+      reviewOwnership({ projectDeletedAt: new Date() }),
+    );
+
+    await expect(
+      requireTenantAccess(sessionFor(OWNER_ID), { reviewId: REVIEW_ID }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith(
+      "tenant access denied",
+      expect.objectContaining({ reason: "DELETED", reviewId: REVIEW_ID }),
+    );
+  });
+
+  // The MISMATCH case sub-task 1.5 names explicitly: caller supplies both a projectId
+  // and a reviewId under a different project.
+  it("denies a mismatch when the caller supplies a projectId under a different project than the review resolves to", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(reviewOwnership());
+
+    const promise = requireTenantAccess(sessionFor(OWNER_ID), {
+      projectId: OTHER_PROJECT_ID,
+      reviewId: REVIEW_ID,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      projectId: OTHER_PROJECT_ID,
+      userId: OWNER_ID,
+      reason: "MISMATCH",
+      reviewId: REVIEW_ID,
+    });
+  });
+
+  it("denies a mismatch when the caller's pullRequestId disagrees with the resolved chain", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(reviewOwnership());
+
+    const promise = requireTenantAccess(sessionFor(OWNER_ID), {
+      pullRequestId: "some-other-pr",
+      reviewId: REVIEW_ID,
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(NotFoundError);
+    expect(logSpies.warn).toHaveBeenCalledWith("tenant access denied", {
+      projectId: PROJECT_ID,
+      userId: OWNER_ID,
+      reason: "MISMATCH",
+      pullRequestId: "some-other-pr",
+      reviewId: REVIEW_ID,
+    });
+  });
+
+  it("gives a foreign review the same envelope as a nonexistent one — no oracle", async () => {
+    mockedFindReviewOwnership.mockResolvedValueOnce(
+      reviewOwnership({ userId: OTHER_ID }),
+    );
+    const foreign = await requireTenantAccess(sessionFor(OWNER_ID), {
+      reviewId: REVIEW_ID,
+    }).catch((e) => e);
+
+    mockedFindReviewOwnership.mockResolvedValueOnce(null);
+    const missing = await requireTenantAccess(sessionFor(OWNER_ID), {
+      reviewId: REVIEW_ID,
+    }).catch((e) => e);
+
+    expect(foreign.toEnvelope()).toEqual(missing.toEnvelope());
+    expect(foreign.message).toBe("Project not found");
+  });
+
+  it("reviewId takes priority over a pullRequestId supplied alongside it — resolves the review path, not the pull-request path", async () => {
+    mockedFindReviewOwnership.mockResolvedValue(reviewOwnership());
+
+    await requireTenantAccess(sessionFor(OWNER_ID), {
+      pullRequestId: PULL_REQUEST_ID,
+      reviewId: REVIEW_ID,
+    });
+
+    expect(mockedFindReviewOwnership).toHaveBeenCalledTimes(1);
+    expect(mockedFindPullRequestOwnership).not.toHaveBeenCalled();
   });
 });

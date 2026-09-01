@@ -1,6 +1,9 @@
 import { prisma } from "@repo/db";
+import { buildIdempotencyKey } from "@repo/shared";
 import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthenticatedSession } from "../../src/lib/auth/session.js";
+import { requireTenantAccess } from "../../src/lib/auth/tenant-access.js";
 import { seedSignedInUser, type SeededUser } from "./auth-helpers.js";
 import { resetDatabase } from "./db-helpers.js";
 import {
@@ -77,6 +80,15 @@ let repositoryOfA: {
   githubRepoId: string;
   projectId: string;
 };
+let pullRequestOfA: { id: string };
+let reviewOfA: { id: string };
+
+function sessionFor(userId: string): AuthenticatedSession {
+  return {
+    user: { id: userId },
+    expires: new Date(Date.now() + 60_000).toISOString(),
+  } as AuthenticatedSession;
+}
 
 beforeEach(async () => {
   await resetDatabase();
@@ -120,6 +132,38 @@ beforeEach(async () => {
     });
   expect(connected.status).toBe(202);
   repositoryOfA = connected.body.repository;
+
+  // Phase 07 sub-task 1.5 — a PullRequest and Review under repositoryOfA, for the
+  // pullRequestId/reviewId cross-tenant checks below. Seeded directly with Prisma
+  // (no route creates either row yet in this prompt), matching this file's own
+  // "seed the rows directly with Prisma" instruction for resources with no route.
+  const seededPullRequest = await prisma.pullRequest.create({
+    data: {
+      repositoryId: repositoryOfA.id,
+      number: 1,
+      githubPrId: 900001n,
+      headSha: "headsha-cross-tenant",
+      state: "open",
+    },
+  });
+  pullRequestOfA = { id: seededPullRequest.id };
+
+  const seededReview = await prisma.review.create({
+    data: {
+      projectId: projectOfA.id,
+      repositoryId: repositoryOfA.id,
+      pullRequestId: pullRequestOfA.id,
+      idempotencyKey: buildIdempotencyKey({
+        repositoryId: repositoryOfA.id,
+        prNumber: 1,
+        headSha: "headsha-cross-tenant",
+      }),
+      trigger: "WEBHOOK_OPENED",
+      headSha: "headsha-cross-tenant",
+      baseSha: "basesha-cross-tenant",
+    },
+  });
+  reviewOfA = { id: seededReview.id };
 
   // Clears call HISTORY only (mockReset() above already cleared implementations) — the
   // setup call above must not count against a test body's "was GitHub ever called"
@@ -639,5 +683,81 @@ describe("cross-tenant access — user B cannot read user A's repository's recen
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty("recentDeliveries");
     expect(Array.isArray(res.body.recentDeliveries)).toBe(true);
+  });
+});
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *  PHASE 07 EXTENSION (sub-task 1.5) — pullRequestId and reviewId resolution.
+ * ══════════════════════════════════════════════════════════════════════════════════
+ *
+ * No route reads a `pullRequestId` or `reviewId` yet — that lands in a later prompt —
+ * so this section proves the underlying chokepoint directly, the way this file's own
+ * header comment anticipates for a resource with no route to drive it through yet:
+ * `requireTenantAccess` is called against a real session and the real Testcontainers
+ * database, exercising the actual `PullRequest → Repository → Project → userId` and
+ * `Review → PullRequest → Repository → Project → userId` queries
+ * (`pull-request.repository.ts`/`review.repository.ts`'s own `findOwnershipById`), not
+ * a mock of either. `src/lib/auth/tenant-access.test.ts` already proves the same
+ * denial logic against a mocked repository layer; this is the same proof against a real
+ * database, matching the "template every later phase copies" pattern this file's header
+ * comment describes.
+ */
+describe("cross-tenant access — user B cannot reach user A's pull request or review", () => {
+  it("pullRequestId — user B is denied with a 404 NotFoundError", async () => {
+    await expect(
+      requireTenantAccess(sessionFor(userB.id), {
+        pullRequestId: pullRequestOfA.id,
+      }),
+    ).rejects.toMatchObject({ httpStatus: 404, message: "Project not found" });
+  });
+
+  it("reviewId — user B is denied with a 404 NotFoundError", async () => {
+    await expect(
+      requireTenantAccess(sessionFor(userB.id), { reviewId: reviewOfA.id }),
+    ).rejects.toMatchObject({ httpStatus: 404, message: "Project not found" });
+  });
+
+  it("refuses a pullRequestId identically whether foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await requireTenantAccess(sessionFor(userB.id), {
+      pullRequestId: pullRequestOfA.id,
+    }).catch((e) => e);
+    const nonexistent = await requireTenantAccess(sessionFor(userB.id), {
+      pullRequestId: "00000000-0000-0000-0000-000000000000",
+    }).catch((e) => e);
+
+    expect(foreign.toEnvelope()).toEqual(nonexistent.toEnvelope());
+  });
+
+  it("refuses a reviewId identically whether foreign or nonexistent — no existence oracle", async () => {
+    const foreign = await requireTenantAccess(sessionFor(userB.id), {
+      reviewId: reviewOfA.id,
+    }).catch((e) => e);
+    const nonexistent = await requireTenantAccess(sessionFor(userB.id), {
+      reviewId: "00000000-0000-0000-0000-000000000000",
+    }).catch((e) => e);
+
+    expect(foreign.toEnvelope()).toEqual(nonexistent.toEnvelope());
+  });
+
+  it("user A can still resolve their own pull request and review — not a blanket deny", async () => {
+    await expect(
+      requireTenantAccess(sessionFor(userA.id), {
+        pullRequestId: pullRequestOfA.id,
+      }),
+    ).resolves.toMatchObject({
+      projectId: projectOfA.id,
+      repositoryId: repositoryOfA.id,
+      pullRequestId: pullRequestOfA.id,
+    });
+
+    await expect(
+      requireTenantAccess(sessionFor(userA.id), { reviewId: reviewOfA.id }),
+    ).resolves.toMatchObject({
+      projectId: projectOfA.id,
+      repositoryId: repositoryOfA.id,
+      pullRequestId: pullRequestOfA.id,
+      reviewId: reviewOfA.id,
+    });
   });
 });
