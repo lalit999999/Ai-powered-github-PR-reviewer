@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import {
   deleteByFilePaths,
   deleteByRepository,
+  hybridSearch,
   prisma,
   search,
   upsertChunks,
   VectorDimensionError,
 } from "@repo/db";
 import type { ChunkUpsertInput } from "@repo/db";
-import { EMBEDDING_DIMENSIONS } from "@repo/shared";
+import { EMBEDDING_DIMENSIONS, HYBRID_WEIGHTS } from "@repo/shared";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "./db-helpers.js";
 import { seedRepository } from "./repository-helpers.js";
@@ -393,6 +394,189 @@ describe("pgvector.store — search (sub-task 2.3)", () => {
     const results = await search({
       repositoryId: repoA.id,
       queryEmbedding: query,
+      limit: 10,
+    });
+    expect(results).toHaveLength(1);
+  });
+});
+
+describe("pgvector.store — hybridSearch (sub-task 2.5)", () => {
+  it("a chunk present in both the vector and lexical candidate sets appears exactly once", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    const bothChunk = makeChunk({
+      repositoryId: repo.id,
+      fileId,
+      startLine: 1,
+      contentHash: "both",
+      content: "export function uniqueLexicalKeywordZephyr() { return 1; }",
+      embedding: query,
+    });
+    await upsertChunks([bothChunk]);
+
+    const results = await hybridSearch({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      queryText: "uniqueLexicalKeywordZephyr",
+      limit: 10,
+    });
+
+    const matches = results.filter((r) => r.id === bothChunk.id);
+    expect(matches).toHaveLength(1);
+  });
+
+  it("a chunk matching only lexically (poor semantic match) still surfaces", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+    // Worst possible cosine distance from the query (distance 2) — guaranteed to be
+    // excluded from the vector CTE's top-40 as long as enough better-matching filler
+    // chunks exist.
+    const negated = query.map((v) => -v);
+
+    const fillers = Array.from({ length: 45 }, (_, i) =>
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: 100 + i,
+        contentHash: `filler-${i.toString()}`,
+        embedding: makeEmbedding(i + 1),
+      }),
+    );
+    const lexicalOnlyChunk = makeChunk({
+      repositoryId: repo.id,
+      fileId,
+      startLine: 1,
+      contentHash: "lexical-only",
+      content:
+        "export function veryDistinctiveAuthMiddlewareKeyword() { return 1; }",
+      embedding: negated,
+    });
+    await upsertChunks([...fillers, lexicalOnlyChunk]);
+
+    const results = await hybridSearch({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      queryText: "veryDistinctiveAuthMiddlewareKeyword",
+      limit: 50,
+    });
+
+    expect(results.some((r) => r.id === lexicalOnlyChunk.id)).toBe(true);
+  });
+
+  it("an empty queryText works — the vector side still returns candidates", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    await upsertChunks([
+      makeChunk({ repositoryId: repo.id, fileId, embedding: query }),
+    ]);
+
+    const results = await hybridSearch({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      queryText: "",
+      limit: 10,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it("respects limit", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    const chunks = Array.from({ length: 10 }, (_, i) =>
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: i,
+        contentHash: `hs-${i.toString()}`,
+        embedding: makeEmbedding(i),
+      }),
+    );
+    await upsertChunks(chunks);
+
+    const results = await hybridSearch({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      queryText: "",
+      limit: 3,
+    });
+    expect(results).toHaveLength(3);
+  });
+
+  it("every result has all five score components populated, and score equals their weighted sum", async () => {
+    const repo = await seedRepository();
+    const fileId = await seedRepositoryFile(repo.id, "src/a.ts");
+    const query = makeEmbedding(0);
+
+    const chunks = Array.from({ length: 5 }, (_, i) =>
+      makeChunk({
+        repositoryId: repo.id,
+        fileId,
+        startLine: i,
+        contentHash: `arith-${i.toString()}`,
+        content: `export function fn${i.toString()}() { return authKeyword; }`,
+        embedding: makeEmbedding(i),
+      }),
+    );
+    await upsertChunks(chunks);
+
+    const results = await hybridSearch({
+      repositoryId: repo.id,
+      queryEmbedding: query,
+      queryText: "authKeyword",
+      limit: 5,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(typeof r.vectorScore).toBe("number");
+      expect(typeof r.graphProximity).toBe("number");
+      expect(typeof r.lexicalScore).toBe("number");
+      expect(typeof r.recencyOrImportance).toBe("number");
+      expect(typeof r.pathAffinity).toBe("number");
+      const expectedScore =
+        HYBRID_WEIGHTS.vectorScore * r.vectorScore +
+        HYBRID_WEIGHTS.graphProximity * r.graphProximity +
+        HYBRID_WEIGHTS.lexicalScore * r.lexicalScore +
+        HYBRID_WEIGHTS.recencyOrImportance * r.recencyOrImportance +
+        HYBRID_WEIGHTS.pathAffinity * r.pathAffinity;
+      expect(r.score).toBeCloseTo(expectedScore, 10);
+    }
+  });
+
+  it("never returns a chunk from a different repository", async () => {
+    const repoA = await seedRepository();
+    const repoB = await seedRepository();
+    const fileA = await seedRepositoryFile(repoA.id, "src/auth.ts");
+    const fileB = await seedRepositoryFile(repoB.id, "src/auth.ts");
+    const query = makeEmbedding(0);
+
+    await upsertChunks([
+      makeChunk({
+        repositoryId: repoA.id,
+        fileId: fileA,
+        content: "export function authHandler() {}",
+        embedding: query,
+      }),
+      makeChunk({
+        repositoryId: repoB.id,
+        fileId: fileB,
+        content: "export function authHandler() {}",
+        embedding: query,
+      }),
+    ]);
+
+    const results = await hybridSearch({
+      repositoryId: repoA.id,
+      queryEmbedding: query,
+      queryText: "authHandler",
       limit: 10,
     });
     expect(results).toHaveLength(1);

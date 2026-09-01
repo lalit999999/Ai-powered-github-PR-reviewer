@@ -13,12 +13,13 @@ export { authAdapter } from "./auth-adapter.js";
 export { Prisma } from "./generated/client.js";
 
 // Phase 05 prompt 2: the pgvector VectorStore implementation. Exported progressively as
-// sub-tasks 2.2/2.3/2.5 land the individual functions and, once every method exists,
-// the assembled `pgvectorStore: VectorStore` instance — see sub-task 2.7's own export
-// block below for the final, fully-commented surface.
+// sub-tasks 2.2/2.3/2.5 land the individual functions; see sub-task 2.7's own export
+// block below for the final, fully-commented surface (the `pgvectorStore` instance and
+// the hybrid-scorer's public functions).
 export {
   deleteByFilePaths,
   deleteByRepository,
+  hybridSearch,
   HNSW_EF_SEARCH_FILTERED,
   search,
   upsertChunks,
@@ -26,6 +27,7 @@ export {
 } from "./vector/pgvector.store.js";
 export type {
   ChunkUpsertInput,
+  HybridSearchOptions,
   ScoredChunk,
   VectorSearchOptions,
 } from "./vector/vector-store.interface.js";
