@@ -58,9 +58,48 @@ export const envSchema = z.object({
   // Shared with apps/worker via @repo/github rather than re-derived here — see
   // docs/decisions/phase-03-log.md, sub-task 1.1/1.2.
   REDIS_URL: githubRedisUrlSchema,
+
+  // Phase 05 prompt 3, sub-task 3.8 — apps/api only ever needs an embedding provider
+  // for the flagged debug search panel (Prompt 5). Making EMBEDDING_API_KEY/
+  // EMBEDDING_MODEL unconditionally required (the way apps/worker's config.ts does,
+  // where every index run genuinely needs them) would break every existing deployment
+  // and CI run for a debug-only feature nothing else in apps/api depends on. Both are
+  // declared `.optional()` here and enforced conditionally below, via `superRefine`,
+  // only when DEBUG_SEARCH_ENABLED=true — fail-fast stays true exactly where it
+  // matters, with no false boot failure everywhere else.
+  //
+  // `z.enum(["true","false"])` + `.transform`, not `z.coerce.boolean()` — deliberately:
+  // `z.coerce.boolean()` runs JS's own `Boolean(...)` coercion, under which the string
+  // `"false"` is truthy (a non-empty string), which would make `DEBUG_SEARCH_ENABLED=false`
+  // in a real `.env` file silently enable the feature it names. The enum forces the
+  // literal string `"true"` and rejects anything else (falling back to the default).
+  DEBUG_SEARCH_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  EMBEDDING_API_KEY: z.string().min(1).optional(),
+  EMBEDDING_MODEL: z.string().min(1).optional(),
 });
 
 export type Config = Readonly<z.infer<typeof envSchema>>;
+
+const configSchema = envSchema.superRefine((data, ctx) => {
+  if (!data.DEBUG_SEARCH_ENABLED) return;
+  if (!data.EMBEDDING_API_KEY) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["EMBEDDING_API_KEY"],
+      message: "EMBEDDING_API_KEY is required when DEBUG_SEARCH_ENABLED=true",
+    });
+  }
+  if (!data.EMBEDDING_MODEL) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["EMBEDDING_MODEL"],
+      message: "EMBEDDING_MODEL is required when DEBUG_SEARCH_ENABLED=true",
+    });
+  }
+});
 
 /**
  * Pure — no side effects, safe to call from unit tests with a synthetic env object.
@@ -69,7 +108,7 @@ export type Config = Readonly<z.infer<typeof envSchema>>;
  * runs against the real process.env as a module-load side effect.
  */
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = envSchema.safeParse(source);
+  const parsed = configSchema.safeParse(source);
   if (!parsed.success) {
     const { fieldErrors } = z.flattenError(parsed.error);
     // Name every offending variable *and* carry its first message, so a value that is

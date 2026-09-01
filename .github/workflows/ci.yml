@@ -43,6 +43,17 @@ jobs:
       GITHUB_APP_SLUG: dummy-app-slug
       GITHUB_APP_WEBHOOK_SECRET: dummy_webhook_secret
       REDIS_URL: redis://localhost:6379
+      # Phase 05 prompt 3 — apps/worker requires these unconditionally (every index run
+      # embeds chunks), so CI needs dummy values or apps/worker's config module-load-time
+      # fail-fast check kills every test file that imports it, real embedding calls or
+      # not. No test in this repo opens a socket to an embedding/LLM provider — the same
+      # safety property every other dummy value in this block relies on.
+      EMBEDDING_API_KEY: dummy_embedding_key
+      EMBEDDING_MODEL: dummy-embedding-model
+      LLM_API_KEY: dummy_llm_key
+      # apps/api only reads EMBEDDING_API_KEY/EMBEDDING_MODEL when DEBUG_SEARCH_ENABLED
+      # is "true" — left unset here (false by default) so CI proves the common case:
+      # apps/api boots with neither embedding variable set at all.
       # Phase 04 Prompt 5: the 10k-file/query-plan/unresolved-ratio perf suites are real
       # integration tests (apps/worker/tests/integration/), not skipped by a separate CI
       # job — but SKIP_PERF_TESTS=1 excludes just the two genuinely slow, machine-shape-

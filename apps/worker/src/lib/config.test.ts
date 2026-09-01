@@ -13,6 +13,10 @@ const VALID_ENV = {
   GITHUB_APP_ID: "123456",
   GITHUB_APP_PRIVATE_KEY: DUMMY_PEM,
   REDIS_URL: "redis://localhost:6379",
+  // Phase 05 prompt 3, sub-task 3.8.
+  EMBEDDING_API_KEY: "embedding-key",
+  EMBEDDING_MODEL: "voyage-code-3",
+  LLM_API_KEY: "llm-key",
 };
 
 describe("loadConfig", () => {
@@ -32,7 +36,7 @@ describe("loadConfig", () => {
   });
 
   it("throws ConfigError naming every missing variable at once, given an empty environment", () => {
-    expect.assertions(5);
+    expect.assertions(8);
     try {
       loadConfig({});
     } catch (err) {
@@ -42,6 +46,9 @@ describe("loadConfig", () => {
       expect(message).toContain("DATABASE_URL");
       expect(message).toContain("GITHUB_APP_ID");
       expect(message).toContain("GITHUB_APP_PRIVATE_KEY");
+      expect(message).toContain("EMBEDDING_API_KEY");
+      expect(message).toContain("EMBEDDING_MODEL");
+      expect(message).toContain("LLM_API_KEY");
     }
   });
 
@@ -72,6 +79,23 @@ describe("loadConfig", () => {
       loadConfig({ ...VALID_ENV, REDIS_URL: "localhost:6379" }),
     ).toThrow(/REDIS_URL/);
   });
+});
+
+describe("loadConfig — Phase 05 prompt 3 embedding/LLM variables (§19: no silent default)", () => {
+  it("fails at boot when EMBEDDING_MODEL is unset — no silent default", () => {
+    const { EMBEDDING_MODEL: _omit, ...rest } = VALID_ENV;
+    expect(() => loadConfig(rest)).toThrow(ConfigError);
+    expect(() => loadConfig(rest)).toThrow(/EMBEDDING_MODEL/);
+  });
+
+  it.each(["EMBEDDING_API_KEY", "EMBEDDING_MODEL", "LLM_API_KEY"] as const)(
+    "refuses to load when %s is missing, naming it",
+    (variable) => {
+      const { [variable]: _omit, ...rest } = VALID_ENV;
+      expect(() => loadConfig(rest)).toThrow(ConfigError);
+      expect(() => loadConfig(rest)).toThrow(new RegExp(variable));
+    },
+  );
 });
 
 describe("loadConfig — Phase 03 indexing limits (§19)", () => {

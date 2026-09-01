@@ -127,3 +127,49 @@ describe("loadConfig — Phase 02 variables are all required", () => {
     ).toThrow(/REDIS_URL/);
   });
 });
+
+// Phase 05 prompt 3, sub-task 3.8 — EMBEDDING_API_KEY/EMBEDDING_MODEL are only
+// required when the debug search panel is flagged on, so every deployment/CI run that
+// never sets DEBUG_SEARCH_ENABLED must keep booting with no embedding vars at all.
+describe("loadConfig — DEBUG_SEARCH_ENABLED gates the embedding variables", () => {
+  it("boots with neither DEBUG_SEARCH_ENABLED nor the embedding vars set", () => {
+    const config = loadConfig(VALID_ENV);
+    expect(config.DEBUG_SEARCH_ENABLED).toBe(false);
+    expect(config.EMBEDDING_API_KEY).toBeUndefined();
+    expect(config.EMBEDDING_MODEL).toBeUndefined();
+  });
+
+  it("treats DEBUG_SEARCH_ENABLED=false as literally false, not JS truthy-string coercion", () => {
+    const config = loadConfig({ ...VALID_ENV, DEBUG_SEARCH_ENABLED: "false" });
+    expect(config.DEBUG_SEARCH_ENABLED).toBe(false);
+  });
+
+  it("rejects an unrecognized DEBUG_SEARCH_ENABLED value rather than silently defaulting", () => {
+    expect(() =>
+      loadConfig({ ...VALID_ENV, DEBUG_SEARCH_ENABLED: "yes" }),
+    ).toThrow(/DEBUG_SEARCH_ENABLED/);
+  });
+
+  it("fails naming both embedding variables when DEBUG_SEARCH_ENABLED=true and neither is set", () => {
+    expect.assertions(3);
+    try {
+      loadConfig({ ...VALID_ENV, DEBUG_SEARCH_ENABLED: "true" });
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+      expect((err as Error).message).toContain("EMBEDDING_API_KEY");
+      expect((err as Error).message).toContain("EMBEDDING_MODEL");
+    }
+  });
+
+  it("boots when DEBUG_SEARCH_ENABLED=true and both embedding variables are set", () => {
+    const config = loadConfig({
+      ...VALID_ENV,
+      DEBUG_SEARCH_ENABLED: "true",
+      EMBEDDING_API_KEY: "test-key",
+      EMBEDDING_MODEL: "voyage-code-3",
+    });
+    expect(config.DEBUG_SEARCH_ENABLED).toBe(true);
+    expect(config.EMBEDDING_API_KEY).toBe("test-key");
+    expect(config.EMBEDDING_MODEL).toBe("voyage-code-3");
+  });
+});

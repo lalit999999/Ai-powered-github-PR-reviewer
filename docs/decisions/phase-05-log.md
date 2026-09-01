@@ -316,3 +316,193 @@ local `pgvector/pgvector:pg16` container for faster iteration):
   typecheck, lint, format, unit tests, integration tests including the two scale/
   EXPLAIN-ANALYZE suites and the tenant-isolation suite) ran successfully against the
   local Docker/Testcontainers `pgvector/pgvector:pg16` environment in this session.
+
+## Prompt 3 — Chunking, embedding client, and the two-layer cache
+
+### The `@repo/embedings` typo, and why the new package closes it rather than fixing it
+
+`eslint.config.mjs` Rule A/D already named `"@repo/embedings"` (one `d`) in their
+`no-restricted-imports` pattern groups — a typo baked into the rule itself, presumably
+from an earlier draft of the phase document. A package correctly spelled
+`@repo/embeddings` would have slipped straight past both rules with zero lint signal.
+The package is named correctly (`@repo/embeddings`); the fix is on the rule side —
+both pattern groups now list the correct spelling **alongside** the typo, never
+replacing it, so a future accidental `@repo/embedings` package would still be caught.
+`apps/api/tests/fixtures/lint/rule-a-violation.ts` was extended with an
+`import { chunkFile } from "@repo/embeddings"` line, and
+`apps/api/src/lib/boundaries.test.ts`'s Rule A assertion (which only checks that
+`no-restricted-imports` fired with a message matching `/Rule A/`, not which specific
+package name triggered it) needed no change to prove the new pattern fires — verified
+by running the suite, not just by reading the rule.
+
+### Measured characters-per-token ratio
+
+Measured with `gpt-tokenizer` (cl100k_base/GPT-4 encoding), installed as a throwaway
+dev dependency in the scratchpad — never added to any package's own `package.json` —
+against all 18 non-empty files in `apps/worker/tests/fixtures/parsing/` (`empty.ts`
+excluded, zero tokens for zero characters). Aggregate: 7,581 characters / 1,792 tokens
+= **4.230 chars/token**, pinned to **4.2**. Per-file spread ranged 3.24–5.20
+chars/token depending on comment density — comfortably inside the ±20% error band
+§2.2 already accepts for a soft ceiling like `SYMBOL_CHUNK_MAX_TOKENS`. This is denser
+(fewer chars/token) prose text would measure, and a little sparser than raw, minified
+code would — TypeScript with a normal amount of commenting, which is what the chunker
+actually sees. The full per-file table is recorded in
+`packages/embeddings/src/chunking/token-estimator.ts`'s own header comment. Cost of
+being wrong: chunk boundaries land at slightly different token counts than intended
+(the whole reason the constant is called an _estimate_), never a correctness bug —
+nothing downstream in this phase enforces a hard token budget against it.
+
+### Embedding provider: Voyage AI `voyage-code-3`
+
+Chosen over a general-purpose text-embedding model per spec §4's stated preference for
+a code-specialized model when available. `voyage-code-3` accepts an `output_dimension`
+request parameter that pins its response to exactly `EMBEDDING_DIMENSIONS` (1024) with
+no separate truncation step, and its request/response shape
+(`{ input, model } -> { data: [{ embedding, index }] }`) is the same OpenAI-compatible
+convention most embedding providers share — verified against the provider's own
+Zod-validated response schema in `packages/embeddings/src/embedding/provider.ts`, not
+assumed from memory. The endpoint itself is hardcoded (there is no
+`EMBEDDING_BASE_URL` env var — spec §19 names only `EMBEDDING_MODEL`/
+`EMBEDDING_API_KEY`), deliberately: which provider is in use is meant to be a tracked
+code change, not something an env var can silently redirect. No quality delta is
+being knowingly accepted by this choice — a code-specialized model is spec's own
+stated preference, not a fallback — though Phase 09's evaluation corpus is still the
+thing that will eventually measure whether `voyage-code-3` specifically was the right
+pick versus another code-specialized option.
+
+### The split-point heuristic ladder, and which rung the fixtures hit
+
+§10's "nested-statement boundaries" is approximated by brace-depth tracking, relative
+to `0` at the symbol's own first line: a candidate split point is a line where depth
+has returned to `1` (back inside the symbol's own top-level block, not nested inside a
+further `if`/`for`/etc.). The ladder, in order: (1) the brace-depth-1 line closest to
+the size-driven ideal cut point, searched within a 15-line radius; (2) if none, the
+blank line closest to the ideal point in the same radius; (3) if neither, a hard cut
+exactly at the ideal point. Never mid-line at any rung — every candidate and the
+fallback are whole line indices. The committed test fixture
+(`ast-chunker.test.ts`'s `buildOversizedFixture`, a function padded to ~220 statement
+lines with an occasional blank line every 15 lines) exercises rung 1
+(brace-depth-1 candidates) for most splits and rung 2 (blank-line fallback) is
+reachable by construction but not the rung this specific fixture's measured output
+happened to land on every time — both code paths are covered by the invariant
+assertions (union covers the whole symbol with no gap) regardless of which rung fired.
+
+### Coalescing adjacency, and the between-symbols policy
+
+**Adjacency** is defined purely as _consecutive in file order among top-level
+symbols_ — a comment or blank line between two tiny symbols does not break a
+coalescing run, since neither is itself a declaration requiring its own chunk. This
+was the simpler of two options (the other being "no blank line between them"); chosen
+because nothing about a blank line changes whether the _symbols_ are conceptually
+related enough to coalesce, and the alternative would make coalescing sensitive to
+incidental formatting.
+
+**Between-symbols content** (module-level statements outside any symbol) is folded
+into the chunk that immediately follows the gap — that chunk's `startLine` is pulled
+back to one past the previous chunk's `endLine`, including the leading gap between the
+synthetic `FILE_HEADER` and the first real chunk. A trailing gap after the last symbol
+is folded into the chunk that precedes it instead (its `endLine` is pushed forward to
+the file's last line). This never crosses into another symbol's own range, since by
+construction a gap only ever occurs _between_ two symbols that already have their own
+chunks. The alternative considered — emitting a dedicated `WINDOW` chunk for each gap —
+was rejected as unnecessary chunk-count inflation for what is usually a handful of
+lines; folding costs nothing and guarantees §3.3 rule 5 ("nothing between symbols is
+dropped silently") by construction rather than by a second code path that could drift
+out of sync with the first.
+
+**`FILE_HEADER` truncation**: when the assembled header (leading docblock + import
+list + exported-signature list) exceeds `FILE_HEADER_TARGET_TOKENS_MAX` (300), the
+longest surviving `(name, signature)` pair is dropped and the header rebuilt,
+repeating until it fits or the list is empty. Name and signature are always dropped
+together (never independently) so the `symbols[]` field and the body's signature list
+can never desync — an earlier draft of this function tracked them as two parallel
+arrays and that exact desync was caught by `ast-chunker.test.ts`'s own FILE_HEADER
+smoke test before it was committed.
+
+**"OK but zero symbols"** (a barrel/re-export-only file, e.g.
+`apps/worker/tests/fixtures/parsing/barrel.ts`) routes to the window chunker, not the
+AST chunker — the router's predicate is literally `parseState === "OK" && symbols.length
+
+> 0`. Cost: such a file loses the AST chunker's synthesized import/export
+`FILE_HEADER` summary. Mitigation: the window chunker's own "file shorter than one
+> window → one chunk covering the whole file" rule means a typical small barrel file
+> still becomes exactly one chunk with zero content loss, just without the synthetic
+> summary framing.
+
+### The embedding cache's `model`-identity decision
+
+`EmbeddingCache` has `contentHash` alone as its primary key — a model change would
+silently _overwrite_ an existing row rather than coexist alongside it (spec §22 names
+this exact failure point). Decision: **reads always filter by `model`** (`WHERE
+"contentHash" = ANY(...) AND "model" = ...`), so a hash cached under a different model
+always misses and is never served as a false hit; **writes overwrite** on conflict
+(`ON CONFLICT ("contentHash") DO UPDATE SET "model" = EXCLUDED."model", ...`), so a
+model migration gradually converts the table to the new model, one re-embedded chunk
+at a time, with no explicit truncation step required. The Redis key
+(`embcache:<model>:<contentHash>`) carries the same `model` prefix for the identical
+reason at the identical layer. Proved by
+`apps/worker/tests/integration/embedding-cache.test.ts`'s "a different model value
+does not serve a stale vector" and "a model migration overwrites the existing row on
+write" cases.
+
+`recordHits` is a deliberately separate call from `getCached`, not folded into the
+read path — a write costs more than the read that found the value, and `getCached`
+may be called speculatively (a "what's already cached" pre-flight check) as well as
+for genuine hits about to be used; always paying an `UPDATE` on every read would
+double the write load for the speculative case with no benefit. The caller (Prompt
+4's pipeline) is expected to call `recordHits` once, batched, with the full set of
+hashes actually used as hits for a run.
+
+### Redis fail-open and TTL
+
+Every Redis call in `embedding-cache.repository.ts` is wrapped so a connection error
+logs at `warn` and falls through to Postgres — the identical fail-open shape
+`packages/github/src/client/token-cache.ts`'s `RedisTokenCache` already established
+for this codebase. Proved directly by the integration suite's "falls through to
+Postgres and stays correct when Redis is unavailable, logging a warn" case, using an
+injected `RedisLike` fake configured to throw rather than a real Testcontainers Redis
+outage — see that test file's own header comment for why a second Testcontainers
+service was not stood up for this.
+
+TTL: 7 days (`EMBEDDING_CACHE_REDIS_TTL_SECONDS`). Chosen against spec §14's own
+named use case — cache hits _across repositories_ sharing common boilerplate, which
+can be indexed days apart, not just within a single run — rather than the shorter,
+single-purpose TTLs used elsewhere (the ~50-minute GitHub token cache). Postgres stays
+authoritative regardless of this TTL; a Redis expiry only ever costs one extra
+Postgres round trip, never data loss. No separate max-entry-count is enforced by this
+client — total Redis memory is bounded at the deployment level (`maxmemory` + an
+eviction policy such as `allkeys-lru`), the same layer that already bounds every other
+cache sharing this Redis instance.
+
+### `DEBUG_SEARCH_ENABLED` — the conditional-requirement config approach
+
+apps/worker requires `EMBEDDING_API_KEY`/`EMBEDDING_MODEL`/`LLM_API_KEY`
+unconditionally (every index run needs them). apps/api only ever needs an embedding
+provider for the flagged debug search panel (Prompt 5), so making the same two
+embedding variables unconditionally required in `apps/api/src/lib/config.ts` would
+break every existing deployment and CI run for a feature nothing else in apps/api
+depends on. Implemented as: `DEBUG_SEARCH_ENABLED` (`z.enum(["true","false"])`,
+defaulting to `"false"`, transformed to a real boolean) plus a `superRefine` on the
+whole schema that adds a `custom` issue naming `EMBEDDING_API_KEY`/`EMBEDDING_MODEL`
+individually when the flag is `true` and either is absent.
+
+Deliberately **not** `z.coerce.boolean()` — that runs JS's own `Boolean(...)`
+coercion, under which the _string_ `"false"` is truthy (a non-empty string), which
+would make `DEBUG_SEARCH_ENABLED=false` in a real `.env` file silently enable the
+feature it names. The enum forces the literal string `"true"` and rejects anything
+else, falling back to the default rather than guessing. Proved by
+`apps/api/src/lib/config.test.ts`'s dedicated describe block, including the exact
+"boots with EMBEDDING_MODEL unset" DoD case.
+
+### What could not be verified from this environment
+
+- No change from Prompt 1/Prompt 2's own lists — every gate in this prompt's own DoD
+  (format, lint, typecheck, build, unit tests, integration tests) ran successfully in
+  this session, including the embedding-cache integration suite against the local
+  Docker/Testcontainers `pgvector/pgvector:pg16` environment.
+- The real Voyage AI endpoint was never called — Claude.md §30 forbids it in any test,
+  and no such call exists anywhere in this prompt's code. `provider.ts`'s request
+  shape (field names, header names, the `output_dimension` parameter) is written
+  against Voyage's published API documentation, not verified against a live response
+  in this session. Prompt 5's own opt-in, env-flag-gated real-provider verification is
+  where that gets checked end-to-end.

@@ -51,6 +51,21 @@ export const envSchema = z.object({
     .positive()
     .default(2 * GIB),
   INDEX_MAX_FILE_COUNT: z.coerce.number().int().positive().default(200_000),
+
+  // Phase 05 prompt 3, sub-task 3.8 — every worker index run embeds chunks, so unlike
+  // apps/api's DEBUG_SEARCH_ENABLED-gated pair, these are unconditionally required here.
+  // No default on EMBEDDING_MODEL (spec §19): which embedding model is in use must be a
+  // deliberate, tracked config change — a silent default would let the model drift
+  // without anyone noticing, and a re-index under a new model with no config change at
+  // all would go undetected until retrieval quality quietly degraded.
+  EMBEDDING_API_KEY: z.string().min(1, "EMBEDDING_API_KEY is required"),
+  EMBEDDING_MODEL: z.string().min(1, "EMBEDDING_MODEL is required"),
+
+  // First appearance in this system — Prompt 4 uses this for ReviewProfile (spec §9's
+  // LLM-driven review-profile step). Grouped here, not with the embedding vars above,
+  // because it is a wholly separate credential for a separate provider call, even
+  // though both happen to be "AI API keys."
+  LLM_API_KEY: z.string().min(1, "LLM_API_KEY is required"),
 });
 
 export type Config = Readonly<z.infer<typeof envSchema>>;
