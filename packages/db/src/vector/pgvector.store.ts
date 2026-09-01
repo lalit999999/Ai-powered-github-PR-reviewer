@@ -2,6 +2,7 @@ import { createLogger } from "@repo/observability";
 import { EMBEDDING_DIMENSIONS } from "@repo/shared";
 import { prisma } from "../client.js";
 import { Prisma } from "../generated/client.js";
+import { normalizeVectorScore } from "./hybrid-scorer.js";
 import type {
   ChunkUpsertInput,
   ScoredChunk,
@@ -208,26 +209,6 @@ export async function deleteByRepository(
  */
 export const HNSW_EF_SEARCH_FILTERED = 120;
 
-/**
- * `embedding <=> $1` is pgvector's cosine **distance** (`halfvec_cosine_ops`, the HNSW
- * index's own operator class), range `[0, 2]` — not a similarity, and not bounded to
- * `[0, 1]`. `1 - distance` is the naive conversion a reviewer expects, but it produces
- * negative scores for any distance above 1 (a very dissimilar pair, still a legal
- * `<=>` output) and would silently corrupt the hybrid formula's weighted sum, which
- * assumes every term is in `[0, 1]`. Mapping `[0, 2] -> [1, 0]` instead is the correct
- * affine transform, clamped defensively in case of floating-point overshoot right at the
- * boundary.
- *
- * This mirrors the formula sub-task 2.4's `hybrid-scorer.ts` also defines and unit-tests
- * as `normalizeVectorScore` — duplicated here only until that module exists; sub-task
- * 2.4's own commit removes this copy and imports the pure-module version instead, so the
- * conversion has exactly one definition once both sub-tasks have landed.
- */
-function distanceToVectorScore(distance: number): number {
-  const score = 1 - distance / 2;
-  return Math.min(1, Math.max(0, score));
-}
-
 interface VectorSearchRow {
   id: string;
   filePath: string;
@@ -304,7 +285,7 @@ export async function search(
   });
 
   const results: ScoredChunk[] = rows.map((row) => {
-    const vectorScore = distanceToVectorScore(row.distance);
+    const vectorScore = normalizeVectorScore(row.distance);
     return {
       id: row.id,
       filePath: row.filePath,
