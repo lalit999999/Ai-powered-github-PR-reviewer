@@ -473,3 +473,299 @@ export async function listPullRequestFiles(
     return { ok: false, reason };
   }
 }
+
+// ---------------------------------------------------------------------------
+// GET /repos/{owner}/{repo}/pulls/{pull_number} (Accept: application/vnd.github.diff) —
+// the full-diff fallback for files GitHub omits a `patch` on.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the whole PR as one raw unified diff string, using the `diff` media type on
+ * the same single-PR endpoint {@link getPullRequest} uses.
+ */
+export async function getPullRequestDiff(
+  installationId: bigint,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  options: PullRequestGithubOptions = {},
+): Promise<GithubResult<{ diff: string }>> {
+  const logger = options.logger ?? defaultLogger;
+  const octokit =
+    options.octokit ?? createInstallationOctokit(installationId, { logger });
+  const fullName = `${owner}/${repo}`;
+
+  try {
+    const response = await octokit.request(
+      "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+      {
+        owner,
+        repo,
+        pull_number: pullNumber,
+        headers: { accept: "application/vnd.github.diff" },
+      },
+    );
+    const diff = toDiffString(response.data);
+
+    if (diff === null) {
+      logger.warn("github returned a diff body this code does not understand", {
+        installationId: installationId.toString(),
+        endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number} (diff)",
+        fullName,
+        pullNumber,
+      });
+      return { ok: false, reason: "UNAVAILABLE" };
+    }
+
+    logger.info("fetched pull request diff", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number} (diff)",
+      fullName,
+      pullNumber,
+      bytes: diff.length,
+    });
+
+    return { ok: true, diff };
+  } catch (error) {
+    const reason = classifyGithubError(error);
+    logger.warn("failed to fetch pull request diff", {
+      installationId: installationId.toString(),
+      endpoint: "GET /repos/{owner}/{repo}/pulls/{pull_number} (diff)",
+      fullName,
+      pullNumber,
+      reason,
+    });
+    return { ok: false, reason };
+  }
+}
+
+/**
+ * Normalizes whatever the installed `@octokit/core` → `@octokit/request` chain actually
+ * hands back for a non-JSON response body.
+ *
+ * Verified by reading the installed `@octokit/request@10.0.15`'s
+ * `dist-src/fetch-wrapper.js` (`getResponseData`): a response whose `content-type` has no
+ * `charset` parameter and isn't `text/*`/JSON falls through to `response.arrayBuffer()`
+ * and arrives as an `ArrayBuffer`; one whose `content-type` carries `charset=utf-8` — which
+ * is how GitHub actually sends `application/vnd.github.diff` (`application/vnd.github.diff;
+ * charset=utf-8`) — is read with `response.text()` and arrives as a plain `string`. Both
+ * are handled (plus a `Buffer` guard, cheap insurance against a future fetch polyfill)
+ * so a GitHub content-type change degrades to a decode rather than a crash.
+ */
+function toDiffString(data: unknown): string | null {
+  if (typeof data === "string") return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data).toString("utf8");
+  if (Buffer.isBuffer(data)) return data.toString("utf8");
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// splitDiffByFile — pure, unit-testable per-file diff splitting
+// ---------------------------------------------------------------------------
+
+interface DiffFileSection {
+  minusPath: string | null;
+  plusPath: string | null;
+  plusIsDevNull: boolean;
+  renameFrom: string | null;
+  renameTo: string | null;
+  diffLineOldPath: string | null;
+  diffLineNewPath: string | null;
+  bodyLines: string[];
+  inHunkBody: boolean;
+}
+
+function stripAbPrefix(path: string, prefix: "a/" | "b/"): string {
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
+/** Best-effort parse of `diff --git a/<old> b/<new>` — used only when neither the
+ * `---`/`+++` lines nor `rename from`/`rename to` are present (a mode-only change on an
+ * unrenamed file, or a binary file). Paths are assumed identical on both sides, which is
+ * true whenever this fallback is actually reached (a real rename always carries
+ * `rename from`/`rename to` lines, and content changes always carry `---`/`+++`) — the
+ * one gap: an old path that itself contains the literal substring `" b/"` would split in
+ * the wrong place. Not reachable from any case this package's own fixtures exercise. */
+function parseDiffGitLine(line: string): {
+  oldPath: string | null;
+  newPath: string | null;
+} {
+  const rest = line.slice("diff --git ".length);
+  if (!rest.startsWith("a/")) return { oldPath: null, newPath: null };
+
+  const withoutAPrefix = rest.slice(2);
+  const bMarker = " b/";
+  const bIndex = withoutAPrefix.indexOf(bMarker);
+  if (bIndex === -1) return { oldPath: null, newPath: null };
+
+  return {
+    oldPath: withoutAPrefix.slice(0, bIndex),
+    newPath: withoutAPrefix.slice(bIndex + bMarker.length),
+  };
+}
+
+function resolveFileKey(section: DiffFileSection): string | null {
+  // A deletion's "+++" line is "+++ /dev/null" — key on the old (a/) path.
+  if (section.plusIsDevNull) {
+    return section.minusPath ?? section.renameFrom ?? section.diffLineOldPath;
+  }
+  // Everything else (added/modified/renamed/copied) — key on the new (b/) path, which
+  // is what listPullRequestFiles reports as `filename`.
+  return section.plusPath ?? section.renameTo ?? section.diffLineNewPath;
+}
+
+/**
+ * Splits a whole-PR unified diff into `Map<path, patch>`, one entry per file, where each
+ * `patch` is exactly the per-file body GitHub would have put in that file's `patch`
+ * field: the hunks starting at the first `@@`, without the `diff --git`, `index`, `---`,
+ * `+++`, `similarity index`, `rename from/to`, or `new file mode` header lines.
+ *
+ * An explicit line-by-line state machine, not a whole-document regex: a diff can contain
+ * lines that *look* like header lines inside a hunk body (e.g. a file documenting git
+ * output has a content line reading `diff --git a/x b/x`), and only line position plus
+ * leading-character prefix disambiguates them. Content lines always carry a leading
+ * marker character (`+`, `-`, ` `, or `\`) — a genuine header line never does — so
+ * checking the raw line's prefix at column 0, before any marker is stripped, is enough.
+ */
+export function splitDiffByFile(diff: string): Map<string, string> {
+  const result = new Map<string, string>();
+  if (!diff) return result;
+
+  const normalized = diff.endsWith("\n") ? diff.slice(0, -1) : diff;
+  const lines = normalized.split("\n");
+
+  let current: DiffFileSection | null = null;
+
+  const flush = () => {
+    if (!current) return;
+    const key = resolveFileKey(current);
+    if (key !== null) result.set(key, current.bodyLines.join("\n"));
+    current = null;
+  };
+
+  for (const line of lines) {
+    if (line.startsWith("diff --git ")) {
+      flush();
+      const { oldPath, newPath } = parseDiffGitLine(line);
+      current = {
+        minusPath: null,
+        plusPath: null,
+        plusIsDevNull: false,
+        renameFrom: null,
+        renameTo: null,
+        diffLineOldPath: oldPath,
+        diffLineNewPath: newPath,
+        bodyLines: [],
+        inHunkBody: false,
+      };
+      continue;
+    }
+
+    if (!current) continue; // content before any "diff --git" line — nothing to attribute it to
+
+    if (current.inHunkBody) {
+      current.bodyLines.push(line);
+      continue;
+    }
+
+    // Header zone for the current file: not yet inside a hunk body.
+    if (line.startsWith("@@")) {
+      current.inHunkBody = true;
+      current.bodyLines.push(line);
+      continue;
+    }
+    if (line.startsWith("--- ")) {
+      const path = line.slice(4);
+      if (path !== "/dev/null") current.minusPath = stripAbPrefix(path, "a/");
+      continue;
+    }
+    if (line.startsWith("+++ ")) {
+      const path = line.slice(4);
+      if (path === "/dev/null") current.plusIsDevNull = true;
+      else current.plusPath = stripAbPrefix(path, "b/");
+      continue;
+    }
+    if (line.startsWith("rename from ")) {
+      current.renameFrom = line.slice("rename from ".length);
+      continue;
+    }
+    if (line.startsWith("rename to ")) {
+      current.renameTo = line.slice("rename to ".length);
+      continue;
+    }
+    // "index ...", "similarity index ...", "old/new mode ...", "copy from/to ...",
+    // "new/deleted file mode ...", "Binary files ... differ": header-zone lines that
+    // are never part of a file's patch body — skipped.
+  }
+
+  flush();
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// fetchPatchesForMissing — ties listPullRequestFiles and the full-diff fallback together
+// ---------------------------------------------------------------------------
+
+/**
+ * Fills in `patch` for every file where GitHub omitted it, using ONE whole-PR diff call
+ * for the entire set — never one call per file. Returns the files unchanged, and
+ * `fallbackUsed` so the caller can log/assert that the fallback fired only when it was
+ * actually needed. If the fallback call itself fails, the files are returned with their
+ * patches still null: a review with an incomplete position map is far better than no
+ * review, and the null patch is already a fully-handled case everywhere downstream.
+ */
+export async function fetchPatchesForMissing(
+  installationId: bigint,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  files: GithubPullRequestFile[],
+  options: PullRequestGithubOptions = {},
+): Promise<{
+  files: GithubPullRequestFile[];
+  fallbackUsed: boolean;
+  fallbackFailed: boolean;
+}> {
+  const missing = files.filter((file) => file.patch === null);
+  if (missing.length === 0) {
+    return { files, fallbackUsed: false, fallbackFailed: false };
+  }
+
+  const logger = options.logger ?? defaultLogger;
+  const fullName = `${owner}/${repo}`;
+
+  const diffResult = await getPullRequestDiff(
+    installationId,
+    owner,
+    repo,
+    pullNumber,
+    options,
+  );
+
+  if (!diffResult.ok) {
+    logger.warn("full-diff fallback failed; leaving missing patches null", {
+      installationId: installationId.toString(),
+      fullName,
+      pullNumber,
+      missingCount: missing.length,
+      reason: diffResult.reason,
+    });
+    return { files, fallbackUsed: true, fallbackFailed: true };
+  }
+
+  logger.info("full-diff fallback fired for files missing a patch", {
+    installationId: installationId.toString(),
+    fullName,
+    pullNumber,
+    missingCount: missing.length,
+  });
+
+  const perFile = splitDiffByFile(diffResult.diff);
+  const filledFiles = files.map((file) => {
+    if (file.patch !== null) return file;
+    const patch = perFile.get(file.path);
+    return patch !== undefined ? { ...file, patch } : file;
+  });
+
+  return { files: filledFiles, fallbackUsed: true, fallbackFailed: false };
+}
